@@ -1,7 +1,7 @@
 {
   "$schema": "https://glama.ai/mcp/schemas/server.json",
   "name": "argus",
-  "description": "AI-powered QA harness that audits web apps via Chrome DevTools Protocol. Catches JS errors, network failures, a11y violations, SEO issues, security headers, CSS regressions, and more — directly from Claude conversations. 7 MCP tools: argus_audit (fast 8-analyzer pass), argus_audit_full (Lighthouse + memory + responsive), argus_compare (dev vs staging diff), argus_last_report (retrieve last JSON report), argus_watch_snapshot (live tab snapshot without navigating), argus_get_context (LLM-optimized context + fix loop with snapshot_id diff), argus_design_audit (Figma design fidelity — 13 finding types). 131 test blocks, 592 hard assertions, 59 detection categories.",
+  "description": "AI-powered QA harness that audits web apps via Chrome DevTools Protocol. Catches JS errors, network failures, a11y violations, SEO issues, security headers, CSS regressions, and more — directly from Claude conversations. 8 MCP tools: argus_audit (fast 8-analyzer pass), argus_audit_full (Lighthouse + memory + responsive), argus_compare (dev vs staging diff), argus_last_report (retrieve last JSON report), argus_watch_snapshot (live tab snapshot without navigating), argus_get_context (LLM-optimized context + fix loop with snapshot_id diff), argus_design_audit (Figma design fidelity — 13 finding types), argus_visual_diff (screenshot baseline comparison, updateBaseline flag). 131 test blocks, 592 hard assertions, 59 detection categories.",
   "maintainers": ["ironclawdevs27"],
   "tools": [
     {
@@ -31,6 +31,10 @@
     {
       "name": "argus_design_audit",
       "description": "Full Figma design-to-implementation fidelity audit. Fetches design spec from a Figma frame URL (requires FIGMA_API_TOKEN) and compares every extracted property against live DOM computed styles. Detects 13 mismatch finding types: CSS token values, component presence, fill/text color (RGB distance), typography (fontSize/fontWeight/lineHeight/fontFamily/letterSpacing), Auto Layout padding and gap, border-radius (per-corner), bounding-box overflow, absolute position drift (scroll-corrected x/y vs Figma bounds), border stroke (color+weight), box-shadow (offset+blur+spread+color), opacity, and text content. Selector fallback: tries [data-testid], [aria-label], #id, .class per node."
+    },
+    {
+      "name": "argus_visual_diff",
+      "description": "Screenshot baseline comparison for a URL. First call saves a baseline PNG to reports/baselines/screenshots/. Subsequent calls diff the current screenshot against the baseline using pixelmatch and return visual_regression (warning ≥0.1% / critical ≥5% pixels changed) + visual_diff_summary (always). Pass updateBaseline: true to force-refresh the stored baseline after intentional UI changes."
     }
   ]
 }

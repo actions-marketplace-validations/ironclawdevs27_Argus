@@ -63,6 +63,7 @@ Run argus_audit on http://localhost:3000
 | `argus_watch_snapshot` | Snapshot the currently open Chrome tab without navigating — raw console + network capture |
 | `argus_get_context` | Capture everything broken on the open tab, formatted as a diagnostic context for Claude to diagnose and suggest fixes |
 | `argus_design_audit` | Full Figma design-to-implementation fidelity audit — 13 finding types across color, typography, spacing, per-corner radius, position drift, stroke, shadow (color+spread), opacity, gap, and text. Selector fallback: `[data-testid]` → `[aria-label]` → `#id` → `.class` |
+| `argus_visual_diff` | Screenshot baseline comparison — first call saves baseline PNG; subsequent calls emit `visual_regression` (warning ≥0.1% / critical ≥5%) + `visual_diff_summary`. Pass `updateBaseline: true` to reset the baseline after intentional UI changes. |
 
 > **Requires**: Node.js ≥ 20.19, Chrome (desktop or headless), and the `chrome-devtools-mcp` server registered alongside Argus (shown above).
 
@@ -349,10 +350,11 @@ Argus watches your running application and automatically surfaces issues that te
 | **Slack Notifications** | Rich Block Kit reports with inline screenshots routed to `#bugs-critical`, `#bugs-warnings`, `#bugs-digest` |
 | **Slash Command** | `/argus-retest <url>` triggers an on-demand test from any Slack channel |
 | **CI Integration** | GitHub Actions workflow runs daily at 6 AM UTC and on every push to `main` |
-| **MCP Server (AI-callable Argus)** | Register Argus as an MCP server via `.mcp.json`; Claude (or any MCP client) can call `argus_audit`, `argus_audit_full`, `argus_compare`, `argus_last_report`, `argus_watch_snapshot`, `argus_get_context`, and `argus_design_audit` directly from a conversation — no CLI, no terminal required. Published to npm as **[argusqa-os](https://www.npmjs.com/package/argusqa-os)** — add via `{ "command": "npx", "args": ["-y", "argusqa-os"] }` in `.mcp.json` |
+| **MCP Server (AI-callable Argus)** | Register Argus as an MCP server via `.mcp.json`; Claude (or any MCP client) can call all **8 tools** — `argus_audit`, `argus_audit_full`, `argus_compare`, `argus_last_report`, `argus_watch_snapshot`, `argus_get_context`, `argus_design_audit`, and `argus_visual_diff` directly from a conversation — no CLI, no terminal required. Published to npm as **[argusqa-os](https://www.npmjs.com/package/argusqa-os)** — add via `{ "command": "npx", "args": ["-y", "argusqa-os"] }` in `.mcp.json` |
 | **Figma Design Fidelity** | `argus_design_audit(url, figmaFrameUrl)` compares every extracted Figma property — 13 mismatch finding types: CSS token values, component presence, per-node fill/text color (RGB distance), typography (fontSize/fontWeight/lineHeight/fontFamily/letterSpacing), Auto Layout padding and gap, border-radius (per-corner), bounding-box overflow, **absolute position drift** (scroll-corrected x/y vs Figma bounds, 20px), border stroke (color+weight), box-shadow (offset+blur+**spread**+**color**), opacity, and text content. Selector fallback: tries `[data-testid]`, `[aria-label]`, `#id`, `.class` per node. Requires `FIGMA_API_TOKEN` env var. |
 | **Visual Regression** | Per-route screenshot baseline comparison using pixelmatch. First run saves the baseline PNG; subsequent runs emit  (warning ≥0.1% / critical ≥5% pixels changed) + . Baselines stored in . |
 | **Core Web Vitals & Bundle Size** | Per-run LCP, CLS, FCP, TTI (domInteractive), and TTFB captured directly via browser Performance API — works in **headless Chrome** without Lighthouse. Bundle size regression: `perf_bundle_large` fires when JS ≥ 500 KB (warning) / ≥ 2 MB (critical) or CSS ≥ 150 KB. `perf_vitals_summary` always emitted with all metric values. No external dependencies — pure Performance API. |
+| **Deep Accessibility (A12)** | axe-core 4.12 injected into every audited page — runs 80+ WCAG 2.x A/AA rules not covered by existing analyzers; maps impact to Argus severity (`critical → critical`, `serious/moderate → warning`, `minor → info`); deduplicates with snapshot-analyzer. CVD color blind simulation (protanopia + deuteranopia Machado matrices) checks WCAG AA contrast under each deficiency — flags elements safe for full-color vision that fail for red-green color blind users. 3 finding types: `a11y_axe_violation`, `a11y_colorblind_risk`, `a11y_deep_summary`. |
 
 Works with **React + SCSS**, CSS Modules, CSS-in-JS (styled-components / emotion), and plain HTML/CSS apps.
 
@@ -581,6 +583,7 @@ Ask Claude directly — no terminal needed.
 | `argus_watch_snapshot` | Snapshot the currently open Chrome tab without navigating — raw console + network capture |
 | `argus_get_context` | Capture everything broken on the open tab, formatted as a diagnostic context for Claude to diagnose and suggest fixes |
 | `argus_design_audit` | Figma design-to-implementation fidelity audit — 13 finding types across color, typography, spacing, per-corner radius, position drift, stroke, shadow (color+spread), opacity, gap, and text content |
+| `argus_visual_diff` | Screenshot baseline comparison — first call saves baseline; subsequent calls detect pixel regressions. Pass `updateBaseline: true` to reset. |
 
 **`argus_audit`** — fast audit of any URL:
 
@@ -872,11 +875,11 @@ argus/
 │       └── argus.yml                 # CI pipeline
 ├── .vscode/
 │   └── mcp.json                      # Chrome DevTools MCP config for VS Code
-├── .mcp.json                         # Argus MCP server registration — exposes all 7 tools to Claude: argus_audit/argus_audit_full/argus_compare/argus_last_report/argus_watch_snapshot/argus_get_context/argus_design_audit
+├── .mcp.json                         # Argus MCP server registration — exposes all 8 tools to Claude: argus_audit/argus_audit_full/argus_compare/argus_last_report/argus_watch_snapshot/argus_get_context/argus_design_audit/argus_visual_diff
 ├── src/
 │   ├── argus.js                      # Single-page audit entry point
 │   ├── batch-runner.js               # Multi-page batch audit
-│   ├── mcp-server.js                 # Argus MCP server — argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit
+│   ├── mcp-server.js                 # Argus MCP server — argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff
 │   ├── adapters/
 │   │   └── browser.js                # CdpBrowserAdapter — facade over all chrome-devtools-mcp calls
 │   ├── domain/
@@ -921,6 +924,7 @@ argus/
 │   │   ├── design-fidelity-analyzer.js   # D9: Figma design token vs DOM comparison — 13 mismatch finding types
 │   │   ├── web-vitals-analyzer.js        # Sprint 9: LCP/CLS/FCP/TTI/TTFB via Performance API + bundle size regression
 │   │   ├── visual-diff-analyzer.js       # A8: Visual regression baseline comparison (pixelmatch)
+│   │   ├── a11y-deep-analyzer.js         # A12: axe-core 4.12 injection + CVD color blind simulation (protanopia/deuteranopia)
 │   │   ├── codebase-analyzer.js      # Codebase cross-reference — env vars, feature flags, dead routes (C1)
 │   │   ├── github-reporter.js        # GitHub PR comment + commit status integration (C2)
 │   │   ├── route-discoverer.js       # Auto route discovery — sitemap + Next.js + React Router (C3)
