@@ -81,7 +81,7 @@ The `landing/` directory contains the product landing page (React + Vite + Tailw
 
 | 🔴 Critical / 🟡 Warning / 🔵 Info | ⚙️ | 🧪 | 📋 |
 | :---: | :---: | :---: | :---: |
-| **114 distinct issue types detected** | **31 analysis engines** | **616 test assertions** | **135 test blocks** |
+| **136 distinct issue types detected** | **31 analysis engines** | **616 test assertions** | **135 test blocks** |
 
 </div>
 
@@ -89,7 +89,7 @@ The `landing/` directory contains the product landing page (React + Vite + Tailw
 
 ## What Argus Catches
 
-Argus runs **31 analysis engines** per run and detects **114 distinct issue types** across JavaScript runtime, network, CSS, performance, accessibility, SEO, security, content quality, responsive layout, memory, runtime anti-patterns, hover-state interactions, accessibility tree snapshots, keyboard focus, and Chrome DevTools issues panel — plus flakiness detection, historical baselines, user flow assertions, and environment comparison as cross-cutting layers. Every finding is classified by severity (`critical` / `warning` / `info`) and routed to the right Slack channel — or rendered as a local `report.html` when Slack is not configured.
+Argus runs **31 analysis engines** per run and detects **136 distinct issue types** across JavaScript runtime, network, CSS, performance, accessibility, SEO, security, content quality, responsive layout, memory, runtime anti-patterns, hover-state interactions, accessibility tree snapshots, keyboard focus, and Chrome DevTools issues panel — plus flakiness detection, historical baselines, user flow assertions, and environment comparison as cross-cutting layers. Every finding is classified by severity (`critical` / `warning` / `info`) and routed to the right Slack channel — or rendered as a local `report.html` when Slack is not configured.
 
 ### JavaScript Runtime
 
@@ -355,6 +355,10 @@ Argus watches your running application and automatically surfaces issues that te
 | **Visual Regression** | Per-route screenshot baseline comparison using pixelmatch. First run saves the baseline PNG; subsequent runs emit  (warning ≥0.1% / critical ≥5% pixels changed) + . Baselines stored in . |
 | **Core Web Vitals & Bundle Size** | Per-run LCP, CLS, FCP, TTI (domInteractive), and TTFB captured directly via browser Performance API — works in **headless Chrome** without Lighthouse. Bundle size regression: `perf_bundle_large` fires when JS ≥ 500 KB (warning) / ≥ 2 MB (critical) or CSS ≥ 150 KB. `perf_vitals_summary` always emitted with all metric values. No external dependencies — pure Performance API. |
 | **Deep Accessibility (A12)** | axe-core 4.12 injected into every audited page — runs 80+ WCAG 2.x A/AA rules not covered by existing analyzers; maps impact to Argus severity (`critical → critical`, `serious/moderate → warning`, `minor → info`); deduplicates with snapshot-analyzer. CVD color blind simulation (protanopia + deuteranopia Machado matrices) checks WCAG AA contrast under each deficiency — flags elements safe for full-color vision that fail for red-green color blind users. 3 finding types: `a11y_axe_violation`, `a11y_colorblind_risk`, `a11y_deep_summary`. |
+| **HAR Network Baseline (N1)** | Records all network requests per route as a HAR-style baseline on first run. Subsequent runs diff current traffic against the baseline — surfaces `har_new_request`, `har_missing_request`, `har_status_changed`. Useful for isolating frontend bugs from backend noise. URL normalisation strips cache-busters from query strings to reduce false positives. Baselines stored in `reports/baselines/har/`. |
+| **Motion & Animation Accessibility (A9)** | Detects pages that animate without respecting `prefers-reduced-motion` — a WCAG 2.1 SC 2.3.3 violation that can trigger vestibular disorders. Checks: CSS animation/transition without `@media (prefers-reduced-motion)`, `<video autoplay>` without visible pause controls, animated interactive elements (button/a/input). Also emulates `prefers-reduced-motion: reduce` via CDP and flags elements that still animate. 4 finding types. |
+| **Font Loading (A10)** | Detects web font reliability and performance issues. Scans `@font-face` rules for missing `font-display` (FOIT — invisible text while loading), `font-display: swap/fallback` (FOUT — layout shift risk), `font-family` declarations without system font fallbacks (invisible text on load failure), slow-loading fonts via PerformanceResourceTiming (> 1000ms), and suboptimal font formats (.ttf/.eot instead of .woff2). 5 finding types + `font_summary`. |
+| **Form Validation (A11)** | Audits HTML forms for accessibility and UX gaps. Detects: inputs without `required`/`aria-required`, personal data fields (name/email/address/phone/CC) missing `autocomplete` (WCAG 1.3.5), error messages not linked via `aria-describedby`, `<input type="text">` labelled as password fields, and forms with required fields but no HTML5 validation. 5 finding types + `form_summary`. |
 
 Works with **React + SCSS**, CSS Modules, CSS-in-JS (styled-components / emotion), and plain HTML/CSS apps.
 
@@ -925,6 +929,10 @@ argus/
 │   │   ├── web-vitals-analyzer.js        # Sprint 9: LCP/CLS/FCP/TTI/TTFB via Performance API + bundle size regression
 │   │   ├── visual-diff-analyzer.js       # A8: Visual regression baseline comparison (pixelmatch)
 │   │   ├── a11y-deep-analyzer.js         # A12: axe-core 4.12 injection + CVD color blind simulation (protanopia/deuteranopia)
+│   │   ├── har-recorder.js               # N1: HAR network baseline — record + diff all requests per route
+│   │   ├── motion-analyzer.js            # A9: Motion & Animation — prefers-reduced-motion + autoplay detection
+│   │   ├── font-analyzer.js              # A10: Font Loading — FOIT/FOUT/fallback/slow/suboptimal-format detection
+│   │   ├── form-analyzer.js              # A11: Form Validation — required/autocomplete/aria/validation gaps
 │   │   ├── codebase-analyzer.js      # Codebase cross-reference — env vars, feature flags, dead routes (C1)
 │   │   ├── github-reporter.js        # GitHub PR comment + commit status integration (C2)
 │   │   ├── route-discoverer.js       # Auto route discovery — sitemap + Next.js + React Router (C3)
@@ -957,12 +965,12 @@ argus/
 │   └── README.md                     # Setup guide, Supabase SQL schema, env vars, deployment
 ├── scripts/
 │   └── dispatch-report.js            # Standalone Slack re-dispatch script (re-posts last report.json to Slack)
-├── test-harness/                     # Fixture server + test runner (129 blocks, 581 hard assertions, 57 fixture pages)
+├── test-harness/                     # Fixture server + test runner (135 blocks, 616 hard assertions, 62 fixture pages)
 │   ├── README.md
 │   ├── server.js                     # Express fixture server (ports 3100 dev / 3101 staging)
 │   ├── harness-config.js             # Route definitions + expected findings
-│   ├── validate.js                   # Test runner — 130 numbered blocks ([80]–[84] MCP/createFinding/withRetry/watch/init, [85]–[93] Sprint 0.5 Tier 3, [94]–[126] gap-close, [127] A7 theme, [128] D9 design fidelity, [129] Sprint 9 Web Vitals, [130] A8 Visual Regression)
-│   ├── pages/                        # 56 fixture HTML pages (one per detection category)
+│   ├── validate.js                   # Test runner — 135 numbered blocks ([80]–[84] MCP/createFinding/withRetry/watch/init, [85]–[93] Sprint 0.5 Tier 3, [94]–[126] gap-close, [127] A7 theme, [128] D9 design fidelity, [129] Sprint 9 Web Vitals, [130] A8 Visual Regression, [131] A12 axe-core, [132] N1 HAR, [133] A9 Motion, [134] A10 Font, [135] A11 Form)
+│   ├── pages/                        # 62 fixture HTML pages (one per detection category)
 │   ├── nextjs-fixture/               # Next.js app structure for C3 discovery tests (10 files)
 │   ├── source-fixture/               # Minimal app.js for C1 codebase-analyzer tests (env var audit)
 │   └── static/

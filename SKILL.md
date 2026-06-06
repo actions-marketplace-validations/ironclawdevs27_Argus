@@ -627,6 +627,58 @@ All findings share: `{ type, severity, url, message? }`
   //   colorType: 'protanopia'|'deuteranopia'; contrastRatio < 4.5 (WCAG AA) under CVD simulation
 { type: 'a11y_deep_summary',     axeViolations, criticalCount, seriousCount, moderateCount, minorCount, colorblindRisks, message, severity: 'info', url }
 
+// ── N1 HAR Network Baseline (Sprint 5) ────────────────────────────────────
+{ type: 'har_baseline_created',   requestCount, baselineFile, message, severity: 'info', url }
+  //   first run: baseline HAR saved to reports/baselines/har/{slug}.json
+{ type: 'har_new_request',        method, requestUrl, status, message, severity: 'warning', url }
+  //   current run has a request not present in the baseline
+{ type: 'har_missing_request',    method, requestUrl, message, severity: 'warning', url }
+  //   baseline request no longer made in current run
+{ type: 'har_status_changed',     requestUrl, baselineStatus, currentStatus, message, severity: 'warning'|'critical', url }
+  //   HTTP status code changed from baseline; critical when currentStatus ≥ 400
+{ type: 'har_comparison_summary', newRequests, missingRequests, statusChanges, totalCurrent, totalBaseline, message, severity: 'info', url }
+  //   always emitted when a baseline exists
+
+// ── A9 Motion & Animation Accessibility (Sprint 5b) ───────────────────────
+{ type: 'motion_no_reduced_motion_query', message, severity: 'warning', url }
+  //   CSS animation/transition in use but no @media (prefers-reduced-motion) query in any stylesheet
+{ type: 'motion_autoplay_no_pause', src, hasMuted?, message, severity: 'warning'|'info', url }
+  //   <video autoplay> without controls (warning) or animated GIF/APNG without pause (info)
+{ type: 'motion_interactive_animation', selector, animation, transition, message, severity: 'warning', url }
+  //   interactive element (button/a/input/[role=button]) has animation/transition without reduced-motion override
+{ type: 'motion_reduced_not_honoured', count, message, severity: 'warning', url }
+  //   elements still animate after emulating prefers-reduced-motion: reduce
+{ type: 'motion_summary', hasAnimation, hasReducedQuery, animationCount, autoplayCount, message, severity: 'info', url }
+  //   always emitted
+
+// ── A10 Font Loading (Sprint 5c) ──────────────────────────────────────────
+{ type: 'font_foit_risk',          fontFamily, message, severity: 'warning', url }
+  //   @font-face without font-display — Chrome defaults to 'auto' (invisible text while loading)
+{ type: 'font_fout_risk',          fontFamily, fontDisplay, message, severity: 'info', url }
+  //   font-display: swap or fallback — layout shift (CLS) risk when fallback metrics differ
+{ type: 'font_no_fallback',        selector, fontFamily, message, severity: 'warning', url }
+  //   font-family declaration with web font but no system font fallback (e.g. no , sans-serif)
+{ type: 'font_slow_load',          fontUrl, duration, message, severity: 'warning', url }
+  //   web font resource took > FONT_SLOW_MS (default 1000ms) to load via PerformanceResourceTiming
+{ type: 'font_suboptimal_format',  fontFamily, message, severity: 'info', url }
+  //   font served in .ttf or .eot format — use .woff2 for production
+{ type: 'font_summary', foitRisks, foutRisks, noFallbacks, slowLoads, suboptimalFmts, message, severity: 'info', url }
+  //   always emitted
+
+// ── A11 Form Validation (Sprint 5d) ───────────────────────────────────────
+{ type: 'form_missing_required',  inputName, inputType, message, severity: 'warning', url }
+  //   <input> inside a <form> with no required or aria-required="true" attribute
+{ type: 'form_no_autocomplete',   inputName, inputType, message, severity: 'warning', url }
+  //   personal data field (name/email/address/phone/CC) missing autocomplete attribute (WCAG 1.3.5)
+{ type: 'form_inaccessible_error', errorId, errorText, message, severity: 'warning', url }
+  //   error element (role=alert / .error / .invalid-feedback) not linked via aria-describedby to its input
+{ type: 'form_unmasked_password', inputName, message, severity: 'critical', url }
+  //   input type="text" with label/name containing "password" — should use type="password"
+{ type: 'form_no_validation',     formId, message, severity: 'info', url }
+  //   form with required fields but no HTML5 pattern/type/novalidate — client-side validation may be absent
+{ type: 'form_summary', missingRequired, missingAutocomplete, inaccessibleErrors, unmaskedPasswords, noValidation, totalIssues, message, severity: 'info', url }
+  //   always emitted
+
 // ── A8 Visual Regression (Sprint 3) ──────────────────────────────────────
 { type: 'visual_baseline_created', baselinePath, message, severity: 'info', url }
   //   emitted on first run — no baseline existed; PNG saved for future comparison
@@ -1420,9 +1472,9 @@ for (const bp of breakpoints) {
 | **Test blocks** | 135 |
 | **Hard assertions** | 616 |
 | **Soft assertions** | ~12 (Lighthouse / perf traces — headless-unavailable) |
-| **Detection categories** | 63 in production code; **56 positively verified** by harness fixtures |
+| **Detection categories** | 63 in production code; **60 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
-| **Analysis engines** | 26 (`registerExpensive` plugins + inline cheap analyzers) |
+| **Analysis engines** | 31 (`registerExpensive` plugins + inline cheap analyzers) |
 | **Harness gate** | **613/616** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
