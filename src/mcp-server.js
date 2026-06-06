@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Argus MCP Server (v9.5.6)
+ * Argus MCP Server (v9.5.7)
  *
  * Exposes Argus as an MCP server so Claude (or any MCP client) can call
  * argus_audit, argus_audit_full, argus_compare, argus_last_report, and
@@ -32,6 +32,7 @@ import { WatchSession }                       from './orchestration/watch-mode.j
 import { CdpBrowserAdapter }                  from './adapters/browser.js';
 import { getFigmaFrame }                      from './adapters/figma.js';
 import { analyzeDesignFidelity }             from './utils/design-fidelity-analyzer.js';
+import { analyzeVisualRegression }           from './utils/visual-diff-analyzer.js';
 
 const REPORTS_DIR = path.resolve(process.cwd(), 'reports');
 
@@ -117,6 +118,19 @@ const TOOLS = [
         snapshot_id: { type: 'string', description: 'Optional snapshot_id from a previous argus_get_context call. When provided, the response includes resolved/new_issues/persisting arrays showing what changed since that snapshot.' },
         tabId:       { type: 'string', description: 'Optional Chrome page/tab ID. When provided, switches focus to that specific tab before capturing context — useful for SPAs that spawn new windows (e.g. OAuth popups, checkout flows). Get tab IDs from the open_tabs array in a prior argus_get_context response.' },
       },
+    },
+  },
+  {
+    name: 'argus_visual_diff',
+    description: 'Screenshot baseline comparison for a URL — captures a PNG screenshot and compares it pixel-by-pixel against a stored baseline using pixelmatch. First call: saves baseline, returns visual_baseline_created (info). Subsequent calls: returns visual_regression (warning ≥0.1% / critical ≥5% pixels changed) + visual_diff_summary (always). Baseline stored in reports/baselines/screenshots/. Use in CI or fix loops to detect unintended visual regressions without a full audit. Pass updateBaseline: true to force-refresh the stored baseline (e.g. after intentional UI changes). Requires Chrome on --remote-debugging-port=9222.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url:           { type: 'string',  description: 'Full URL to capture and compare (e.g. http://localhost:3000/dashboard). Must be reachable by the running Chrome instance.' },
+        updateBaseline: { type: 'boolean', description: 'When true, deletes the existing baseline PNG and saves a fresh one from the current screenshot. Use after intentional UI changes to reset the reference.', default: false },
+        baselineDir:   { type: 'string',  description: 'Optional override for the baseline storage directory. Defaults to reports/baselines/screenshots/.' },
+      },
+      required: ['url'],
     },
   },
   {
@@ -282,6 +296,42 @@ async function handleGetContext({ url, snapshot_id: prevId, tabId } = {}) {
   });
 }
 
+async function handleVisualDiff({ url, updateBaseline = false, baselineDir }) {
+  if (!url) throw new Error('argus_visual_diff: url is required');
+
+  return withMcp(async (mcp) => {
+    const browser = new CdpBrowserAdapter(mcp);
+    const opts    = baselineDir ? { baselineDir } : {};
+
+    if (updateBaseline) {
+      // Delete existing baseline so analyzeVisualRegression treats it as first run
+      const path_   = await import('path');
+      const fs_     = await import('fs');
+      const { slugify } = await import('./utils/slug.js');
+      const { config }  = await import('./config/targets.js');
+      const dir  = baselineDir ?? path_.default.join(config.outputDir, 'baselines', 'screenshots');
+      const file = path_.default.join(dir, `${slugify(url)}.png`);
+      try { fs_.default.unlinkSync(file); } catch {}
+    }
+
+    const findings = await analyzeVisualRegression(browser, url, opts);
+    const regression = findings.find(f => f.type === 'visual_regression');
+    const baseline   = findings.find(f => f.type === 'visual_baseline_created');
+    const summary    = findings.find(f => f.type === 'visual_diff_summary');
+
+    return { content: [{ type: 'text', text: JSON.stringify({
+      findings,
+      summary: {
+        status:      regression ? 'regression' : baseline ? 'baseline_created' : 'no_change',
+        diffPercent: summary?.diffPercent ?? 0,
+        diffPixels:  summary?.diffPixels  ?? 0,
+        totalPixels: summary?.totalPixels ?? 0,
+        severity:    regression?.severity ?? 'info',
+      },
+    }, null, 2) }] };
+  });
+}
+
 async function handleDesignAudit({ url, figmaFrameUrl }) {
   if (!url)           throw new Error('argus_design_audit: url is required');
   if (!figmaFrameUrl) throw new Error('argus_design_audit: figmaFrameUrl is required');
@@ -336,7 +386,7 @@ async function handleLastReport() {
 // ── Server bootstrap ──────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'argus', version: '9.5.6' },
+  { name: 'argus', version: '9.5.7' },
   { capabilities: { tools: {} } },
 );
 
@@ -351,6 +401,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case 'argus_last_report':     return await handleLastReport();
       case 'argus_watch_snapshot':  return await handleWatchSnapshot(req.params.arguments ?? {});
       case 'argus_get_context':     return await handleGetContext(req.params.arguments ?? {});
+      case 'argus_visual_diff':     return await handleVisualDiff(req.params.arguments ?? {});
       case 'argus_design_audit':    return await handleDesignAudit(req.params.arguments ?? {});
       default: throw new Error(`Unknown tool: ${req.params.name}`);
     }

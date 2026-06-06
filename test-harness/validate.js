@@ -3494,6 +3494,18 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
         serverContent.includes('new_issues') && serverContent.includes('persisting'),
       '[80l] handleGetContext emits resolved / new_issues / persisting diff fields',
     );
+
+    // [80m] argus_visual_diff tool registered (Sprint 3 Extension)
+    assert(
+      serverContent !== null && serverContent.includes('argus_visual_diff'),
+      '[80m] src/mcp-server.js registers the argus_visual_diff tool',
+    );
+
+    // [80n] argus_visual_diff handler present
+    assert(
+      serverContent !== null && serverContent.includes('handleVisualDiff'),
+      '[80n] handleVisualDiff function present in mcp-server.js',
+    );
   }
 
   // ── Block [81] createFinding() factory ────────────────────────────────────
@@ -4639,11 +4651,11 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(srv117?.initResp?.result?.serverInfo?.name === 'argus',
       `[117b] initialize response serverInfo.name === "argus" (got ${srv117?.initResp?.result?.serverInfo?.name})`);
     const tools117 = toolsResp117?.result?.tools ?? [];
-    assert(Array.isArray(tools117) && tools117.length >= 6,
-      `[117c] tools/list returns ≥ 6 tools (got ${tools117.length})`);
+    assert(Array.isArray(tools117) && tools117.length >= 8,
+      `[117c] tools/list returns ≥ 8 tools (got ${tools117.length})`);
     const names117 = tools117.map(t => t.name);
-    assert(['argus_audit', 'argus_last_report', 'argus_watch_snapshot', 'argus_get_context'].every(n => names117.includes(n)),
-      `[117d] tools/list includes all 4 key MCP tool names (got [${names117.join(', ')}])`);
+    assert(['argus_audit', 'argus_last_report', 'argus_watch_snapshot', 'argus_get_context', 'argus_visual_diff'].every(n => names117.includes(n)),
+      `[117d] tools/list includes all 5 key MCP tool names (got [${names117.join(', ')}])`);
   }
 
   // ── Block [118] argus_last_report MCP tool — missing reports dir returns structured error ──

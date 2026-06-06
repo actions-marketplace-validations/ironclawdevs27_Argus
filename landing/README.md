@@ -208,3 +208,14 @@ Sprint 4 — A12 Deep Accessibility: `a11y-deep-analyzer.js` (block [131], axe-c
 | Docs § "Test Coverage" tagline | `130 blocks, 581 hard assertions` | `131 blocks, 590 hard assertions` |
 | Docs § "Running" code | `581 hard assertions`, `578/581` | `590 hard assertions`, `587/590` |
 | Feature table `All 58 detection categories` | `58` | `59` |
+
+## Stats Update (2026-06-06 — Sprint 3 Extension v9.5.7)
+
+Sprint 3 Extension — argus_visual_diff MCP tool: wired existing visual-diff-analyzer as 8th MCP tool. No new detection categories or fixture pages.
+
+| Field | Old | New |
+|---|---|---|
+| MCP tools | 7 | **8** (argus_visual_diff added) |
+| Hard assertions | 590 | **592** ([80m]+[80n] registration + [117c/d] threshold) |
+| Harness gate | 587/590 | **589/592** |
+| Version | 9.5.6 | **9.5.7** |

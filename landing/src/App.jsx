@@ -724,7 +724,7 @@ const docChapters = [
   {
     num: '05',
     title: 'Test Coverage',
-    tagline: '131 blocks, 590 hard assertions, fixture-driven with zero ambiguity',
+    tagline: '131 blocks, 592 hard assertions, fixture-driven with zero ambiguity',
     sections: [
       {
         body: 'Every detection category has a corresponding fixture HTML page that reliably triggers exactly that bug. Fixtures are served via HTTP — never file:// — so CORS, ES modules, and fetch APIs work correctly. Each block has at minimum 3 hard assertions and passes consistently across environments without flakiness.',
@@ -752,8 +752,8 @@ const docChapters = [
       {
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
-npm run test:harness  # 590 hard assertions — Chrome required (headless)
-# Expected: 587/590 (3 permanent MCP-limited failures: drag, Issues panel)
+npm run test:harness  # 592 hard assertions — Chrome required (headless)
+# Expected: 589/592 (3 permanent MCP-limited failures: drag, Issues panel)
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
     ],
