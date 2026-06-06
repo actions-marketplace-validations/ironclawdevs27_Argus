@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Font Loading Issues Fixture</title>
+  <!--
+    Harness block [134] — Sprint 5c A10 Font Loading assertions:
+
+    HARD assertions:
+      [134a] analyzeFont returns an array
+      [134b] at least 1 font finding detected
+      [134c] font_foit_risk detected (@font-face without font-display)
+      [134d] font_foit_risk has fontFamily field (string)
+      [134e] font_summary always present
+      [134f] font_summary has foitRisks count (number)
+  -->
+  <style>
+    /*
+     * @font-face WITHOUT font-display — triggers font_foit_risk.
+     * Chrome defaults to 'auto' which is FOIT (invisible text while loading).
+     * The font URL is a placeholder; the @font-face rule itself is what matters.
+     */
+    @font-face {
+      font-family: 'ArgusDisplay';
+      src: url('/static/ArgusDisplay.woff2') format('woff2'),
+           url('/static/ArgusDisplay.ttf')   format('truetype');
+      font-weight: 400;
+      font-style:  normal;
+      /* font-display intentionally OMITTED */
+    }
+
+    /*
+     * @font-face WITH font-display: swap — triggers font_fout_risk (CLS warning).
+     */
+    @font-face {
+      font-family: 'ArgusBody';
+      src: url('/static/ArgusBody.woff2') format('woff2');
+      font-weight: 400;
+      font-style:  normal;
+      font-display: swap;
+    }
+
+    /*
+     * font-family declaration with web font but NO system fallback — triggers font_no_fallback.
+     */
+    .no-fallback-text {
+      font-family: 'ArgusDisplay';   /* no fallback like , sans-serif */
+      font-size: 18px;
+    }
+
+    /*
+     * font-family WITH proper fallback — should NOT trigger font_no_fallback.
+     */
+    .good-font {
+      font-family: 'ArgusBody', Georgia, serif;
+      font-size: 16px;
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Font Loading Issues Fixture</h1>
+
+  <p class="no-fallback-text" id="no-fallback">
+    This text uses ArgusDisplay with no system font fallback.
+    If the font fails to load, this text may be invisible (FOIT).
+  </p>
+
+  <p class="good-font" id="good-font">
+    This text uses ArgusBody with a proper fallback stack.
+  </p>
+
+  <p style="font-size: 14px; color: #666; margin-top: 24px;">
+    The @font-face rules in this page's stylesheet are the targets for font analysis.
+    The font files are placeholders — the CSS rules themselves trigger the findings.
+  </p>
+</body>
+</html>

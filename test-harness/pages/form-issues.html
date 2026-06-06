@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Form Validation Issues Fixture</title>
+  <!--
+    Harness block [135] — Sprint 5d A11 Form Validation assertions:
+
+    HARD assertions:
+      [135a] analyzeForm returns an array
+      [135b] at least 1 form finding detected
+      [135c] form_missing_required detected (inputs with no required attribute)
+      [135d] form_no_autocomplete detected (email/name without autocomplete)
+      [135e] form_summary always present
+      [135f] form_summary has missingRequired count (number)
+  -->
+  <style>
+    body    { font-family: sans-serif; padding: 16px; max-width: 480px; }
+    label   { display: block; margin-top: 12px; font-weight: 600; }
+    input   { display: block; width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button  { margin-top: 16px; padding: 10px 20px; background: #5e0ed7; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .error  { color: red; font-size: 13px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Form Issues Fixture</h1>
+
+  <!--
+    Form 1: Missing required + missing autocomplete on personal data fields.
+    Triggers: form_missing_required, form_no_autocomplete
+  -->
+  <form id="registration-form" action="/register" method="post">
+    <fieldset style="border:none;padding:0;margin:0">
+      <legend style="font-size:18px;font-weight:bold;margin-bottom:8px;">Registration</legend>
+
+      <!--
+        Name field: no required, no autocomplete → triggers both findings.
+      -->
+      <label for="full-name">Full Name</label>
+      <input type="text" id="full-name" name="name" placeholder="Jane Smith">
+      <!-- Missing: required, autocomplete="name" -->
+
+      <!--
+        Email field: no required, no autocomplete → triggers both findings.
+      -->
+      <label for="email-addr">Email Address</label>
+      <input type="email" id="email-addr" name="email" placeholder="jane@example.com">
+      <!-- Missing: required, autocomplete="email" -->
+
+      <!--
+        Error message not linked via aria-describedby → triggers form_inaccessible_error.
+        This error element has an id but no input references it.
+      -->
+      <div class="error" id="email-error" role="alert">Please enter a valid email address.</div>
+
+      <!--
+        Valid input WITH required and autocomplete — should NOT trigger findings.
+      -->
+      <label for="phone-num">Phone (optional)</label>
+      <input type="tel" id="phone-num" name="phone"
+             required
+             autocomplete="tel"
+             placeholder="+1 555 000 0000"
+             aria-describedby="phone-hint">
+      <div id="phone-hint" style="font-size:12px;color:#666;">Include country code</div>
+
+      <button type="submit">Register</button>
+    </fieldset>
+  </form>
+
+  <!--
+    Form 2: Minimal form with required field to exercise form_no_validation detection.
+  -->
+  <form id="contact-form" action="/contact" method="post" style="margin-top:32px;">
+    <h2 style="font-size:16px;">Contact Us</h2>
+    <label for="contact-name">Your Name</label>
+    <input type="text" id="contact-name" name="contact-name" placeholder="Name">
+    <!-- No required, no autocomplete, no pattern -->
+
+    <label for="contact-msg">Message</label>
+    <textarea id="contact-msg" name="message" rows="3"
+              style="width:100%;margin-top:4px;padding:8px;box-sizing:border-box;"
+              placeholder="Your message…"></textarea>
+
+    <button type="submit">Send</button>
+  </form>
+</body>
+</html>

@@ -289,7 +289,7 @@ Expose the Visual Regression analyzer (`visual-diff-analyzer.js`) as a dedicated
 
 ---
 
-### Sprint 5 — HAR Recording & Replay
+### Sprint 5 — HAR Recording & Replay ✅ COMPLETE (v9.5.8, 2026-06-07) & Replay
 **Effort: Medium | Value: High**
 
 | Task | Detail |
@@ -302,7 +302,7 @@ Expose the Visual Regression analyzer (`visual-diff-analyzer.js`) as a dedicated
 
 ---
 
-### Sprint 5b — Motion & Animation Accessibility (A9)
+### Sprint 5b — Motion & Animation Accessibility (A9) ✅ COMPLETE (v9.5.8, 2026-06-07) & Animation Accessibility (A9)
 **Effort: Low | Value: High**
 
 Detects pages that use animations/transitions without respecting the user's `prefers-reduced-motion` OS setting — a WCAG 2.1 SC 2.3.3 (AAA) violation that can trigger vestibular disorders.
@@ -320,7 +320,7 @@ Detects pages that use animations/transitions without respecting the user's `pre
 
 ---
 
-### Sprint 5c — Font Loading (A10)
+### Sprint 5c — Font Loading (A10) ✅ COMPLETE (v9.5.8, 2026-06-07) Loading (A10)
 **Effort: Low–Medium | Value: Medium–High**
 
 Detects web font performance and reliability issues that cause invisible text (FOIT) or layout shifts (FOUT) — both affecting Core Web Vitals and user experience.
@@ -338,7 +338,7 @@ Detects web font performance and reliability issues that cause invisible text (F
 
 ---
 
-### Sprint 5d — Form Validation (A11)
+### Sprint 5d — Form Validation (A11) ✅ COMPLETE (v9.5.8, 2026-06-07) Validation (A11)
 **Effort: Low | Value: High**
 
 Detects accessibility and security gaps in HTML forms — one of the most commonly broken areas in web apps.

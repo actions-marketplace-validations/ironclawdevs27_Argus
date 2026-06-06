@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAR Baseline Fixture</title>
+  <!--
+    Harness block [132] — Sprint 5 N1 HAR Network Baseline assertions:
+
+    HARD assertions:
+      [132a] analyzeHar returns an array
+      [132b] first run: har_baseline_created present
+      [132c] baseline file written to disk
+      [132d] har_baseline_created has requestCount field (number)
+      [132e] second run: har_comparison_summary present
+      [132f] har_comparison_summary has newRequests/missingRequests fields
+  -->
+  <style>
+    body { font-family: sans-serif; padding: 16px; background: #f9f9f9; }
+    h1   { color: #5e0ed7; }
+  </style>
+</head>
+<body>
+  <h1>HAR Baseline Fixture</h1>
+  <p>This page is used for HAR network baseline recording and comparison testing.</p>
+  <p>Loading this page generates at least one network request (the page itself)
+     which the HAR recorder captures via list_network_requests.</p>
+</body>
+</html>

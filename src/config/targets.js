@@ -72,6 +72,12 @@ export const thresholds = {
     contrastAA:       parseFloat(process.env.A11Y_CONTRAST_AA ?? '4.5'),  // WCAG AA normal text contrast ratio
     maxAxeViolations: parseInt(process.env.A11Y_MAX_AXE ?? '50', 10),     // cap axe-core violations per run
   },
+  motion: {
+    animationPropertyCount: parseInt(process.env.MOTION_ANIM_COUNT ?? '1', 10), // flag interactive animations at this count
+  },
+  font: {
+    slowLoadMs: parseInt(process.env.FONT_SLOW_MS ?? '1000', 10),  // ms threshold for slow font load warning
+  },
 };
 
 /**

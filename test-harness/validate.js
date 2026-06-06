@@ -74,6 +74,10 @@ import { analyzeTheme }              from '../src/utils/theme-analyzer.js';
 import { analyzeDesignFidelity }    from '../src/utils/design-fidelity-analyzer.js';
 import { analyzeVisualRegression }  from '../src/utils/visual-diff-analyzer.js';
 import { analyzeA11yDeep }          from '../src/utils/a11y-deep-analyzer.js';
+import { analyzeHar }               from '../src/utils/har-recorder.js';
+import { analyzeMotion }            from '../src/utils/motion-analyzer.js';
+import { analyzeFont }              from '../src/utils/font-analyzer.js';
+import { analyzeForm }              from '../src/utils/form-analyzer.js';
 import { parseFigmaUrl }           from '../src/adapters/figma.js';
 import { analyzeWebVitals }        from '../src/utils/web-vitals-analyzer.js';
 import { WatchSession } from '../src/orchestration/watch-mode.js';
@@ -5418,6 +5422,135 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
 
     assert(typeof colorblind131[0]?.contrastRatio === 'number',
       `[131i] a11y_colorblind_risk has contrastRatio field (number) (got ${typeof colorblind131[0]?.contrastRatio})`);
+  }
+
+  // ── Block [132] Sprint 5 — HAR Network Baseline (N1) ─────────────────────
+  {
+    console.log('\n[132] har-recorder — Sprint 5 HAR network baseline');
+    const tmpDir132 = fs.mkdtempSync(path.join(os.tmpdir(), 'argus-harness-132-'));
+    const browser132 = new CdpBrowserAdapter(mcp);
+    const url132     = `${B}/har-baseline.html`;
+
+    const results132a = await analyzeHar(browser132, url132, { baselineDir: tmpDir132 });
+
+    assert(Array.isArray(results132a),
+      '[132a] analyzeHar returns an array');
+
+    const baseline132 = results132a.find(f => f.type === 'har_baseline_created');
+    assert(baseline132 !== undefined,
+      `[132b] first run: har_baseline_created present (got types: ${[...new Set(results132a.map(f => f.type))].join(', ')})`);
+
+    const harFile132 = path.join(tmpDir132, `${slugify(url132)}.json`);
+    assert(fs.existsSync(harFile132),
+      `[132c] baseline HAR file written to baselineDir (expected: ${harFile132})`);
+
+    assert(typeof baseline132?.requestCount === 'number',
+      `[132d] har_baseline_created has requestCount field (number) (got ${typeof baseline132?.requestCount})`);
+
+    // Second run: compare against baseline just saved
+    const results132b = await analyzeHar(browser132, url132, { baselineDir: tmpDir132 });
+    const summary132  = results132b.find(f => f.type === 'har_comparison_summary');
+    assert(summary132 !== undefined,
+      `[132e] second run: har_comparison_summary present (got types: ${[...new Set(results132b.map(f => f.type))].join(', ')})`);
+
+    assert(
+      typeof summary132?.newRequests === 'number' && typeof summary132?.missingRequests === 'number',
+      `[132f] har_comparison_summary has newRequests and missingRequests fields (got ${JSON.stringify({ new: typeof summary132?.newRequests, missing: typeof summary132?.missingRequests })})`
+    );
+
+    try { fs.rmSync(tmpDir132, { recursive: true, force: true }); } catch {}
+  }
+
+  // ── Block [133] Sprint 5b — Motion & Animation Accessibility (A9) ────────
+  {
+    console.log('\n[133] motion-analyzer — Sprint 5b motion & animation accessibility');
+    const browser133 = new CdpBrowserAdapter(mcp);
+    const url133     = `${B}/motion-issues.html`;
+
+    const results133 = await analyzeMotion(browser133, url133);
+
+    assert(Array.isArray(results133),
+      '[133a] analyzeMotion returns an array');
+
+    const motionFindings133 = results133.filter(f => f.type !== 'motion_summary');
+    assert(motionFindings133.length >= 1,
+      `[133b] at least 1 motion finding detected (got ${motionFindings133.length}; types: ${[...new Set(results133.map(f => f.type))].join(', ')})`);
+
+    const noQuery133 = results133.find(f => f.type === 'motion_no_reduced_motion_query');
+    assert(noQuery133 !== undefined,
+      `[133c] motion_no_reduced_motion_query detected (fixture has animation but no @media prefers-reduced-motion)`);
+
+    const autoplay133 = results133.find(f => f.type === 'motion_autoplay_no_pause');
+    assert(autoplay133 !== undefined,
+      `[133d] motion_autoplay_no_pause detected (fixture has autoplay video without controls)`);
+
+    const summary133 = results133.find(f => f.type === 'motion_summary');
+    assert(summary133 !== undefined,
+      `[133e] motion_summary always present (got types: ${[...new Set(results133.map(f => f.type))].join(', ')})`);
+
+    assert(typeof summary133?.animationCount === 'number',
+      `[133f] motion_summary has animationCount field (number) (got ${typeof summary133?.animationCount})`);
+  }
+
+  // ── Block [134] Sprint 5c — Font Loading (A10) ───────────────────────────
+  {
+    console.log('\n[134] font-analyzer — Sprint 5c font loading');
+    const browser134 = new CdpBrowserAdapter(mcp);
+    const url134     = `${B}/font-issues.html`;
+
+    const results134 = await analyzeFont(browser134, url134);
+
+    assert(Array.isArray(results134),
+      '[134a] analyzeFont returns an array');
+
+    const fontFindings134 = results134.filter(f => f.type !== 'font_summary');
+    assert(fontFindings134.length >= 1,
+      `[134b] at least 1 font finding detected (got ${fontFindings134.length}; types: ${[...new Set(results134.map(f => f.type))].join(', ')})`);
+
+    const foit134 = results134.find(f => f.type === 'font_foit_risk');
+    assert(foit134 !== undefined,
+      `[134c] font_foit_risk detected (@font-face without font-display in fixture)`);
+
+    assert(typeof foit134?.fontFamily === 'string',
+      `[134d] font_foit_risk has fontFamily field (string) (got ${typeof foit134?.fontFamily})`);
+
+    const summary134 = results134.find(f => f.type === 'font_summary');
+    assert(summary134 !== undefined,
+      `[134e] font_summary always present (got types: ${[...new Set(results134.map(f => f.type))].join(', ')})`);
+
+    assert(typeof summary134?.foitRisks === 'number',
+      `[134f] font_summary has foitRisks count (number) (got ${typeof summary134?.foitRisks})`);
+  }
+
+  // ── Block [135] Sprint 5d — Form Validation (A11) ────────────────────────
+  {
+    console.log('\n[135] form-analyzer — Sprint 5d form validation');
+    const browser135 = new CdpBrowserAdapter(mcp);
+    const url135     = `${B}/form-issues.html`;
+
+    const results135 = await analyzeForm(browser135, url135);
+
+    assert(Array.isArray(results135),
+      '[135a] analyzeForm returns an array');
+
+    const formFindings135 = results135.filter(f => f.type !== 'form_summary');
+    assert(formFindings135.length >= 1,
+      `[135b] at least 1 form finding detected (got ${formFindings135.length}; types: ${[...new Set(results135.map(f => f.type))].join(', ')})`);
+
+    const missingReq135 = results135.find(f => f.type === 'form_missing_required');
+    assert(missingReq135 !== undefined,
+      `[135c] form_missing_required detected (fixture has inputs without required attribute)`);
+
+    const noAutocomplete135 = results135.find(f => f.type === 'form_no_autocomplete');
+    assert(noAutocomplete135 !== undefined,
+      `[135d] form_no_autocomplete detected (fixture has name/email fields without autocomplete)`);
+
+    const summary135 = results135.find(f => f.type === 'form_summary');
+    assert(summary135 !== undefined,
+      `[135e] form_summary always present (got types: ${[...new Set(results135.map(f => f.type))].join(', ')})`);
+
+    assert(typeof summary135?.missingRequired === 'number',
+      `[135f] form_summary has missingRequired count (number) (got ${typeof summary135?.missingRequired})`);
   }
 }
 

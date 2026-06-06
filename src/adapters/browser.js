@@ -48,6 +48,7 @@ export class CdpBrowserAdapter {
   emulate(viewport)              { return this._mcp.emulate({ viewport }); }
   emulateCpu(rate)               { return this._mcp.emulate({ cpuThrottlingRate: rate }); }
   emulateColorScheme(scheme)     { return this._mcp.emulate({ colorScheme: scheme }); }
+  emulateReducedMotion(pref)     { return this._mcp.emulate({ reducedMotion: pref }); }
   resize(w, h)                   { return this._mcp.resize_page({ width: w, height: h }); }
 
   // ── Network & performance ───────────────────────────────────────────────────

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Motion & Animation Issues Fixture</title>
+  <!--
+    Harness block [133] — Sprint 5b A9 Motion & Animation assertions:
+
+    HARD assertions:
+      [133a] analyzeMotion returns an array
+      [133b] at least 1 motion finding detected
+      [133c] motion_no_reduced_motion_query detected (no @media prefers-reduced-motion)
+      [133d] motion_autoplay_no_pause detected (autoplay video without controls)
+      [133e] motion_summary always present
+      [133f] motion_summary has animationCount field (number)
+  -->
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+
+    /*
+     * CSS animation on an interactive element WITHOUT a @media (prefers-reduced-motion) query.
+     * This violates WCAG 2.1 SC 2.3.3 — should trigger motion_no_reduced_motion_query
+     * and motion_interactive_animation findings.
+     * NOTE: there is intentionally NO @media (prefers-reduced-motion) block anywhere
+     * in this stylesheet.
+     */
+    button.animated-btn {
+      animation: pulse 1s infinite;
+      background: #5e0ed7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    a.animated-link {
+      transition: color 0.3s ease, transform 0.3s ease;
+      color: #5e0ed7;
+      display: inline-block;
+    }
+
+    @keyframes pulse {
+      0%   { transform: scale(1);    }
+      50%  { transform: scale(1.05); }
+      100% { transform: scale(1);    }
+    }
+
+    @keyframes slide {
+      from { transform: translateX(-20px); opacity: 0; }
+      to   { transform: translateX(0);     opacity: 1; }
+    }
+
+    .hero-animation {
+      animation: slide 0.8s ease forwards;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="hero-animation">Motion Issues Fixture</h1>
+
+  <!-- Interactive animated button — triggers motion_interactive_animation -->
+  <button class="animated-btn" id="animated-btn">Click me (animated)</button>
+
+  <!-- Animated link — triggers motion_interactive_animation -->
+  <a href="#" class="animated-link" id="animated-link">Hover me (transition)</a>
+
+  <!--
+    Autoplay video WITHOUT controls — triggers motion_autoplay_no_pause.
+    The video src is a placeholder (won't load), but the element attributes are
+    what the analyzer inspects.
+  -->
+  <video id="autoplay-video"
+         autoplay
+         loop
+         width="320"
+         height="180"
+         style="margin-top:16px;display:block;background:#000;">
+    <source src="/static/placeholder.mp4" type="video/mp4">
+  </video>
+
+  <!-- Valid video WITH controls — should NOT trigger autoplay finding -->
+  <video id="valid-video"
+         autoplay
+         muted
+         controls
+         width="320"
+         height="180"
+         style="margin-top:8px;display:block;background:#333;">
+    <source src="/static/placeholder.mp4" type="video/mp4">
+  </video>
+</body>
+</html>

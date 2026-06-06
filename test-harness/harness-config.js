@@ -452,6 +452,38 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'a11y_axe_violation (image-alt, link-name) · a11y_colorblind_risk (red-on-gray) · a11y_deep_summary info',
   },
+  // Sprint 5 — N1 HAR Network Baseline
+  {
+    path: '/har-baseline.html',
+    name: 'HAR Baseline',
+    critical: false,
+    waitFor: null,
+    expected: 'har_baseline_created info (first run) · har_comparison_summary info (subsequent runs)',
+  },
+  // Sprint 5b — A9 Motion & Animation
+  {
+    path: '/motion-issues.html',
+    name: 'Motion Issues',
+    critical: false,
+    waitFor: null,
+    expected: 'motion_no_reduced_motion_query warning · motion_autoplay_no_pause warning · motion_summary info',
+  },
+  // Sprint 5c — A10 Font Loading
+  {
+    path: '/font-issues.html',
+    name: 'Font Issues',
+    critical: false,
+    waitFor: null,
+    expected: 'font_foit_risk warning · font_fout_risk info · font_no_fallback warning · font_summary info',
+  },
+  // Sprint 5d — A11 Form Validation
+  {
+    path: '/form-issues.html',
+    name: 'Form Issues',
+    critical: false,
+    waitFor: null,
+    expected: 'form_missing_required warning · form_no_autocomplete warning · form_summary info',
+  },
 ];
 
 /** Routes used for env-comparison tests (same path served by both servers). */

@@ -46,6 +46,10 @@ import '../utils/design-fidelity-analyzer.js';
 import '../utils/web-vitals-analyzer.js';
 import '../utils/visual-diff-analyzer.js';
 import '../utils/a11y-deep-analyzer.js';
+import '../utils/har-recorder.js';
+import '../utils/motion-analyzer.js';
+import '../utils/font-analyzer.js';
+import '../utils/form-analyzer.js';
 
 import { getExpensive }          from '../registry.js';
 import { deduplicateFindings as deduplicateErrors } from './report-processor.js';
