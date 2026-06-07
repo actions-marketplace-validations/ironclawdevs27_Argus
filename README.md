@@ -81,7 +81,7 @@ The `landing/` directory contains the product landing page (React + Vite + Tailw
 
 | 🔴 Critical / 🟡 Warning / 🔵 Info | ⚙️ | 🧪 | 📋 |
 | :---: | :---: | :---: | :---: |
-| **136 distinct issue types detected** | **31 analysis engines** | **616 test assertions** | **135 test blocks** |
+| **136 distinct issue types detected** | **31 analysis engines** | **626 test assertions** | **136 test blocks** |
 
 </div>
 
@@ -1010,7 +1010,7 @@ argus/
 
 ## Known MCP Tool Limitations
 
-The Chrome DevTools MCP behavioral constraints below cause **3 permanent test failures** in the harness (`613/616` pass). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` now exits with code 0 when only these 3 failures remain, making the CI harness gate reliable.
+The Chrome DevTools MCP behavioral constraints below cause **3 permanent test failures** in the harness (`623/626` pass). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` now exits with code 0 when only these 3 failures remain, making the CI harness gate reliable.
 
 > **`type_text` clarification**: `type_text` does fire DOM `input` events when the element is properly focused first with `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 
@@ -1021,7 +1021,7 @@ The Chrome DevTools MCP behavioral constraints below cause **3 permanent test fa
 
 These constraints are documented with workarounds in [SKILL.md §10](SKILL.md).
 
-The harness passes **613/616** assertions (exits 0). The 3 failures are the permanent MCP-limited ones listed above.
+The harness passes **623/626** assertions (exits 0). The 3 failures are the permanent MCP-limited ones listed above.
 
 ---
 

@@ -54,7 +54,7 @@ import { validateSchema, matchesContract } from '../src/utils/contract-validator
 import { applyOverrides } from '../src/utils/severity-overrides.js';
 import { auditEnvVariables, detectFeatureFlagLeakage, enrichErrorsWithSource, detectDeadRoutes, INTERNAL_LINKS_SCRIPT } from '../src/utils/codebase-analyzer.js';
 import { isSlackConfigured } from '../src/utils/slack-guard.js';
-import { formatPrComment, buildStatusPayload } from '../src/utils/github-reporter.js';
+import { formatPrComment, buildStatusPayload, generateReleaseNotes, createCheckRun, completeCheckRun } from '../src/utils/github-reporter.js';
 import { discoverFromSitemap, discoverFromNextJs, discoverFromReactRouter, mergeRoutes, discoverRoutes } from '../src/utils/route-discoverer.js';
 import { detectFramework, generateTargetsJs, generateEnvFile } from '../src/cli/init.js';
 import os from 'os';
@@ -5551,6 +5551,111 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
 
     assert(typeof summary135?.missingRequired === 'number',
       `[135f] form_summary has missingRequired count (number) (got ${typeof summary135?.missingRequired})`);
+  }
+
+  // ── Block [136] Sprint 6 — Rich GitHub PR Comments (Check Runs + Release Notes) ──
+  {
+    console.log('\n[136] github-reporter — Sprint 6 rich PR comments + check runs + release notes');
+
+    // Synthetic report with selector-bearing findings and visual_regression
+    const report136 = {
+      baseUrl:     'http://localhost:3000',
+      generatedAt: new Date().toISOString(),
+      summary:     { total: 3, critical: 1, warning: 1, info: 1 },
+      routes: [{
+        route: '/dashboard',
+        errors: [
+          { type: 'console_error', message: 'TypeError: x is null', severity: 'critical', isNew: true, selector: '#app > div.error' },
+          { type: 'visual_regression', message: '5.2% pixels changed', severity: 'critical', diffPercent: 5.2, isNew: true },
+        ],
+        screenshot: null,
+      }],
+      codebase: [],
+      flows:    [],
+    };
+    const diff136 = { isFirstRun: false, resolvedCount: 1, flowResolvedCount: 0 };
+
+    // [136a] formatPrComment now includes Selector column when findings have selector field
+    const comment136 = formatPrComment(report136, diff136);
+    assert(
+      typeof comment136 === 'string' && comment136.includes('Selector'),
+      `[136a] formatPrComment includes Selector column when findings have selector field (got: ${comment136.slice(0, 100)})`
+    );
+
+    // [136b] formatPrComment includes visual regression section
+    assert(
+      comment136.includes('Visual Regressions'),
+      `[136b] formatPrComment includes Visual Regressions section when visual_regression findings present`
+    );
+
+    // [136c] buildStatusPayload respects ARGUS_CRITICAL_THRESHOLD=0 — never blocks
+    const origThreshold = process.env.ARGUS_CRITICAL_THRESHOLD;
+    process.env.ARGUS_CRITICAL_THRESHOLD = '0';
+    const status136zero = buildStatusPayload(report136, diff136);
+    process.env.ARGUS_CRITICAL_THRESHOLD = origThreshold ?? '';
+    assert(
+      status136zero.state === 'success',
+      `[136c] buildStatusPayload with ARGUS_CRITICAL_THRESHOLD=0 never blocks merge (got state: ${status136zero.state})`
+    );
+
+    // [136d] buildStatusPayload respects ARGUS_CRITICAL_THRESHOLD=5 — doesn't block when criticals < threshold
+    process.env.ARGUS_CRITICAL_THRESHOLD = '5';
+    const status136five = buildStatusPayload(report136, diff136);
+    process.env.ARGUS_CRITICAL_THRESHOLD = origThreshold ?? '';
+    assert(
+      status136five.state === 'success',
+      `[136d] buildStatusPayload with threshold=5 doesn't block when only 1 critical (got state: ${status136five.state})`
+    );
+
+    // [136e] buildStatusPayload blocks when criticals >= threshold (default threshold=1)
+    delete process.env.ARGUS_CRITICAL_THRESHOLD;
+    const status136default = buildStatusPayload(report136, diff136);
+    if (origThreshold !== undefined) process.env.ARGUS_CRITICAL_THRESHOLD = origThreshold;
+    assert(
+      status136default.state === 'failure',
+      `[136e] buildStatusPayload blocks merge with default threshold=1 and 1 critical (got state: ${status136default.state})`
+    );
+
+    // [136f] generateReleaseNotes returns markdown string with new/resolved sections
+    const prevReport136 = {
+      baseUrl: 'http://localhost:3000',
+      generatedAt: new Date(Date.now() - 86400000).toISOString(),
+      summary: { total: 2, critical: 0, warning: 2, info: 0 },
+      routes: [{ route: '/dashboard', errors: [
+        { type: 'css_important_override', message: 'Old CSS issue', severity: 'warning', isNew: false },
+      ], screenshot: null }],
+      codebase: [], flows: [],
+    };
+    const notes136 = generateReleaseNotes(report136, prevReport136, { fromTag: 'v1.0.0', toTag: 'v1.1.0' });
+    assert(
+      typeof notes136 === 'string' && notes136.includes('Release Notes'),
+      `[136f] generateReleaseNotes returns markdown string with heading (got: ${notes136.slice(0, 80)})`
+    );
+
+    // [136g] generateReleaseNotes includes new issues section
+    assert(
+      notes136.includes('New Issues'),
+      `[136g] generateReleaseNotes includes New Issues section for findings in current but not previous report`
+    );
+
+    // [136h] generateReleaseNotes includes resolved issues section
+    assert(
+      notes136.includes('Resolved Issues'),
+      `[136h] generateReleaseNotes includes Resolved Issues section for findings in previous but not current report`
+    );
+
+    // [136i] createCheckRun and completeCheckRun exported from github-reporter.js
+    assert(
+      typeof createCheckRun === 'function' && typeof completeCheckRun === 'function',
+      `[136i] createCheckRun and completeCheckRun are exported functions`
+    );
+
+    // [136j] buildStatusPayload includes newCriticalCount and threshold fields (Sprint 6 enrichment)
+    const statusShape136 = buildStatusPayload(report136, diff136);
+    assert(
+      typeof statusShape136.newCriticalCount === 'number' && typeof statusShape136.threshold === 'number',
+      `[136j] buildStatusPayload includes newCriticalCount and threshold fields (got: ${JSON.stringify({ nc: typeof statusShape136.newCriticalCount, th: typeof statusShape136.threshold })})`
+    );
   }
 }
 

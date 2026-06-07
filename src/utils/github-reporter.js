@@ -1,12 +1,15 @@
 /**
- * Argus Phase C2: GitHub PR comment + commit status integration.
+ * Argus Phase C2: GitHub PR comment + commit status + Check Runs integration.
  *
- * C2.1  formatPrComment(report, diff)    — build Markdown PR comment body (pure)
- * C2.2  buildStatusPayload(report, diff) — build GitHub commit status payload (pure)
- * C2.3  postPrComment(report, diff)      — create/update PR comment via GitHub API
- * C2.4  setCommitStatus(report, diff)    — set commit status (blocks merge on new criticals)
- * C2.5  isGitHubConfigured()             — guard: true when GITHUB_TOKEN + GITHUB_REPOSITORY set
- * C2.6  reportToGitHub(report, diff)     — orchestrates C2.3 + C2.4
+ * C2.1  formatPrComment(report, diff)         — build Markdown PR comment body (pure)
+ * C2.2  buildStatusPayload(report, diff)      — build GitHub commit status payload (pure)
+ * C2.3  postPrComment(report, diff)           — create/update PR comment via GitHub API
+ * C2.4  setCommitStatus(report, diff)         — set commit status (blocks merge on new criticals)
+ * C2.5  isGitHubConfigured()                  — guard: true when GITHUB_TOKEN + GITHUB_REPOSITORY set
+ * C2.6  reportToGitHub(report, diff)          — orchestrates C2.3 + C2.4 + C2.7
+ * C2.7  createCheckRun(name, sha)             — create a GitHub Checks API run
+ * C2.8  completeCheckRun(id, report, diff)    — update Check Run with conclusion + rich output
+ * C2.9  generateReleaseNotes(cur, prev, opts) — pure: markdown changelog between two runs
  *
  * Required env vars:
  *   GITHUB_TOKEN        — personal access token or Actions GITHUB_TOKEN (required)
@@ -17,7 +20,10 @@
  *                             GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
  *
  * Optional env vars:
- *   ARGUS_REPORT_URL    — URL to the full HTML report; linked in the commit status check
+ *   ARGUS_REPORT_URL          — URL to the full HTML report; linked in the commit status check
+ *   ARGUS_CRITICAL_THRESHOLD  — number of new criticals before blocking merge (default: 1, set 0 to never block)
+ *   ARGUS_DIFF_IMAGE_URL      — URL of visual diff image to embed in PR comment (set after uploading CI artifact)
+ *   GITHUB_CHECK_NAME         — name of the Check Run (default: 'argus-qa')
  */
 
 import { childLogger } from './logger.js';
@@ -97,14 +103,43 @@ export function formatPrComment(report, diff) {
 
   // ── New findings table — skipped on first run (all findings would be "new") ──
   if (allNewFindings.length > 0 && !isFirst) {
+    // Check if any finding has a selector (DOM-linked findings) for the extra column
+    const hasSelectors = allNewFindings.some(f => f.selector);
     lines.push('', `### 🆕 New Findings (${allNewFindings.length})`);
-    lines.push('| Severity | Source | Type | Details |');
-    lines.push('|---|---|---|---|');
-    for (const f of allNewFindings.slice(0, MAX_TABLE_ROWS)) {
-      lines.push(`| ${sevIcon(f.severity)} ${f.severity} | ${f._source} | \`${f.type}\` | ${mdCell(f.message)} |`);
+    if (hasSelectors) {
+      lines.push('| Severity | Source | Type | Selector | Details |');
+      lines.push('|---|---|---|---|---|');
+      for (const f of allNewFindings.slice(0, MAX_TABLE_ROWS)) {
+        const sel = f.selector ? `\`${mdCell(f.selector, 60)}\`` : '—';
+        lines.push(`| ${sevIcon(f.severity)} ${f.severity} | ${f._source} | \`${f.type}\` | ${sel} | ${mdCell(f.message)} |`);
+      }
+    } else {
+      lines.push('| Severity | Source | Type | Details |');
+      lines.push('|---|---|---|---|');
+      for (const f of allNewFindings.slice(0, MAX_TABLE_ROWS)) {
+        lines.push(`| ${sevIcon(f.severity)} ${f.severity} | ${f._source} | \`${f.type}\` | ${mdCell(f.message)} |`);
+      }
     }
     if (allNewFindings.length > MAX_TABLE_ROWS) {
       lines.push(`| … | … | … | _${allNewFindings.length - MAX_TABLE_ROWS} more — see full report_ |`);
+    }
+  }
+
+  // ── Visual regression section ──────────────────────────────────────────────
+  const visualRegressions = routes.flatMap(r =>
+    (r.errors ?? []).filter(e => e.type === 'visual_regression')
+  );
+  if (visualRegressions.length > 0) {
+    lines.push('', '### 🖼️ Visual Regressions');
+    lines.push('| Route | Diff % | Severity |');
+    lines.push('|---|---|---|');
+    for (const f of visualRegressions.slice(0, 10)) {
+      const pct = typeof f.diffPercent === 'number' ? `${f.diffPercent.toFixed(2)}%` : '—';
+      lines.push(`| ${f.url ?? '—'} | ${pct} | ${sevIcon(f.severity)} ${f.severity} |`);
+    }
+    const diffImageUrl = process.env.ARGUS_DIFF_IMAGE_URL;
+    if (diffImageUrl) {
+      lines.push('', `**Pixel diff:**`, `![Visual diff](${diffImageUrl})`);
     }
   }
 
@@ -162,13 +197,21 @@ export function buildStatusPayload(report, diff) {
     ),
   ].length;
 
-  const passing = newCriticals === 0;
+  // ARGUS_CRITICAL_THRESHOLD: number of new criticals before blocking (default: 1).
+  // Set to 0 to never block merge; set to N to block only when N+ criticals found.
+  const threshold = parseInt(process.env.ARGUS_CRITICAL_THRESHOLD ?? '1', 10);
+  const passing   = Number.isFinite(threshold) && threshold > 0
+    ? newCriticals < threshold
+    : true;  // threshold=0 → never block
+
   return {
-    state:       passing ? 'success' : 'failure',
-    description: passing
+    state:            passing ? 'success' : 'failure',
+    description:      passing
       ? `Argus: All checks passed (${report.summary.total} total finding(s))`
-      : `Argus: ${newCriticals} new critical issue(s) — merge blocked`,
-    context:     'argus-qa',
+      : `Argus: ${newCriticals} new critical issue(s) — merge blocked (threshold: ${threshold})`,
+    context:          process.env.GITHUB_CHECK_NAME ?? 'argus-qa',
+    newCriticalCount: newCriticals,
+    threshold,
   };
 }
 
@@ -270,6 +313,157 @@ export async function setCommitStatus(report, diff) {
   logger.info(`[ARGUS] C2: Commit status → ${payload.state} (${payload.description})`);
 }
 
+// ── C2.7: Create GitHub Check Run ────────────────────────────────────────────
+
+/**
+ * Create a new GitHub Check Run in 'in_progress' state.
+ * Returns the check run id used by completeCheckRun().
+ * Requires GITHUB_TOKEN, GITHUB_REPOSITORY, and GITHUB_SHA.
+ *
+ * @param {string} [name]   - Check run name (default: GITHUB_CHECK_NAME ?? 'argus-qa')
+ * @param {string} [sha]    - Commit SHA (default: GITHUB_SHA env var)
+ * @returns {Promise<number>} check run id
+ */
+export async function createCheckRun(name, sha) {
+  const repo    = process.env.GITHUB_REPOSITORY;
+  const headSha = sha ?? process.env.GITHUB_SHA;
+  if (!repo || !headSha) throw new Error('[ARGUS] C2: GITHUB_REPOSITORY or GITHUB_SHA not set');
+
+  const checkName = name ?? process.env.GITHUB_CHECK_NAME ?? 'argus-qa';
+  const data = await ghFetch(`/repos/${repo}/check-runs`, 'POST', {
+    name:       checkName,
+    head_sha:   headSha,
+    status:     'in_progress',
+    started_at: new Date().toISOString(),
+  });
+  logger.info(`[ARGUS] C2: Check run created (id: ${data.id}, name: ${checkName})`);
+  return data.id;
+}
+
+// ── C2.8: Complete GitHub Check Run with rich output ─────────────────────────
+
+/**
+ * Update an existing Check Run to 'completed' with a conclusion and rich output.
+ *
+ * Output includes:
+ * - summary: one-line result (pass/fail + finding counts)
+ * - text:    full findings table in Markdown (same data as PR comment, without COMMENT_MARKER)
+ *
+ * @param {number} checkRunId - id from createCheckRun()
+ * @param {object} report     - runCrawl() report
+ * @param {object|null} diff  - baseline diff (null = first run)
+ */
+export async function completeCheckRun(checkRunId, report, diff) {
+  const repo = process.env.GITHUB_REPOSITORY;
+  if (!repo) throw new Error('[ARGUS] C2: GITHUB_REPOSITORY not set');
+
+  const status = buildStatusPayload(report, diff);
+  const conclusion = status.state === 'success' ? 'success' : 'failure';
+
+  // Build rich text output (full findings table, without the COMMENT_MARKER sentinel)
+  const fullBody = formatPrComment(report, diff);
+  const richText = fullBody
+    .replace(COMMENT_MARKER + '\n', '')   // strip the HTML sentinel
+    .slice(0, 65000);                     // GitHub Check output text limit
+
+  await ghFetch(`/repos/${repo}/check-runs/${checkRunId}`, 'PATCH', {
+    status:       'completed',
+    conclusion,
+    completed_at: new Date().toISOString(),
+    output: {
+      title:   status.description,
+      summary: status.description,
+      text:    richText,
+    },
+  });
+  logger.info(`[ARGUS] C2: Check run ${checkRunId} completed (${conclusion})`);
+}
+
+// ── C2.9: Release notes generator (pure) ─────────────────────────────────────
+
+/**
+ * Generate a Markdown release notes / changelog from two Argus reports.
+ * Pure function — no I/O.
+ *
+ * @param {object} currentReport  - report from the current run
+ * @param {object} prevReport     - report from the previous/baseline run
+ * @param {object} [opts]
+ * @param {string} [opts.fromTag] - git tag for the previous run (e.g. 'v1.2.0')
+ * @param {string} [opts.toTag]   - git tag for the current run (e.g. 'v1.3.0')
+ * @returns {string} Markdown release notes
+ */
+export function generateReleaseNotes(currentReport, prevReport, opts = {}) {
+  const { fromTag, toTag } = opts;
+  const heading = toTag
+    ? `## 🚀 Argus Release Notes — ${toTag}` + (fromTag ? ` _(since ${fromTag})_` : '')
+    : '## 🚀 Argus Release Notes';
+
+  // Collect all findings from both reports as flat arrays
+  function allFindings(report) {
+    return [
+      ...(report.routes ?? []).flatMap(r => (r.errors ?? []).map(e => ({ ...e, _source: r.route }))),
+      ...(report.codebase ?? []).map(f => ({ ...f, _source: 'codebase' })),
+      ...(report.flows ?? []).flatMap(f => (f.findings ?? []).map(e => ({ ...e, _source: `flow:${f.flowName}` }))),
+    ];
+  }
+
+  const curFindings  = allFindings(currentReport);
+  const prevFindings = allFindings(prevReport);
+
+  // Key each finding for comparison: type + source + message prefix
+  function findingKey(f) { return `${f.type}::${f._source}::${String(f.message ?? '').slice(0, 80)}`; }
+  const prevKeys = new Set(prevFindings.map(findingKey));
+  const curKeys  = new Set(curFindings.map(findingKey));
+
+  const fixed   = prevFindings.filter(f => !curKeys.has(findingKey(f)));
+  const newOnes = curFindings.filter(f => !prevKeys.has(findingKey(f)));
+
+  const lines = [heading, ''];
+
+  if (newOnes.length === 0 && fixed.length === 0) {
+    lines.push('_No changes detected since last run._');
+  } else {
+    lines.push(`**Run date**: ${new Date(currentReport.generatedAt ?? Date.now()).toUTCString()}  `);
+    lines.push(`**Total findings**: ${currentReport.summary?.total ?? 0} (was ${prevReport.summary?.total ?? 0})  `);
+    lines.push('');
+
+    if (newOnes.length > 0) {
+      const crits = newOnes.filter(f => f.severity === 'critical').length;
+      const warns = newOnes.filter(f => f.severity === 'warning').length;
+      lines.push(`### 🆕 New Issues (${newOnes.length})`);
+      if (crits > 0) lines.push(`> ⚠️ ${crits} new critical issue(s) require attention`);
+      lines.push('');
+      lines.push('| Severity | Source | Type | Details |');
+      lines.push('|---|---|---|---|');
+      for (const f of newOnes.slice(0, MAX_TABLE_ROWS)) {
+        lines.push(`| ${sevIcon(f.severity)} ${f.severity} | ${f._source} | \`${f.type}\` | ${mdCell(f.message)} |`);
+      }
+      if (newOnes.length > MAX_TABLE_ROWS) {
+        lines.push(`| … | … | … | _${newOnes.length - MAX_TABLE_ROWS} more_ |`);
+      }
+      lines.push('');
+    }
+
+    if (fixed.length > 0) {
+      lines.push(`### ✅ Resolved Issues (${fixed.length})`);
+      lines.push('');
+      lines.push('| Severity | Source | Type | Details |');
+      lines.push('|---|---|---|---|');
+      for (const f of fixed.slice(0, MAX_TABLE_ROWS)) {
+        lines.push(`| ${sevIcon(f.severity)} ${f.severity} | ${f._source} | \`${f.type}\` | ${mdCell(f.message)} |`);
+      }
+      if (fixed.length > MAX_TABLE_ROWS) {
+        lines.push(`| … | … | … | _${fixed.length - MAX_TABLE_ROWS} more_ |`);
+      }
+      lines.push('');
+    }
+  }
+
+  lines.push('---');
+  lines.push(`_Generated by [Argus](https://github.com/ironclawdevs27/Argus)_`);
+  return lines.join('\n');
+}
+
 // ── C2.5: Configuration guard ─────────────────────────────────────────────────
 
 export function isGitHubConfigured() {
@@ -294,10 +488,20 @@ export async function reportToGitHub(report, diff) {
   }
 
   if (process.env.GITHUB_SHA) {
+    // Commit status (fast, minimal)
     tasks.push(
       setCommitStatus(report, diff).catch(err =>
         logger.warn(`[ARGUS] C2: Commit status failed — ${err.message}`)
       )
+    );
+
+    // Check Run (rich output — created and completed in sequence)
+    tasks.push(
+      createCheckRun(undefined, process.env.GITHUB_SHA)
+        .then(id => completeCheckRun(id, report, diff))
+        .catch(err =>
+          logger.warn(`[ARGUS] C2: Check run failed — ${err.message}`)
+        )
     );
   }
 

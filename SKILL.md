@@ -627,6 +627,14 @@ All findings share: `{ type, severity, url, message? }`
   //   colorType: 'protanopia'|'deuteranopia'; contrastRatio < 4.5 (WCAG AA) under CVD simulation
 { type: 'a11y_deep_summary',     axeViolations, criticalCount, seriousCount, moderateCount, minorCount, colorblindRisks, message, severity: 'info', url }
 
+// ── Sprint 6 — GitHub PR enrichments (pure-function additions to github-reporter.js) ─
+// formatPrComment: now includes Selector column + Visual Regressions section + diff image embed
+// buildStatusPayload: now includes newCriticalCount and threshold fields
+// generateReleaseNotes(currentReport, prevReport, { fromTag, toTag }) → markdown changelog
+// createCheckRun(name?, sha?) → Promise<checkRunId>   [requires GITHUB_TOKEN + GITHUB_REPOSITORY + GITHUB_SHA]
+// completeCheckRun(id, report, diff) → Promise<void>
+// New env vars: ARGUS_CRITICAL_THRESHOLD (default 1), ARGUS_DIFF_IMAGE_URL, GITHUB_CHECK_NAME
+
 // ── N1 HAR Network Baseline (Sprint 5) ────────────────────────────────────
 { type: 'har_baseline_created',   requestCount, baselineFile, message, severity: 'info', url }
   //   first run: baseline HAR saved to reports/baselines/har/{slug}.json
@@ -1468,14 +1476,14 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.5.8` |
-| **Test blocks** | 135 |
-| **Hard assertions** | 616 |
+| **Version** | `9.5.9` |
+| **Test blocks** | 136 |
+| **Hard assertions** | 626 |
 | **Soft assertions** | ~12 (Lighthouse / perf traces — headless-unavailable) |
 | **Detection categories** | 63 in production code; **60 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
 | **Analysis engines** | 31 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **613/616** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
+| **Harness gate** | **623/626** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (always 3)
@@ -1515,6 +1523,7 @@ See `OSS-PR-STRATEGY.md` for the chrome-devtools-mcp contribution plan to fix al
 | v9.5.6 | Sprint 4 — A12 | `a11y-deep-analyzer.js` axe-core 4.12 + CVD color blind simulation; block [131] 9 assertions | 587/590 |
 | v9.5.7 | Sprint 3-ext | `argus_visual_diff` 8th MCP tool; blocks [80m]+[80n]+[117c/d] updated | 589/592 |
 | v9.5.8 | Sprints 5/5b/5c/5d | `har-recorder.js` (N1) + `motion-analyzer.js` (A9) + `font-analyzer.js` (A10) + `form-analyzer.js` (A11); blocks [132]–[135] (24 assertions) | 613/616 |
+| v9.5.9 | Sprint 6 | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
 
 ### v9 Sprint 7 additions (2026-05-24)
 
