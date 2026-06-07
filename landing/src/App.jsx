@@ -27,8 +27,8 @@ const navHrefs = {
 
 const stats = [
   { num: '63', label: 'DETECTION\nTYPES' },
-  { num: '135', label: 'TEST\nBLOCKS' },
-  { num: '616', label: 'ASSERTIONS\nRUN' },
+  { num: '136', label: 'TEST\nBLOCKS' },
+  { num: '626', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']
@@ -752,7 +752,7 @@ const docChapters = [
       {
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
-npm run test:harness  # 616 hard assertions — Chrome required (headless)
+npm run test:harness  # 626 hard assertions — Chrome required (headless)
 # Expected: 623/626 (3 permanent MCP-limited failures: drag, Issues panel)
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
