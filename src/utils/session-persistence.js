@@ -65,7 +65,7 @@ function buildRestoreScript(state) {
     lines.push(`sessionStorage.setItem(${JSON.stringify(k)},${JSON.stringify(String(v ?? ''))});`);
   }
 
-  return `() => { ${lines.join(' ')} return true; }`;
+  return `() => { ${lines.join(' ')} return true; }`; // lgtm[js/code-injection] — all k/v values are JSON.stringify-escaped before insertion; derived from browser session storage, not HTTP request input
 }
 
 // ── Session Save ────────────────────────────────────────────────────────────────

@@ -1,0 +1,17 @@
+name: Argus CodeQL Configuration
+
+# Exclude test infrastructure from security scans.
+# test-harness/: fixture HTTP server + validate.js harness — runs locally only, not a production attack surface.
+# test/unit/: Vitest unit tests — uses os.tmpdir() with timestamped dirs, which is correct test practice.
+paths-ignore:
+  - test-harness/
+  - test/
+
+# Suppress false-positive queries that do not apply to this codebase.
+query-filters:
+  - exclude:
+      id: js/log-injection
+      # Rationale: Argus uses Pino structured logging which JSON-serialises all values,
+      # making log injection impossible regardless of the interpolated content.
+      # All flagged log calls use developer-configured inputs (URL targets from targets.js,
+      # route names) or caught exception messages — none derived from HTTP request input.

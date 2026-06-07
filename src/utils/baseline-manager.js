@@ -110,7 +110,7 @@ export function saveBaseline(baselineFile, report) {
     flows[flowResult.flowName] = (flowResult.findings ?? []).map(findingKey);
   }
   const codebase = (report.codebase ?? []).map(findingKey);
-  const tmpBaseline = baselineFile + '.tmp';
+  const tmpBaseline = `${baselineFile}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(
     tmpBaseline,
     JSON.stringify({ savedAt: new Date().toISOString(), routes, flows, codebase }, null, 2),
@@ -245,8 +245,8 @@ export function appendTrend(trendsFile, entry) {
     }
     trends.push(entry);
     if (trends.length > 500) trends = trends.slice(-500);
-    const tmpTrends = trendsFile + '.tmp';
-    fs.writeFileSync(tmpTrends, JSON.stringify(trends, null, 2));
+    const tmpTrends = `${trendsFile}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmpTrends, JSON.stringify(trends, null, 2)); // lgtm[js/network-data-to-file] — intentional: Argus persists crawl trend data to a local baseline file by design
     fs.renameSync(tmpTrends, trendsFile);
   } finally {
     try { fs.closeSync(lockFd); } catch {}

@@ -223,7 +223,7 @@ async function runAssert(step, browser, flowName, baseUrl, baselines) {
       const start = Date.now();
       let present = false;
       do {
-        const raw = await browser.evaluate(`() => !!document.querySelector(${JSON.stringify(step.selector)})`);
+        const raw = await browser.evaluate(`() => !!document.querySelector(${JSON.stringify(step.selector)})`); // lgtm[js/code-injection] — selector is JSON.stringify-escaped; derived from developer-configured flow steps, not HTTP input
         present = !!unwrapEval(raw);
         if (present) break;
         await new Promise(r => setTimeout(r, 200));
@@ -244,7 +244,7 @@ async function runAssert(step, browser, flowName, baseUrl, baselines) {
     }
 
     case 'element_not_visible': {
-      const raw = await browser.evaluate(`() => !document.querySelector(${JSON.stringify(step.selector)})`);
+      const raw = await browser.evaluate(`() => !document.querySelector(${JSON.stringify(step.selector)})`); // lgtm[js/code-injection] — selector is JSON.stringify-escaped; derived from developer-configured flow steps, not HTTP input
       const absent = unwrapEval(raw);
       if (!absent) {
         findings.push({
@@ -261,7 +261,7 @@ async function runAssert(step, browser, flowName, baseUrl, baselines) {
     }
 
     case 'url_contains': {
-      const raw = await browser.evaluate(`() => window.location.href.includes(${JSON.stringify(step.value)})`);
+      const raw = await browser.evaluate(`() => window.location.href.includes(${JSON.stringify(step.value)})`); // lgtm[js/code-injection] — value is JSON.stringify-escaped; derived from developer-configured flow steps, not HTTP input
       const matches = unwrapEval(raw);
       if (!matches) {
         findings.push({
@@ -545,7 +545,7 @@ export async function runFlow(flow, baseUrl, browser) {
 export async function waitForSelector(browser, selector, timeoutMs = 10_000) {
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
-    const raw = await browser.evaluate(`() => !!document.querySelector(${JSON.stringify(selector)})`).catch(() => null);
+    const raw = await browser.evaluate(`() => !!document.querySelector(${JSON.stringify(selector)})`).catch(() => null); // lgtm[js/code-injection] — selector is JSON.stringify-escaped; derived from developer-configured flow steps, not HTTP input
     const found = unwrapEval(raw);
     if (found === true || String(found) === 'true') return true;
     if (Date.now() < end) await new Promise(r => setTimeout(r, 300));

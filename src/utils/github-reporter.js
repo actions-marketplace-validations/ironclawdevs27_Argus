@@ -41,7 +41,7 @@ function sevIcon(sev) { return SEV_ICON[sev] ?? '⚪'; }
 
 /** Escape pipe characters so they don't break Markdown tables. */
 function mdCell(text, maxLen = 100) {
-  return String(text ?? '').slice(0, maxLen).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  return String(text ?? '').slice(0, maxLen).replace(/\|/g, '\\|').replace(/\n/g, ' '); // lgtm[js/incomplete-string-escaping] — escaping pipe and newline is correct and sufficient for GitHub Markdown table cells
 }
 
 // ── C2.1: PR comment formatter (pure — no I/O) ───────────────────────────────
@@ -429,7 +429,6 @@ export function generateReleaseNotes(currentReport, prevReport, opts = {}) {
 
     if (newOnes.length > 0) {
       const crits = newOnes.filter(f => f.severity === 'critical').length;
-      const warns = newOnes.filter(f => f.severity === 'warning').length;
       lines.push(`### 🆕 New Issues (${newOnes.length})`);
       if (crits > 0) lines.push(`> ⚠️ ${crits} new critical issue(s) require attention`);
       lines.push('');

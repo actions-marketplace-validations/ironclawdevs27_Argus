@@ -15,7 +15,6 @@
  */
 
 import crypto from 'crypto';
-import { postBugReport } from '../orchestration/slack-notifier.js';
 import { createMcpClient } from '../utils/mcp-client.js';
 import { runCrawl } from '../orchestration/crawl-and-report.js';
 import { WebClient } from '@slack/web-api';

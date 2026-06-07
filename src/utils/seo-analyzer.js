@@ -48,7 +48,7 @@ export function parseSeoAnalysisResult(rawResult, url) {
   // client returns an object wrapper, JSON.stringify(rawResult) serialises the envelope
   // instead of the inner payload and all SEO fields are undefined → false positives.
   let inner = rawResult;
-  if (typeof rawResult === 'object' && rawResult !== null && !Array.isArray(rawResult)) {
+  if (typeof rawResult === 'object' && rawResult !== null && !Array.isArray(rawResult)) { // lgtm[js/comparison-of-unconvertible-types] — typeof null === 'object', so rawResult !== null is required after the typeof check
     inner = rawResult.result !== undefined ? rawResult.result : rawResult;
   }
 

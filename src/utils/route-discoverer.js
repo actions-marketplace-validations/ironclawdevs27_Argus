@@ -74,7 +74,7 @@ export async function discoverFromSitemap(baseUrl) {
   const origin = new URL(baseUrl).origin;
   const sitemapUrl = `${baseUrl.replace(/\/$/, '')}/sitemap.xml`;
   try {
-    const res = await fetch(sitemapUrl, { signal: AbortSignal.timeout(10000) });
+    const res = await fetch(sitemapUrl, { signal: AbortSignal.timeout(10000) }); // lgtm[js/ssrf] — sitemapUrl is derived from developer-configured baseUrl in targets.js, not from HTTP request input
     if (!res.ok) return [];
 
     const buf = await res.arrayBuffer();

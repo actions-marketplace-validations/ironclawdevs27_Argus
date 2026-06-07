@@ -50,6 +50,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Rate limiting (per-IP, in-memory) ──────────────────────────────────────────
+// 30 requests per minute per IP — prevents Slack endpoint flooding.
+// Slack signature verification rejects invalid payloads, but rate limiting adds
+// a defence-in-depth layer before signature verification even runs.
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX       = 30;
+const rateLimitMap   = new Map();
+
+function slackRateLimit(req, res, next) {
+  const key   = req.ip ?? 'unknown';
+  const now   = Date.now();
+  const entry = rateLimitMap.get(key) ?? { count: 0, start: now };
+  if (now - entry.start > RATE_WINDOW_MS) { entry.count = 0; entry.start = now; }
+  entry.count++;
+  rateLimitMap.set(key, entry);
+  if (entry.count > RATE_MAX) {
+    res.setHeader('Retry-After', Math.ceil(RATE_WINDOW_MS / 1000));
+    return res.status(429).json({ error: 'Too Many Requests' });
+  }
+  next();
+}
+
 // ── Routes ─────────────────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => {
@@ -57,10 +79,10 @@ app.get('/health', (req, res) => {
 });
 
 // Slack slash commands
-app.post('/slack/commands', handleSlashCommand);
+app.post('/slack/commands', slackRateLimit, handleSlashCommand);
 
 // Slack Block Kit interactions (button clicks)
-app.post('/slack/interactions', handleInteraction);
+app.post('/slack/interactions', slackRateLimit, handleInteraction);
 
 // ── Start ──────────────────────────────────────────────────────────────────────
 

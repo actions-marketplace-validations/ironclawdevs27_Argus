@@ -490,7 +490,7 @@ export async function crawlRouteCheap(route, baseUrl, mcp) {
     const text = (msg.text ?? msg.message ?? '');
     if (text.toLowerCase().includes('has been blocked by cors policy')) continue;
     const severity = classifyConsoleMessage(msg, route.critical);
-    if (severity !== null && msg.level !== 'log') {
+    if (msg.level !== 'log') {
       result.errors.push({
         type: 'console',
         level: msg.level,
@@ -1025,7 +1025,7 @@ export async function runCrawl(mcp, routeOverrides = null, baseUrlOverride = nul
 
   // Auth session persistence (B2)
   const sessionFile = auth?.sessionFile ?? '.argus-session.json';
-  if (auth?.steps?.length > 0) {
+  if (auth && auth.steps?.length > 0) {
     if (!hasSession(sessionFile, auth.sessionMaxAgeMs)) {
       logger.info(`[ARGUS] Auth: running login flow (${auth.steps.length} steps)...`);
       try {
@@ -1154,5 +1154,5 @@ export async function runCrawl(mcp, routeOverrides = null, baseUrlOverride = nul
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   logger.info('[ARGUS] orchestrator.js loaded. Invoke runCrawl(mcp) from Claude Code with MCP tools connected.');
   logger.info('[ARGUS] Target base URL: ' + BASE_URL);
-  logger.info('[ARGUS] Routes to crawl: ' + (routes ?? []).map(r => r?.path ?? '(no path)').join(', '));
+  logger.info('[ARGUS] Routes to crawl: ' + routes.map(r => r?.path ?? '(no path)').join(', '));
 }

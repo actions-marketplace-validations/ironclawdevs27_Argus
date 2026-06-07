@@ -35,10 +35,7 @@ import {
 import { postBugReport }      from './slack-notifier.js';
 import { isSlackConfigured }  from '../utils/slack-guard.js';
 import { generateHtmlReport } from '../utils/html-reporter.js';
-import {
-  parseConsoleMsgResponse,
-  parseNetworkReqResponse,
-} from '../utils/mcp-parsers.js';
+import { parseNetworkReqResponse } from '../utils/mcp-parsers.js';
 
 const __dirname   = path.dirname(fileURLToPath(import.meta.url));
 const REPORTS_DIR = path.resolve(__dirname, '../../reports');

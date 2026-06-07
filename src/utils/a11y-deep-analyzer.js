@@ -27,9 +27,7 @@
  */
 
 import fs                    from 'fs';
-import path                  from 'path';
 import { createRequire }     from 'module';
-import { fileURLToPath }     from 'url';
 import { registerExpensive } from '../registry.js';
 import { unwrapEval }        from './mcp-client.js';
 import { childLogger }       from './logger.js';

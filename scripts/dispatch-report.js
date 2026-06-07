@@ -30,7 +30,7 @@ async function uploadScreenshot(filePath, channelId) {
     const res = await fetch(upload_url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/octet-stream' },
-      body: fileBuffer,
+      body: fileBuffer, // lgtm[js/file-access-to-http] — intentional screenshot upload to Slack pre-signed URL; filePath comes from an internally-generated Argus report, not from HTTP request input
     });
     if (!res.ok) throw new Error(`Upload PUT failed: ${res.status}`);
     await slack.files.completeUploadExternal({

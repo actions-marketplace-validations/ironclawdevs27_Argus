@@ -108,7 +108,7 @@ export async function processReport(report, { outputDir, severityOverrides }) {
   const timestamp  = new Date().toISOString().replace(/[:.]/g, '-');
   const reportPath = path.join(outputDir, `error-report-${timestamp}.json`);
   try {
-    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2)); // lgtm[js/network-data-to-file] — intentional: Argus persists crawl findings to a local JSON report file by design
   } catch (err) {
     logger.error(`[ARGUS] Failed to write report JSON: ${err.message}`);
     throw err;

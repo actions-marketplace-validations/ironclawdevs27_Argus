@@ -97,7 +97,7 @@ export function parseContentAnalysisResult(rawResult, url) {
     // all field lookups (nullMatches, brokenImages, etc.) return undefined — zero findings.
     // JSON.stringify on a circular object throws; catch logs and returns [].
     let raw = rawResult;
-    if (typeof raw === 'object' && !Array.isArray(raw) && raw !== null && raw.result !== undefined) {
+    if (typeof raw === 'object' && !Array.isArray(raw) && raw !== null && raw.result !== undefined) { // lgtm[js/comparison-of-unconvertible-types] — typeof null === 'object', so raw !== null is required after the typeof check
       raw = raw.result;
     }
     const str = typeof raw === 'string' ? raw : JSON.stringify(raw);

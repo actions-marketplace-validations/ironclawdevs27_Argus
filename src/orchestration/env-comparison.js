@@ -21,7 +21,6 @@ import { unwrapEval } from '../utils/mcp-client.js';
 import { childLogger } from '../utils/logger.js';
 
 const logger = childLogger('env-comparison');
-import { normalizeArray } from '../utils/flow-runner.js';
 import { CdpBrowserAdapter } from '../adapters/browser.js';
 
 import { comparisonRoutes, config } from '../config/targets.js';

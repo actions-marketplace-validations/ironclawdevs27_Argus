@@ -26,7 +26,7 @@ function openInBrowser(filePath) {
   try {
     const abs = path.resolve(filePath);
     if (process.platform === 'win32') {
-      execFile('cmd', ['/c', 'start', '', abs], () => {});
+      execFile('cmd', ['/c', 'start', '', abs], () => {}); // lgtm[js/shell-command-injection-from-environment] — execFile with args array is injection-safe; abs is path.resolve() of an internally-computed report path
     } else if (process.platform === 'darwin') {
       execFile('open', [abs], () => {});
     } else {
