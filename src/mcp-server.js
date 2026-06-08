@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Argus MCP Server (v9.5.9)
+ * Argus MCP Server (v9.6.0)
  *
  * Exposes Argus as an MCP server so Claude (or any MCP client) can call
  * argus_audit, argus_audit_full, argus_compare, argus_last_report, and
@@ -33,6 +33,7 @@ import { CdpBrowserAdapter }                  from './adapters/browser.js';
 import { getFigmaFrame }                      from './adapters/figma.js';
 import { analyzeDesignFidelity }             from './utils/design-fidelity-analyzer.js';
 import { analyzeVisualRegression }           from './utils/visual-diff-analyzer.js';
+import { parsePrUrl, fetchPrFiles, mapFilesToRoutes } from './utils/pr-diff-analyzer.js';
 
 const REPORTS_DIR = path.resolve(process.cwd(), 'reports');
 
@@ -143,6 +144,20 @@ const TOOLS = [
         figmaFrameUrl: { type: 'string', description: 'Figma frame URL to fetch design tokens from (e.g. https://www.figma.com/file/ABC123/Name?node-id=42%3A0). Must include the node-id query parameter pointing to the specific frame.' },
       },
       required: ['url', 'figmaFrameUrl'],
+    },
+  },
+  {
+    name: 'argus_pr_validate',
+    description: 'Runs a targeted Argus audit on the routes affected by a GitHub pull request. Fetches the PR diff, maps changed files to routes in your target config using path-slug heuristics (infrastructure changes trigger a full audit; targeted otherwise), and audits only those routes — faster than a full scan and focused on what the PR actually touched. Returns { findings, affectedRoutes, changedFiles, perRoute, summary, blocked, blockOn }. Use in CI to gate merges: check blocked:true or pipe findings to an AI verdict step. Requires Chrome on --remote-debugging-port=9222. GITHUB_TOKEN env var recommended for private repos.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prUrl:       { type: 'string',  description: 'Full GitHub PR URL (e.g. https://github.com/owner/repo/pull/42). Used to fetch the list of changed files via the GitHub REST API.' },
+        targetUrl:   { type: 'string',  description: 'Base URL to audit (e.g. https://staging.example.com). Overrides TARGET_DEV_URL env var.' },
+        githubToken: { type: 'string',  description: 'GitHub Personal Access Token or workflow GITHUB_TOKEN. Optional for public repos. Falls back to GITHUB_TOKEN env var.' },
+        blockOn:     { type: 'string',  enum: ['none', 'warning', 'critical'], description: '"critical" = block only when critical findings exist. "warning" = block on any warning or critical. "none" = never block. Defaults to ARGUS_BLOCK_ON env var, then "critical".', default: 'critical' },
+      },
+      required: ['prUrl'],
     },
   },
 ];
@@ -368,6 +383,52 @@ async function handleDesignAudit({ url, figmaFrameUrl }) {
   });
 }
 
+async function handlePrValidate({ prUrl, targetUrl, githubToken, blockOn } = {}) {
+  if (!prUrl) throw new Error('argus_pr_validate: prUrl is required');
+
+  const { routes } = await import('./config/targets.js');
+  const token  = githubToken ?? process.env.GITHUB_TOKEN;
+  const base   = targetUrl  ?? process.env.TARGET_DEV_URL ?? 'http://localhost:3000';
+  const policy = blockOn    ?? process.env.ARGUS_BLOCK_ON ?? 'critical';
+
+  const changedFiles   = await fetchPrFiles(prUrl, token);
+  const affectedRoutes = mapFilesToRoutes(changedFiles, routes ?? []);
+
+  const allFindings = [];
+  const perRoute    = [];
+
+  for (const route of affectedRoutes) {
+    const url = new URL(route.path, base).href;
+    const res = await handleAudit({ url, critical: route.critical ?? false });
+    const data = JSON.parse(res.content[0].text);
+    allFindings.push(...(data.findings ?? []));
+    perRoute.push({ route: route.path, ...data.summary });
+  }
+
+  const summary = {
+    critical: allFindings.filter(f => f.severity === 'critical').length,
+    warning:  allFindings.filter(f => f.severity === 'warning').length,
+    info:     allFindings.filter(f => f.severity === 'info').length,
+  };
+
+  const blocked =
+    policy === 'critical' ? summary.critical > 0 :
+    policy === 'warning'  ? summary.critical + summary.warning > 0 :
+    false;
+
+  return { content: [{ type: 'text', text: JSON.stringify({
+    prUrl,
+    targetUrl: base,
+    affectedRoutes: affectedRoutes.map(r => r.path),
+    changedFiles,
+    findings: allFindings,
+    perRoute,
+    summary,
+    blocked,
+    blockOn: policy,
+  }, null, 2) }] };
+}
+
 async function handleLastReport() {
   if (!fs.existsSync(REPORTS_DIR)) {
     return { content: [{ type: 'text', text: '{"error":"No reports found in reports/"}' }] };
@@ -386,7 +447,7 @@ async function handleLastReport() {
 // ── Server bootstrap ──────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'argus', version: '9.5.9' },
+  { name: 'argus', version: '9.6.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -403,6 +464,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case 'argus_get_context':     return await handleGetContext(req.params.arguments ?? {});
       case 'argus_visual_diff':     return await handleVisualDiff(req.params.arguments ?? {});
       case 'argus_design_audit':    return await handleDesignAudit(req.params.arguments ?? {});
+      case 'argus_pr_validate':     return await handlePrValidate(req.params.arguments ?? {});
       default: throw new Error(`Unknown tool: ${req.params.name}`);
     }
   } catch (err) {

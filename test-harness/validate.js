@@ -86,6 +86,7 @@ import * as argusTargets from '../src/config/targets.js';
 import { createFinding } from '../src/domain/finding.js';
 import { withRetry } from '../src/utils/retry.js';
 import { diffNetworkRequests, diffConsoleMessages } from '../src/utils/diff.js';
+import { parsePrUrl, mapFilesToRoutes } from '../src/utils/pr-diff-analyzer.js';
 
 // ── Section 1 gap-closer imports (blocks [94]–[107]) ──────────────────────────
 import { parseConsoleMsgResponse, parseNetworkReqResponse } from '../src/utils/mcp-parsers.js';
@@ -5655,6 +5656,69 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       typeof statusShape136.newCriticalCount === 'number' && typeof statusShape136.threshold === 'number',
       `[136j] buildStatusPayload includes newCriticalCount and threshold fields (got: ${JSON.stringify({ nc: typeof statusShape136.newCriticalCount, th: typeof statusShape136.threshold })})`
+    );
+  }
+
+  // ── Block [137] Sprint 7 — PR Diff Analyzer (pure function unit tests) ───────
+  {
+    console.log('\n[137] pr-diff-analyzer — parsePrUrl + mapFilesToRoutes pure functions');
+
+    // [137a] parsePrUrl extracts owner, repo, and prNumber from a standard PR URL
+    const parsed137 = parsePrUrl('https://github.com/acme/my-app/pull/42');
+    assert(
+      parsed137.owner === 'acme' && parsed137.repo === 'my-app' && parsed137.prNumber === 42,
+      `[137a] parsePrUrl extracts owner/repo/prNumber (got: ${JSON.stringify(parsed137)})`
+    );
+
+    // [137b] parsePrUrl accepts URLs with trailing path segments (e.g. /files)
+    const parsed137b = parsePrUrl('https://github.com/org/repo/pull/100/files');
+    assert(
+      parsed137b.prNumber === 100 && parsed137b.owner === 'org',
+      `[137b] parsePrUrl accepts PR URL with /files suffix (got: ${JSON.stringify(parsed137b)})`
+    );
+
+    // [137c] parsePrUrl throws on non-GitHub URLs
+    let threw137c = false;
+    try { parsePrUrl('https://gitlab.com/owner/repo/-/merge_requests/1'); }
+    catch { threw137c = true; }
+    assert(threw137c, `[137c] parsePrUrl throws on non-GitHub URL`);
+
+    // [137d] mapFilesToRoutes returns all routes when changedFiles is empty
+    const routes137 = [{ path: '/home', name: 'Home' }, { path: '/login', name: 'Login' }];
+    const result137d = mapFilesToRoutes([], routes137);
+    assert(
+      result137d.length === routes137.length,
+      `[137d] mapFilesToRoutes returns all routes when changedFiles is empty (got ${result137d.length})`
+    );
+
+    // [137e] mapFilesToRoutes detects infrastructure files and returns all routes
+    const infra137 = ['next.config.js', 'src/app/page.tsx'];
+    const result137e = mapFilesToRoutes(infra137, routes137);
+    assert(
+      result137e.length === routes137.length,
+      `[137e] mapFilesToRoutes returns all routes for infrastructure file changes (got ${result137e.length})`
+    );
+
+    // [137f] mapFilesToRoutes filters to matching route via slug heuristic
+    const routes137f = [{ path: '/checkout', name: 'Checkout' }, { path: '/about', name: 'About' }];
+    const result137f = mapFilesToRoutes(['src/pages/checkout.tsx'], routes137f);
+    assert(
+      result137f.length === 1 && result137f[0].path === '/checkout',
+      `[137f] mapFilesToRoutes matches "checkout" slug to /checkout route (got: ${JSON.stringify(result137f.map(r => r.path))})`
+    );
+
+    // [137g] mapFilesToRoutes falls back to all routes when no slug matches
+    const result137g = mapFilesToRoutes(['src/utils/logger.js'], routes137f);
+    assert(
+      result137g.length === routes137f.length,
+      `[137g] mapFilesToRoutes falls back to all routes when no slug matches (got ${result137g.length})`
+    );
+
+    // [137h] mapFilesToRoutes returns empty array when routes array is empty
+    const result137h = mapFilesToRoutes(['src/pages/checkout.tsx'], []);
+    assert(
+      Array.isArray(result137h) && result137h.length === 0,
+      `[137h] mapFilesToRoutes returns empty array when routes is empty (got ${result137h.length})`
     );
   }
 }

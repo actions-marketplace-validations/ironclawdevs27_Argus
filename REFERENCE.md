@@ -699,14 +699,16 @@ argus/
 │   └── workflows/
 │       ├── argus.yml                 — CI pipeline (push to main + daily 6 AM UTC)
 │       └── harness-ci.yml            — Correctness harness gate
-├── .mcp.json                         — MCP server registration — 8 tools exposed to Claude
+├── .mcp.json                         — MCP server registration — 9 tools exposed to Claude
+├── action.yml                        — Composite GitHub Action wrapper for argus_pr_validate
 ├── src/
 │   ├── argus.js                      — Single-page audit entry point
 │   ├── batch-runner.js               — Multi-page batch audit
-│   ├── mcp-server.js                 — 8 MCP tools: argus_audit / argus_audit_full /
+│   ├── mcp-server.js                 — 9 MCP tools: argus_audit / argus_audit_full /
 │   │                                     argus_compare / argus_last_report /
 │   │                                     argus_watch_snapshot / argus_get_context /
-│   │                                     argus_design_audit / argus_visual_diff
+│   │                                     argus_design_audit / argus_visual_diff /
+│   │                                     argus_pr_validate
 │   ├── adapters/
 │   │   ├── browser.js                — CdpBrowserAdapter — facade over chrome-devtools-mcp
 │   │   └── figma.js                  — Figma REST adapter — getFigmaFrame() + parseFigmaUrl()
@@ -751,6 +753,7 @@ argus/
 │   │   ├── form-analyzer.js          — A11: Form validation accessibility + UX gaps
 │   │   ├── codebase-analyzer.js      — C1: Static source analysis (no browser)
 │   │   ├── github-reporter.js        — C2: PR comment + commit status + Check Runs
+│   │   ├── pr-diff-analyzer.js       — Sprint 7: parsePrUrl / fetchPrFiles / mapFilesToRoutes
 │   │   ├── route-discoverer.js       — C3: sitemap + Next.js + React Router discovery
 │   │   ├── logger.js                 — Pino structured logger; childLogger(module)
 │   │   ├── retry.js                  — withRetry() exponential backoff (navigate/fill only)
@@ -781,7 +784,7 @@ argus/
 │       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
 │       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
 ├── test-harness/
-│   ├── validate.js                   — 136-block correctness harness (623/626 gate)
+│   ├── validate.js                   — 137-block correctness harness (631/634 gate)
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
 │   ├── pages/                        — 62 fixture HTML pages (one per detection category)
@@ -844,7 +847,7 @@ argus/
 
 ## Known MCP Tool Limitations
 
-**3 permanent test failures** in the harness (`623/626`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 3 failures remain.
+**3 permanent test failures** in the harness (`631/634`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 3 failures remain.
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 

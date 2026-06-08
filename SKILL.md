@@ -13,8 +13,8 @@ Argus is an AI-driven automated QA harness that audits web pages against 63 dete
 
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
-- `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff)
-- `test-harness/validate.js` — 136-block correctness harness (626 hard assertions)
+- `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate)
+- `test-harness/validate.js` — 137-block correctness harness (634 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -379,7 +379,7 @@ const uid = snapText.match(/uid=([^\s]+)[^\n]*#my-button/)?.[1];
 
 ## 2c. Argus MCP Tool Reference
 
-All 8 tools are exposed by `src/mcp-server.js` and accessed via Claude or any MCP client (`argus` server in `.mcp.json`).
+All 9 tools are exposed by `src/mcp-server.js` and accessed via Claude or any MCP client (`argus` server in `.mcp.json`).
 
 ### Quick Reference
 
@@ -393,6 +393,7 @@ All 8 tools are exposed by `src/mcp-server.js` and accessed via Claude or any MC
 | `argus_get_context` | — | `url`, `snapshot_id`, `tabId` | `{ snapshot_id, summary, url, timestamp, critical_issues, warnings, js_errors, network_failures, console_errors, recent_requests, open_tabs }` |
 | `argus_visual_diff` | `url` | `updateBaseline`, `baselineDir` | `{ findings, summary: { status, diffPercent, diffPixels, totalPixels, severity } }` |
 | `argus_design_audit` | `url`, `figmaFrameUrl` | — | `{ findings, summary }` (13 mismatch-type counts) |
+| `argus_pr_validate` | `prUrl` | `targetUrl`, `githubToken`, `blockOn` | `{ findings, affectedRoutes, changedFiles, perRoute, summary, blocked, blockOn }` |
 
 `argus_compare` reads `TARGET_DEV_URL` / `TARGET_STAGING_URL` from env — no per-call override.  
 `argus_last_report` returns `{"error":"No reports found in reports/"}` when no audits have run.
@@ -456,6 +457,29 @@ All 8 tools are exposed by `src/mcp-server.js` and accessed via Claude or any MC
 // summary keys: tokenMismatches, missingComponents, colorMismatches, typographyMismatches,
 //               spacingMismatches, radiusMismatches, boundsOverflows, positionDrifts,
 //               strokeMismatches, shadowMismatches, opacityMismatches, gapMismatches, textMismatches
+```
+
+### `argus_pr_validate` — parameter schema
+
+```javascript
+{
+  prUrl:        string,              // GitHub PR URL, e.g. https://github.com/owner/repo/pull/42
+  targetUrl?:   string,              // base URL to audit (default: TARGET_DEV_URL env var)
+  githubToken?: string,              // GitHub token (default: GITHUB_TOKEN env var; optional for public repos)
+  blockOn?:     'none'|'warning'|'critical',  // default: ARGUS_BLOCK_ON env var → 'critical'
+}
+// Returns:
+// {
+//   prUrl, targetUrl, affectedRoutes: string[], changedFiles: string[],
+//   findings: Finding[], perRoute: { route, critical, warning, info }[],
+//   summary: { critical, warning, info },
+//   blocked: boolean,  // true when findings ≥ blockOn threshold
+//   blockOn: string,
+// }
+// Infrastructure files (next.config.*, layout.*, package.json, etc.) trigger a full audit.
+// Slug heuristic: maps "src/pages/checkout.tsx" → routes with "checkout" segment.
+// Conservative fallback: if no routes match, ALL routes are audited.
+// AI verdict (PASS/WARN/BLOCK + attribution) is NOT included here — that's in argus-pro.
 ```
 
 ### Audit cache internals
@@ -1649,14 +1673,14 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.5.9` |
-| **Test blocks** | 136 |
-| **Hard assertions** | 626 |
+| **Version** | `9.6.0` |
+| **Test blocks** | 137 |
+| **Hard assertions** | 634 |
 | **Soft assertions** | ~12 (Lighthouse / perf traces — headless-unavailable) |
 | **Detection categories** | 63 in production code; **60 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
 | **Analysis engines** | 31 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **623/626** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
+| **Harness gate** | **631/634** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (always 3)
@@ -1689,14 +1713,15 @@ See `OSS-PR-STRATEGY.md` for the chrome-devtools-mcp contribution plan to fix al
 | v9.5.0 | Harness regression coverage | 9 regression blocks [85]–[93]; diff.js utilities | 391/394 |
 | v9.5.1 | Harness gap-close | 33 new blocks [94]–[126]: zero-coverage modules + MCP stdio + CLI E2E | 541/544 |
 | v9.5.1 | Code-quality fixes | 14 code-quality gaps (GAP-014–040); CSS registerExpensive | 541/544 |
-| v9.5.2 | A7 Theme & Dark Mode | `theme-analyzer.js` + `emulateColorScheme`; block [127] | 548/551 |
-| v9.5.3 | D9 Design Fidelity | `design-fidelity-analyzer.js` 13 finding types; `figma.js` 4-selector inference; block [128] 30 assertions | 569/572 |
-| v9.5.4 | Web Vitals + bundle size | `web-vitals-analyzer.js` LCP/CLS/FCP/TTI/TTFB + bundle size; block [129] | 569/572 |
-| v9.5.5 | A8 Visual Regression | `visual-diff-analyzer.js` baseline screenshot comparison; block [130] 9 assertions | 578/581 |
-| v9.5.6 | A12 Deep Accessibility | `a11y-deep-analyzer.js` axe-core 4.12 + CVD color blind simulation; block [131] 9 assertions | 587/590 |
-| v9.5.7 | argus_visual_diff (8th MCP tool) | 8th MCP tool; blocks [80m]+[80n]+[117c/d] updated | 589/592 |
-| v9.5.8 | N1 / A9 / A10 / A11 | `har-recorder.js` + `motion-analyzer.js` + `font-analyzer.js` + `form-analyzer.js`; blocks [132]–[135] (24 assertions) | 613/616 |
-| v9.5.9 | GitHub Check Runs | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
+| v9.5.2 | Sprint 1 — A7 Theme & Dark Mode | `theme-analyzer.js` + `emulateColorScheme`; block [127] | 548/551 |
+| v9.5.3 | Sprint 2 — D9 Design Fidelity | `design-fidelity-analyzer.js` 13 finding types; `figma.js` 4-selector inference; block [128] 30 assertions | 569/572 |
+| v9.5.4 | Sprint 9 — Web Vitals + bundle size | `web-vitals-analyzer.js` LCP/CLS/FCP/TTI/TTFB + bundle size; block [129] | 569/572 |
+| v9.5.5 | Sprint 3 — A8 Visual Regression | `visual-diff-analyzer.js` baseline screenshot comparison; block [130] 9 assertions | 578/581 |
+| v9.5.6 | Sprint 4 — A12 Deep Accessibility | `a11y-deep-analyzer.js` axe-core 4.12 + CVD color blind simulation; block [131] 9 assertions | 587/590 |
+| v9.5.7 | Sprint 3-ext — argus_visual_diff (8th MCP tool) | 8th MCP tool; blocks [80m]+[80n]+[117c/d] updated | 589/592 |
+| v9.5.8 | Sprint 5/5b/5c/5d — N1 / A9 / A10 / A11 | `har-recorder.js` + `motion-analyzer.js` + `font-analyzer.js` + `form-analyzer.js`; blocks [132]–[135] (24 assertions) | 613/616 |
+| v9.5.9 | Sprint 6 — GitHub Check Runs | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
+| v9.6.0 | Sprint 7 — PR Diff Analyzer | `pr-diff-analyzer.js` — `parsePrUrl` / `fetchPrFiles` / `mapFilesToRoutes`; `argus_pr_validate` 9th MCP tool; `action.yml` composite GA wrapper; `ARGUS_BLOCK_ON`; block [137] (8 assertions) | 631/634 |
 
 ---
 

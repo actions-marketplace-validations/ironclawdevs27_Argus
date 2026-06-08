@@ -234,6 +234,22 @@ Sprints 5/5b/5c/5d — N1 HAR Network Baseline, A9 Motion & Animation, A10 Font 
 | Feature table detection count | `59` | `63` |
 | "How we built it" caption | `131 test blocks` | `135 test blocks` |
 
+## Stats Update (2026-06-08 — Sprint 7 v9.6.0)
+
+Sprint 7 — PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th MCP tool + `action.yml` GitHub Action wrapper (block [137], 8 assertions). No new detection categories or fixture pages. Hero and docs updated:
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `136` | `137` |
+| `stats[2].num` (ASSERTIONS RUN) | `626` | `634` |
+| MCP tools | 8 | **9** (`argus_pr_validate` added) |
+| Docs § "Test Coverage" tagline | `136 blocks, 626 hard assertions` | `137 blocks, 634 hard assertions` |
+| Docs § "Running" code | `626 hard assertions`, `623/626` | `634 hard assertions`, `631/634` |
+| "How we built it" caption | `136 test blocks` | `137 test blocks` |
+| Block [137] bullet | — | Added to Breakdown section |
+
+---
+
 ## Stats Update (2026-06-07 — Sprint 6 v9.5.9)
 
 Sprint 6 — GitHub Check Runs: `github-reporter.js` extended with `createCheckRun`/`completeCheckRun` (GitHub Checks API), `generateReleaseNotes()`, `ARGUS_CRITICAL_THRESHOLD` gate, `ARGUS_DIFF_IMAGE_URL`, `GITHUB_CHECK_NAME`; block [136] (10 assertions). No new detection categories or fixture pages. Hero and docs updated:
