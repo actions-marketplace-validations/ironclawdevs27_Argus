@@ -7,14 +7,14 @@ description: Argus AI-powered QA harness — Chrome DevTools MCP reference for b
 
 ## 1. What Argus Is
 
-Argus is an AI-driven automated QA harness that audits web pages against 57 detection categories (50 positively verified by the correctness harness) using Chrome DevTools Protocol (CDP) via the `chrome-devtools` MCP server. It drives a real Chromium browser, executes multi-step user flows, and emits structured JSON findings.
+Argus is an AI-driven automated QA harness that audits web pages against 63 detection categories (60 positively verified by the correctness harness) using Chrome DevTools Protocol (CDP) via the `chrome-devtools` MCP server. It drives a real Chromium browser, executes multi-step user flows, and emits structured JSON findings.
 
 ### Entry points
 
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
-- `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit)
-- `test-harness/validate.js` — 129-block correctness harness (572 hard assertions)
+- `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff)
+- `test-harness/validate.js` — 136-block correctness harness (626 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -352,6 +352,7 @@ const browser = new CdpBrowserAdapter(mcp);
 | `browser.resize(w, h)` | `resize_page` | Viewport emulation |
 | `browser.emulate(opts)` | `emulate` | `{ cpuThrottlingRate }`, `{ device }`, `{ networkCondition }` |
 | `browser.emulateColorScheme(s)` | `emulate` | `s = 'dark'` or `'light'` |
+| `browser.emulateReducedMotion(s)` | `emulate` | `s = 'reduce'` or `'no-preference'`; used by motion-analyzer |
 | `browser.listPages()` | `list_pages` | Returns array of tab descriptors |
 | `browser.selectPage(tabId)` | `select_page` | Switch active tab |
 
@@ -373,6 +374,93 @@ const snapRaw = await browser.snapshot();
 const snapText = unwrapFence(snapRaw);
 const uid = snapText.match(/uid=([^\s]+)[^\n]*#my-button/)?.[1];
 ```
+
+---
+
+## 2c. Argus MCP Tool Reference
+
+All 8 tools are exposed by `src/mcp-server.js` and accessed via Claude or any MCP client (`argus` server in `.mcp.json`).
+
+### Quick Reference
+
+| Tool | Required params | Optional params | Returns |
+|------|----------------|----------------|---------|
+| `argus_audit` | `url` | `critical`, `cache` | `{ findings, summary, url, pageTitle, screenshot }` |
+| `argus_audit_full` | `url` | `critical` | full `runCrawl` JSON report |
+| `argus_compare` | — | — | `{ regressions, screenshots, summary }` |
+| `argus_last_report` | — | — | last JSON file from `reports/` |
+| `argus_watch_snapshot` | — | `url`, `tabId` | `{ findings, newConsole, newNetwork }` |
+| `argus_get_context` | — | `url`, `snapshot_id`, `tabId` | `{ snapshot_id, summary, url, timestamp, critical_issues, warnings, js_errors, network_failures, console_errors, recent_requests, open_tabs }` |
+| `argus_visual_diff` | `url` | `updateBaseline`, `baselineDir` | `{ findings, summary: { status, diffPercent, diffPixels, totalPixels, severity } }` |
+| `argus_design_audit` | `url`, `figmaFrameUrl` | — | `{ findings, summary }` (13 mismatch-type counts) |
+
+`argus_compare` reads `TARGET_DEV_URL` / `TARGET_STAGING_URL` from env — no per-call override.  
+`argus_last_report` returns `{"error":"No reports found in reports/"}` when no audits have run.
+
+### `argus_audit` — parameter schema
+
+```javascript
+{ url: string, critical?: boolean, cache?: boolean }
+// critical: escalate console.error to 'critical' severity (default: false)
+// cache:    return cached result for this URL if one exists in this session (default: false)
+//           cache hit response includes _cached: true, _cachedAt: ISO timestamp
+//           session-scoped Map, max 20 entries, LRU eviction
+```
+
+### `argus_watch_snapshot` / `argus_get_context` — parameter schema
+
+```javascript
+{
+  url?:         string,  // defaults to TARGET_DEV_URL; does NOT navigate
+  tabId?:       string,  // Chrome page/tab ID — get from open_tabs in prior argus_get_context
+  snapshot_id?: string,  // argus_get_context only — pass back from prior call to get a diff
+}
+```
+
+**Fix loop with `snapshot_id`:**
+
+```javascript
+// Step 1 — capture current state
+// Response: { snapshot_id: 'abc123', critical_issues: [...], summary: '2 criticals on ...' }
+
+// Step 2 — apply fix, then pass snapshot_id back
+// Response: { snapshot_id: 'xyz789', resolved: [...], new_issues: [...], persisting: [...] }
+//   resolved   — findings cleared since last snapshot
+//   new_issues — findings that appeared since last snapshot
+//   persisting — findings unchanged since last snapshot
+// Repeat until resolved.length > 0 && critical_issues.length === 0
+```
+
+**Multi-tab:** get tab IDs from `open_tabs` array in any `argus_get_context` response, then pass as `tabId`.
+
+### `argus_visual_diff` — parameter schema
+
+```javascript
+{
+  url:             string,   // full URL to capture and compare
+  updateBaseline?: boolean,  // delete existing baseline and save fresh PNG (default: false)
+  baselineDir?:    string,   // override baseline directory (default: reports/baselines/screenshots/)
+}
+// summary.status: 'baseline_created' | 'regression' | 'no_change'
+// regression severity: 'warning' (≥0.1% pixels changed) | 'critical' (≥5%)
+```
+
+### `argus_design_audit` — parameter schema
+
+```javascript
+{
+  url:           string,  // page to audit (must be reachable by Chrome)
+  figmaFrameUrl: string,  // Figma URL — must include ?node-id=42%3A0 (frame node ID)
+}
+// Requires FIGMA_API_TOKEN env var
+// summary keys: tokenMismatches, missingComponents, colorMismatches, typographyMismatches,
+//               spacingMismatches, radiusMismatches, boundsOverflows, positionDrifts,
+//               strokeMismatches, shadowMismatches, opacityMismatches, gapMismatches, textMismatches
+```
+
+### Audit cache internals
+
+Both `snapshotStore` (fix-loop snapshots) and `auditCache` (audit results) are module-level `Map`s in `mcp-server.js`. Max 20 entries each, oldest-first LRU eviction. They reset when the MCP server process restarts.
 
 ---
 
@@ -574,13 +662,13 @@ All findings share: `{ type, severity, url, message? }`
 { type: 'security_no_https',          severity: 'warning', url }
 { type: 'security_iframe_no_sandbox', src, severity: 'warning', url }
 
-// ── A7 Theme & Dark Mode (Sprint 1) ──────────────────────────────────────
+// ── A7 Theme & Dark Mode ─────────────────────────────────────────────────
 { type: 'theme_prefers_color_scheme_ignored', selector, message, severity: 'warning', url }
 { type: 'theme_forced_color_ignored',         selector, message, severity: 'warning', url }
 { type: 'theme_os_dark_no_dark_mode',         message,  severity: 'warning', url }
 { type: 'theme_summary',  lightFindings, darkFindings, message, severity: 'info', url }
 
-// ── D9 Design Fidelity (Sprint 2) — 13 mismatch types ────────────────────
+// ── D9 Design Fidelity — 13 mismatch types ────────────────────────────────
 { type: 'design_token_mismatch',     token, expected, actual,   message, severity: 'warning', url }
 { type: 'design_component_missing',  name, selector,            message, severity: 'warning', url }
 { type: 'design_color_mismatch',     selector, expected, actual, delta, matchedSelector, message, severity: 'warning', url }
@@ -605,7 +693,7 @@ All findings share: `{ type, severity, url, message? }`
                                       strokeMismatches, shadowMismatches, opacityMismatches, gapMismatches,
                                       textMismatches, message, severity: 'info', url }
 
-// ── Sprint 9 Web Vitals & Bundle Size ────────────────────────────────────
+// ── Web Vitals & Bundle Size ──────────────────────────────────────────────
 { type: 'perf_lcp',          value, threshold, message, severity: 'warning'|'critical', url }
   //   warning ≥2500ms, critical ≥4000ms
 { type: 'perf_cls',          value, threshold, message, severity: 'warning'|'critical', url }
@@ -619,7 +707,7 @@ All findings share: `{ type, severity, url, message? }`
 { type: 'perf_vitals_summary', lcp, cls, fcp, tti, ttfb, bundleCount, message, severity: 'info', url }
   //   always emitted even when all metrics are null
 
-// ── A12 Deep Accessibility — axe-core + Color Blind Simulation (Sprint 4) ─
+// ── A12 Deep Accessibility — axe-core + Color Blind Simulation ───────────
 { type: 'a11y_axe_violation',    axeId, impact, selector, html, description, helpUrl, message, severity: 'critical'|'warning'|'info', url }
   //   impact: 'critical'→'critical', 'serious'|'moderate'→'warning', 'minor'→'info'
   //   axeIds suppressed (already in snapshot-analyzer): label, button-name, heading-order, aria-required-children, landmark-unique
@@ -627,7 +715,7 @@ All findings share: `{ type, severity, url, message? }`
   //   colorType: 'protanopia'|'deuteranopia'; contrastRatio < 4.5 (WCAG AA) under CVD simulation
 { type: 'a11y_deep_summary',     axeViolations, criticalCount, seriousCount, moderateCount, minorCount, colorblindRisks, message, severity: 'info', url }
 
-// ── Sprint 6 — GitHub PR enrichments (pure-function additions to github-reporter.js) ─
+// ── GitHub PR enrichments (github-reporter.js) ───────────────────────────
 // formatPrComment: now includes Selector column + Visual Regressions section + diff image embed
 // buildStatusPayload: now includes newCriticalCount and threshold fields
 // generateReleaseNotes(currentReport, prevReport, { fromTag, toTag }) → markdown changelog
@@ -635,7 +723,7 @@ All findings share: `{ type, severity, url, message? }`
 // completeCheckRun(id, report, diff) → Promise<void>
 // New env vars: ARGUS_CRITICAL_THRESHOLD (default 1), ARGUS_DIFF_IMAGE_URL, GITHUB_CHECK_NAME
 
-// ── N1 HAR Network Baseline (Sprint 5) ────────────────────────────────────
+// ── N1 HAR Network Baseline ───────────────────────────────────────────────
 { type: 'har_baseline_created',   requestCount, baselineFile, message, severity: 'info', url }
   //   first run: baseline HAR saved to reports/baselines/har/{slug}.json
 { type: 'har_new_request',        method, requestUrl, status, message, severity: 'warning', url }
@@ -647,7 +735,7 @@ All findings share: `{ type, severity, url, message? }`
 { type: 'har_comparison_summary', newRequests, missingRequests, statusChanges, totalCurrent, totalBaseline, message, severity: 'info', url }
   //   always emitted when a baseline exists
 
-// ── A9 Motion & Animation Accessibility (Sprint 5b) ───────────────────────
+// ── A9 Motion & Animation Accessibility ───────────────────────────────────
 { type: 'motion_no_reduced_motion_query', message, severity: 'warning', url }
   //   CSS animation/transition in use but no @media (prefers-reduced-motion) query in any stylesheet
 { type: 'motion_autoplay_no_pause', src, hasMuted?, message, severity: 'warning'|'info', url }
@@ -659,7 +747,7 @@ All findings share: `{ type, severity, url, message? }`
 { type: 'motion_summary', hasAnimation, hasReducedQuery, animationCount, autoplayCount, message, severity: 'info', url }
   //   always emitted
 
-// ── A10 Font Loading (Sprint 5c) ──────────────────────────────────────────
+// ── A10 Font Loading ──────────────────────────────────────────────────────
 { type: 'font_foit_risk',          fontFamily, message, severity: 'warning', url }
   //   @font-face without font-display — Chrome defaults to 'auto' (invisible text while loading)
 { type: 'font_fout_risk',          fontFamily, fontDisplay, message, severity: 'info', url }
@@ -673,7 +761,7 @@ All findings share: `{ type, severity, url, message? }`
 { type: 'font_summary', foitRisks, foutRisks, noFallbacks, slowLoads, suboptimalFmts, message, severity: 'info', url }
   //   always emitted
 
-// ── A11 Form Validation (Sprint 5d) ───────────────────────────────────────
+// ── A11 Form Validation ───────────────────────────────────────────────────
 { type: 'form_missing_required',  inputName, inputType, message, severity: 'warning', url }
   //   <input> inside a <form> with no required or aria-required="true" attribute
 { type: 'form_no_autocomplete',   inputName, inputType, message, severity: 'warning', url }
@@ -687,7 +775,7 @@ All findings share: `{ type, severity, url, message? }`
 { type: 'form_summary', missingRequired, missingAutocomplete, inaccessibleErrors, unmaskedPasswords, noValidation, totalIssues, message, severity: 'info', url }
   //   always emitted
 
-// ── A8 Visual Regression (Sprint 3) ──────────────────────────────────────
+// ── A8 Visual Regression ──────────────────────────────────────────────────
 { type: 'visual_baseline_created', baselinePath, message, severity: 'info', url }
   //   emitted on first run — no baseline existed; PNG saved for future comparison
 { type: 'visual_regression',  diffPercent, diffPixels, totalPixels, threshold, message, severity: 'warning'|'critical', url }
@@ -708,6 +796,91 @@ assert(violations.length === 0, `[Na] no violations on clean page`);
 const detected = result.findings.filter(f => f.type === 'some_type');
 assert(detected.length >= 1, `[Nb] detects violation on broken fixture`);
 ```
+
+---
+
+## 5b. Finding Type Index
+
+Flat alphabetical reference for writing assertions in `validate.js`. Every `type` string Argus can emit is listed here with its emitting module and severity range.
+
+| `type` | Module | Severity |
+|--------|--------|----------|
+| `a11y_axe_violation` | `a11y-deep-analyzer` | `critical` / `warning` / `info` |
+| `a11y_colorblind_risk` | `a11y-deep-analyzer` | `warning` |
+| `a11y_deep_summary` | `a11y-deep-analyzer` | `info` (always emitted) |
+| `accessibility_violation` | `snapshot-analyzer` / Lighthouse | varies by rule |
+| `aria_expanded_no_controls` | `snapshot-analyzer` | `warning` |
+| `broken_link` | orchestrator | `warning` / `critical` |
+| `console_error` | orchestrator | `warning` / `critical` |
+| `cookie_attribute_missing` | `issues-analyzer` | `warning` |
+| `cors_violation` | `issues-analyzer` | `critical` / `warning` |
+| `csp_violation` | `issues-analyzer` | `critical` |
+| `deprecated_api_use` | `issues-analyzer` | `info` |
+| `design_bounds_overflow` | `design-fidelity-analyzer` | `warning` |
+| `design_color_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_component_missing` | `design-fidelity-analyzer` | `warning` |
+| `design_fidelity_summary` | `design-fidelity-analyzer` | `info` (always emitted) |
+| `design_gap_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_opacity_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_position_drift` | `design-fidelity-analyzer` | `warning` |
+| `design_radius_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_shadow_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_spacing_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_stroke_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_text_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_token_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `design_typography_mismatch` | `design-fidelity-analyzer` | `warning` |
+| `flow_assert_failed` | `flow-runner` | `warning` / `critical` |
+| `flow_step_failed` | `flow-runner` | `critical` |
+| `focus_lost` | `keyboard-analyzer` | `warning` (no fixture yet) |
+| `focus_visible_missing` | `keyboard-analyzer` | `warning` |
+| `font_foit_risk` | `font-analyzer` | `warning` |
+| `font_fout_risk` | `font-analyzer` | `info` |
+| `font_no_fallback` | `font-analyzer` | `warning` |
+| `font_slow_load` | `font-analyzer` | `warning` |
+| `font_suboptimal_format` | `font-analyzer` | `info` |
+| `font_summary` | `font-analyzer` | `info` (always emitted) |
+| `form_inaccessible_error` | `form-analyzer` | `warning` |
+| `form_missing_required` | `form-analyzer` | `warning` |
+| `form_no_autocomplete` | `form-analyzer` | `warning` |
+| `form_no_validation` | `form-analyzer` | `info` |
+| `form_summary` | `form-analyzer` | `info` (always emitted) |
+| `form_unmasked_password` | `form-analyzer` | `critical` |
+| `har_baseline_created` | `har-recorder` | `info` (first run) |
+| `har_comparison_summary` | `har-recorder` | `info` (always emitted when baseline exists) |
+| `har_missing_request` | `har-recorder` | `warning` |
+| `har_new_request` | `har-recorder` | `warning` |
+| `har_status_changed` | `har-recorder` | `warning` / `critical` (≥400) |
+| `heading_level_skip` | `snapshot-analyzer` | `warning` |
+| `lcp_slow` | orchestrator / `web-vitals-analyzer` | `warning` / `critical` |
+| `low_contrast_native` | `issues-analyzer` | `warning` |
+| `missing_alt` | orchestrator | `warning` |
+| `mixed_content` | `issues-analyzer` | `warning` |
+| `motion_autoplay_no_pause` | `motion-analyzer` | `warning` / `info` |
+| `motion_interactive_animation` | `motion-analyzer` | `warning` |
+| `motion_no_reduced_motion_query` | `motion-analyzer` | `warning` |
+| `motion_reduced_not_honoured` | `motion-analyzer` | `warning` |
+| `motion_summary` | `motion-analyzer` | `info` (always emitted) |
+| `perf_bundle_large` | `web-vitals-analyzer` | `warning` (≥500 KB JS / ≥150 KB CSS) / `critical` (≥2 MB JS) |
+| `perf_cls` | `web-vitals-analyzer` | `warning` (≥0.1) / `critical` (≥0.25) |
+| `perf_fcp` | `web-vitals-analyzer` | `warning` (≥1800 ms) / `critical` (≥3000 ms) |
+| `perf_lcp` | `web-vitals-analyzer` | `warning` (≥2500 ms) / `critical` (≥4000 ms) |
+| `perf_tti` | `web-vitals-analyzer` | `warning` (≥3500 ms) / `critical` (≥7300 ms) |
+| `perf_vitals_summary` | `web-vitals-analyzer` | `info` (always emitted) |
+| `permission_policy_violation` | `issues-analyzer` | `info` |
+| `security_iframe_no_sandbox` | `security-analyzer` | `warning` |
+| `security_no_https` | `security-analyzer` | `warning` |
+| `seo_missing_og_image` | `seo-analyzer` | `warning` |
+| `slow_third_party_blocking` | `network-timing-analyzer` | `warning` |
+| `theme_forced_color_ignored` | `theme-analyzer` | `warning` |
+| `theme_os_dark_no_dark_mode` | `theme-analyzer` | `warning` |
+| `theme_prefers_color_scheme_ignored` | `theme-analyzer` | `warning` |
+| `theme_summary` | `theme-analyzer` | `info` (always emitted) |
+| `visual_baseline_created` | `visual-diff-analyzer` | `info` (first run) |
+| `visual_diff_summary` | `visual-diff-analyzer` | `info` (always emitted when baseline exists) |
+| `visual_regression` | `visual-diff-analyzer` | `warning` (≥0.1%) / `critical` (≥5%) |
+
+> **Always-emitted summary types** (`*_summary`, `*_vitals_summary`, `har_comparison_summary`, `har_baseline_created`, `visual_baseline_created`, `visual_diff_summary`) are present on every run for their analyzer. Assert their `severity === 'info'` in block `[Nc]` pattern; assert detector-specific types in `[Nb]`.
 
 ---
 
@@ -988,11 +1161,11 @@ Automated tools catch ~30% of a11y bugs. Use this matrix for manual SR decisions
 
 ---
 
-## 9. Sprint Execution Guide
+## 9. Analyzer Development Guide
 
 ### Part A — Adding a New Detection Phase (New Analyzer)
 
-Open this checklist at the start of every sprint. Check off in order.
+Open this checklist when adding a new analyzer. Check off in order.
 
 **Step 1 — Analyzer file** → `src/utils/<name>-analyzer.js`
 - Export the main `analyze<Name>(browser, url, opts)` function
@@ -1028,7 +1201,7 @@ import '../utils/<name>-analyzer.js';
 
 **Step 6 — Harness block** → `test-harness/validate.js`
 - Import the new analyzer at the top alongside existing imports
-- Add `// ── Block [N] Sprint X ──` comment block
+- Add `// ── Block [N] ──` comment block
 - Minimum 3 hard assertions: `[Na]` array returned, `[Nb]` primary finding detected, `[Nc]` severity correct
 - Additional assertions for each new finding type
 
@@ -1040,7 +1213,7 @@ import '../utils/<name>-analyzer.js';
 
 ### Part B — Version Bump Procedure
 
-Bump version in exactly 5 places every sprint (use find+replace, never miss one):
+Bump version in exactly 5 places with every release (use find+replace, never miss one):
 
 | File | Where |
 |------|-------|
@@ -1052,7 +1225,7 @@ Bump version in exactly 5 places every sprint (use find+replace, never miss one)
 
 ---
 
-### Part C — MD Update Checklist (after every sprint)
+### Part C — MD Update Checklist (after every release)
 
 Run after harness passes. Update all 6 files before committing:
 
@@ -1060,13 +1233,13 @@ Run after harness passes. Update all 6 files before committing:
 |------|---------------|
 | `SKILL.md §5` | Add new finding shapes |
 | `SKILL.md §14` | All stats rows (blocks, assertions, categories, fixtures, gate) |
-| `CLAUDE.md` | Bottom paragraph — add sprint summary sentence + update stats |
+| `CLAUDE.md` | Bottom paragraph — add summary sentence + update stats |
 | `README.md` | Stats banner (blocks, assertions, engines) + project tree + features table |
-| `test-harness/README.md` | Sprint history entry + stats line |
+| `test-harness/README.md` | Version history entry + stats line |
 | `glama.json` | `description` field — stats in the string |
 
 Gitignored files (update locally but do NOT commit):
-- `session.md` — next steps + latest sprint summary
+- `session.md` — next steps + latest summary
 - `solution.md` — phases complete summary
 
 ---
@@ -1077,7 +1250,7 @@ Gitignored files (update locally but do NOT commit):
 - Fixture pages: `test-harness/pages/<category>-issues.html` or `<feature-name>.html`
 - Finding types: `snake_case`, prefixed by category (`perf_`, `design_`, `visual_`, `theme_`)
 - Flow names: `<category>-d<major>-<minor>` (e.g. `upload-d8-5`)
-- Commit messages: no sprint names/numbers in subject line; include `(vX.Y.Z)` in subject
+- Commit messages: no feature labels in subject line; include `(vX.Y.Z)` in subject
 
 ---
 
@@ -1472,7 +1645,7 @@ for (const bp of breakpoints) {
 
 ## 14. Harness Statistics (current)
 
-### Quick Stats (update after every sprint)
+### Quick Stats (update after every release)
 
 | Metric | Value |
 | --- | --- |
@@ -1498,8 +1671,8 @@ See `OSS-PR-STRATEGY.md` for the chrome-devtools-mcp contribution plan to fix al
 
 ### Phases Complete (scannable)
 
-| Version | Sprint / Phase | Key deliverable | Harness gate |
-|---------|---------------|----------------|-------------|
+| Version | Feature / Change | Key deliverable | Harness gate |
+|---------|-----------------|----------------|-------------|
 | v9.1.x | D1–D8.5 | All 10 detection phases + v6 expansions | 327/330 |
 | v9.1.x | Adapter layer | `CdpBrowserAdapter`; all `mcp.*` → `browser.*` | 327/330 |
 | v9.1.x | Plugin registry | `registerCheap/registerExpensive`; 6 self-registering analyzers | 327/330 |
@@ -1511,310 +1684,19 @@ See `OSS-PR-STRATEGY.md` for the chrome-devtools-mcp contribution plan to fix al
 | v9.2.0 | Argus MCP server | 4 tools: `argus_audit`, `argus_audit_full`, `argus_compare`, `argus_last_report`; block [80] | 345/348 |
 | v9.3.0 | Watch mode + dashboard | `argus_watch_snapshot`, `argus_get_context`; live HTTP dashboard port 3002 | 357/360 |
 | v9.4.0 | Fix loop + LRU cache | `snapshot_id` diff; `snapshotStore`/`auditCache` Maps; block [84] CLI smoke | 364/367 |
-| v9.4.2 | Sprint 0.5 Tier 1 | `take_heapsnapshot` + `emulate({ cpuThrottlingRate })` fixes | 364/367 |
-| v9.4.6 | Sprint 0.5 Tier 2 | GAP-002–010: path traversal, Slack lazy-init, 401/403 gating, broken-link timeout | 364/367 |
-| v9.5.0 | Sprint 0.5 Tier 3 | 9 regression blocks [85]–[93]; diff.js utilities | 391/394 |
-| v9.5.1 | Gap-close §1–§6 | 33 new blocks [94]–[126]: zero-coverage modules + MCP stdio + CLI E2E | 541/544 |
-| v9.5.1 | Sprint 0.5 Tier 4 | 14 code-quality gaps (GAP-014–040); CSS registerExpensive | 541/544 |
-| v9.5.2 | Sprint 1 — A7 | `theme-analyzer.js` + `emulateColorScheme`; block [127] | 548/551 |
-| v9.5.3 | Sprint 2 — D9 | `design-fidelity-analyzer.js` 13 finding types; `figma.js` 4-selector inference; block [128] 30 assertions | 569/572 |
-| v9.5.4 | Sprint 9 — Perf | `web-vitals-analyzer.js` LCP/CLS/FCP/TTI/TTFB + bundle size; block [129] | 569/572 |
-| v9.5.5 | Sprint 3 — A8 | `visual-diff-analyzer.js` baseline screenshot comparison; block [130] 9 assertions | 578/581 |
-| v9.5.6 | Sprint 4 — A12 | `a11y-deep-analyzer.js` axe-core 4.12 + CVD color blind simulation; block [131] 9 assertions | 587/590 |
-| v9.5.7 | Sprint 3-ext | `argus_visual_diff` 8th MCP tool; blocks [80m]+[80n]+[117c/d] updated | 589/592 |
-| v9.5.8 | Sprints 5/5b/5c/5d | `har-recorder.js` (N1) + `motion-analyzer.js` (A9) + `font-analyzer.js` (A10) + `form-analyzer.js` (A11); blocks [132]–[135] (24 assertions) | 613/616 |
-| v9.5.9 | Sprint 6 | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
-
-### v9 Sprint 7 additions (2026-05-24)
-
-OpenTelemetry tracing + metrics — zero-overhead by default, OTLP-exportable for production observability. Gate: 345/348 (no new assertions).
-
-| New file | Purpose |
-| --- | --- |
-| `src/utils/telemetry.js` | Central OTel module — `startSpan()`, `recordFinding()`, `recordFlaky()`, `recordNewFindings()`; SDK lazy-init; no-op when env vars absent |
-
-**Spans instrumented:**
-
-| Span | Attributes | Where |
-| --- | --- | --- |
-| `argus.run_crawl` | `baseUrl` | `runCrawl()` outer wrap |
-| `argus.crawl_route` | `url`, `critical`, `pass` | Each cheap/expensive pass + per-route wrap in `crawlAndAnalyzeRoute()` |
-| `argus.analyzer` | `name`, `url` | Per registry-analyzer call in `crawlAndAnalyzeRoute()` |
-| `argus.dispatch` | `baseUrl`, `channel` | `dispatchAll()` + per-channel sub-spans (slack/github/html) |
-| `argus.flow` | `flow_name`, `url` | `runFlow()` wrap in `flow-runner.js` |
-| `argus.flow_step` | `flow_name`, `action`, `selector` | Per-step wrap in `runFlow()` |
-
-**Metrics recorded:**
-
-| Metric | Type | Description |
-| --- | --- | --- |
-| `argus.findings` | Counter | Total findings by type/severity/route |
-| `argus.flaky_findings` | Counter | Findings downgraded to flaky |
-| `argus.analyzer.duration` | Histogram | Per-analyzer wall-clock ms |
-| `argus.crawl.duration` | Histogram | Per-route wall-clock ms |
-| `argus.new_findings` | UpDownCounter | Net new findings vs baseline |
-
-**Environment variables added:** `OTEL_EXPORTER_OTLP_ENDPOINT` (ship spans/metrics to Jaeger/Grafana Tempo), `ARGUS_OTEL_CONSOLE=1` (dev mode: print spans to stdout).
-
-**Dependencies added:** `@opentelemetry/api ^1.9.1`, `@opentelemetry/sdk-node ^0.218.0`
-
-**No-op default**: when neither env var is set, `startSpan()` delegates to the OTel no-op provider — zero allocations, zero I/O.
-
----
-
-### v9 Sprint 9 additions (2026-05-29)
-
-Fix loop, watch dashboard, and harness coverage for the two new tools. Gate: 357/360.
-
-| Change | Detail |
-| --- | --- |
-| `argus_get_context` fix loop | `snapshot_id` returned on every call; pass it back to get `resolved / new_issues / persisting` diff arrays — closes the detect → fix → verify loop without leaving the conversation |
-| Watch mode web dashboard | `npm run watch` now starts a live HTML dashboard at `http://localhost:3002` (configurable via `ARGUS_WATCH_UI_PORT`). `GET /data` serves current findings as JSON; the dashboard auto-polls every 2 s with severity pills + findings table |
-| `snapshotStore` | Module-level `Map` in `mcp-server.js` stores up to 20 snapshots (oldest-first LRU eviction); keyed by `snapshot_id` (base-36 timestamp + random suffix) |
-| Harness block [80] extended | 6 new assertions [80g]–[80l]: `argus_watch_snapshot` registered, `argus_get_context` registered, `snapshot_id` in inputSchema, `snapshotStore` present, diff fields (`resolved/new_issues/persisting`) present |
-| New harness block [83] | 6 assertions for watch dashboard: `DASHBOARD_HTML` constant, `startDashboard` function, `/data` endpoint, `ARGUS_WATCH_UI_PORT` env var, `WatchSession`/`runWatchMode` still exported |
-| npm version | `argusqa-os@9.3.1` |
-
-**Fix loop workflow:**
-1. App broken → user runs `argus_get_context` → gets `snapshot_id: "abc123"` + current errors
-2. Claude suggests a fix → user applies it
-3. User runs `argus_get_context` with `snapshot_id: "abc123"` → response shows `resolved`, `new_issues`, `persisting` + updated summary
-4. Repeat until `resolved.length > 0 && critical.length === 0`
-
----
-
-### v9 Sprint 10 additions (2026-05-24)
-
-Audit caching, multi-tab watch mode, CI harness gate, glama.json, block [84]. Gate: 361/364 → published as `argusqa-os@9.4.0`.
-
-| Change | Detail |
-| --- | --- |
-| `argus_audit` caching | `cache: true` param; `auditCache` Map (max 20 LRU entries); cached result includes `_cached: true` + `_cachedAt` ISO timestamp |
-| Multi-tab `tabId` | `argus_watch_snapshot` + `argus_get_context` both accept `tabId`; `snapshotStore` keyed by tabId; `CdpBrowserAdapter.listPages()` + `.selectPage(tabId)` added |
-| CI harness gate | `.github/workflows/harness-ci.yml` — runs on every PR; exits 0 when only `[49b]`/`[67b]`/`[68b]` fail, exits 1 on any new regression |
-| `glama.json` expanded | Added `name`, `description`, `tools` (all 6) for Glama registry scoring (AAA) |
-| Block [84] | 7 assertions: `cli/init.js` smoke — `detectFramework`, `generateTargetsJs`, `generateEnvFile`, `main()` guard, stub validation |
-| Permanent-failure exit logic | `validate.js` exits 0 when only the 3 known permanent failures remain; unexpected failures still exit 1 |
-
----
-
-### v9 Sprint 0.5 — Tier 1 + Tier 2 (2026-05-27–2026-05-28)
-
-Browser adapter fixes (Tier 1) + security/stability gaps (Tier 2). Gate: 364/367 → published as `argusqa-os@9.4.2`–`9.4.6`.
-
-#### Tier 1 — Browser adapter corrections (v9.4.2)
-
-| Fix | File | Change |
-| --- | --- | --- |
-| `browser.heapSnapshot` | `src/adapters/browser.js` | Was calling stale `take_heap_snapshot` → corrected to `take_heapsnapshot` |
-| `browser.emulateCpu` | `src/adapters/browser.js` | Was calling stale `emulate_cpu` (non-existent MCP tool) → corrected to `emulate({ cpuThrottlingRate: rate })` |
-| Stale tool entry | `src/utils/mcp-client.js` | `emulate_cpu` removed from known-tools map |
-
-#### Tier 2 — Security + stability (v9.4.6)
-
-| Gap | File | Fix |
-| --- | --- | --- |
-| GAP-002 path traversal | `contract-validator.js` | `path.relative()` + `..` check replaces brittle `startsWith(cwd + sep)` |
-| GAP-003 error logging | `mcp-server.js` `withMcp()` | `logger.error` on handler errors before re-throw |
-| GAP-008 Slack lazy-init | `slack-notifier.js` | `WebClient` moved into `getSlack()` — no crash when `SLACK_BOT_TOKEN` absent |
-| GAP-009 401/403 severity | `orchestrator.js` | Non-critical routes return `warning` instead of always `critical` |
-| GAP-010 broken-link timeout | `orchestrator.js` | `Promise.race` 15 s outer timeout wraps `Promise.all` for link batch |
-| GAP-001 late JSON-RPC log | `mcp-client.js` | Late responses / server notifications logged at `debug` level |
-| GAP-006 CI docs | `harness-ci.yml` | KNOWN_PERMANENT block IDs `[49b]`/`[67b]`/`[68b]` documented in comment |
-
-**Also in v9.4.3–v9.4.5**: all 10 Dependabot PRs applied; phantom `chrome@0.1.0` + unused `sharp` removed; `y.com`/`yourapp.com` example URLs → `example.com`; OTel `service.version` corrected; MCP Registry published (`io.github.ironclawdevs27/argus@9.4.6`); awesome-mcp-servers PR #7022 opened.
-
-#### Tier 3 — Harness coverage (v9.5.0)
-
-9 new blocks [85]–[93] — all exercise the **production `crawlRouteCheap` code path** (no inline helper), closing GAP-009 regression + GAP-022–GAP-030. +27 hard assertions. Gate: **391/394**.
-
-| Block | GAP | What it proves |
-| --- | --- | --- |
-| [85] | GAP-022 / GAP-009 | `crawlRouteCheap` with `critical:true` → 401/403 = critical; `critical:false` → 401/403 = warning |
-| [86] | GAP-023 | `crawlRouteCheap` with `critical:true` → `console.error` = critical; `critical:false` → warning |
-| [87] | GAP-024 | `crawlRouteCheap` with `waitFor:'#never-appears'` → `load_failure` warning; message names selector |
-| [88] | GAP-025 | `crawlRouteCheap` on api-frequency → `api_call_summary` present; `data-loop` duplicate = critical |
-| [89] | GAP-028 | `crawlRouteCheap` on seo-issues → `seo_missing_description` warning with message |
-| [90] | GAP-027 | `crawlRouteCheap` on css-issues → `css_summary.scssSourceFiles` non-empty array |
-| [91] | GAP-026 | `crawlRouteCheap` on css-issues → `css_override` with `hasImportant:false` → `info`; has `property` |
-| [92] | GAP-029 | `checkLighthouse` always returns array; violations have type/severity/message/url (3 soft) |
-| [93] | GAP-030 | `diffNetworkRequests` detects added/removed/changed; `diffConsoleMessages` finds new staging errors |
-
----
-
-### v9 Sprint 8 additions (2026-05-29)
-
-Two new MCP tools + watch interval tightened to 1 s. Gate: 345/348.
-
-| Change | Detail |
-| --- | --- |
-| `argus_watch_snapshot` | New MCP tool — one-shot `WatchSession.poll()` call; returns raw `{ findings, newConsole, newNetwork }` of current Chrome tab **without navigating**. Key use case: inspect post-interaction, authenticated, or mid-flow state |
-| `argus_get_context` | New MCP tool — same `WatchSession.poll()` mechanism but returns LLM-optimized JSON: `{ summary, url, timestamp, critical_issues, warnings, js_errors, network_failures, console_errors, recent_requests }`. Plain-English `summary` field lets Claude immediately know severity. |
-| `ARGUS_WATCH_INTERVAL_MS` default | Changed from `3000` → `1000` ms in both `watch-mode.js` runtime and JSDoc. |
-| npm version | `argusqa-os@9.3.0` published |
-
-**argus_get_context workflow**: user's app is broken → user runs `argus_get_context` in Claude → Claude receives grouped error context → Claude suggests / implements the fix. No navigation, no session disruption.
-
----
-
-### v9 Sprint 6 additions (2026-05-23)
-
-Argus MCP server — Argus exposed as an MCP tool server. Gate: 345/348.
-
-| New file | Purpose |
-| --- | --- |
-| `src/mcp-server.js` | MCP server — exposes `argus_audit`, `argus_audit_full`, `argus_compare`, `argus_last_report`, `argus_watch_snapshot`, `argus_get_context` (6 tools total) |
-| `.mcp.json` | MCP server registration — published to npm as `argusqa-os@9.3.0`; users run via `npx -y argusqa-os` |
-
-**New harness block**: [80] MCP server registration (6 assertions — file exists, all 6 tool names present, `.mcp.json` has "argus" entry). Total: 6 new assertions → 345/348.
-
-**New script in `package.json`**: `"mcp-server": "node src/mcp-server.js"`. `@modelcontextprotocol/sdk ^1.29.0` added to `dependencies`.
-
-**Architecture**: MCP-inside-MCP. Argus MCP server consumes `createMcpClient()` (headless chrome-devtools-mcp) then calls `crawlRouteCheap` / `runCrawl` / `runComparison` using the raw `mcp` interface (same as CLI). All tool handlers wrapped in `withMcp()` for clean teardown.
-
-**Tool note**: `argus_compare` reads URLs from `TARGET_DEV_URL` / `TARGET_STAGING_URL` in `.env` / targets.js (same as `npm run compare`).
-
----
-
-### v9 Sprint 5 additions (2026-05-23)
-
-Vitest unit test suite — 6 files, 61 tests, zero Chrome dependency. Gate: 339/342.
-
-| New file | Sprint | Tests |
-| --- | --- | --- |
-| `test/unit/finding.test.js` | v9.1.10 | 8 — createFinding() fields, throws, frozen, extra fields |
-| `test/unit/config-schema.test.js` | v9.1.10 | 8 — validateConfig() valid/invalid, ConfigSchema.safeParse |
-| `test/unit/report-processor.test.js` | v9.1.10 | 11 — deduplicateFindings + rebuildSummary |
-| `test/unit/flakiness-detector.test.js` | v9.1.10 | 13 — findingKey normalization + mergeRunResults |
-| `test/unit/baseline-manager.test.js` | v9.1.10 | 9 — loadBaseline/saveBaseline/applyBaseline (real tmp dirs) |
-| `test/unit/flow-runner.test.js` | v9.1.10 | 11 — normalizeArray (pure) + runFlow with mock browser |
-
-**New harness blocks**: [81] `createFinding()` (4 assertions — required fields, invalid severity, immutability, url default) + [82] `withRetry()` (4 assertions — success once, retries, rethrows, env override). Total: 8 new assertions → 339/342.
-
-**New scripts in `package.json`**: `"test:unit": "vitest run test/unit"` + `"test": "npm run test:unit && npm run test:harness"`. `vitest ^4.1.7` added to `devDependencies`.
-
-**Run unit tests** (no Chrome required): `npm run test:unit`
-
----
-
-Session split, structured logging (Pino), and retry logic. No new harness blocks — gate unchanged at 331/334.
-
-| New file | Purpose |
-| --- | --- |
-| `src/utils/session-persistence.js` | Session save/restore (extracted from session-manager.js); atomic tmp→rename write |
-| `src/utils/login-orchestrator.js` | Login flow + refresh (extracted); lock file prevents concurrent redundant logins |
-| `src/utils/logger.js` | Pino structured logger; auto-detects TTY → pino-pretty; `childLogger(module)` |
-| `src/utils/retry.js` | `withRetry(fn, opts)` — exponential backoff; reads `ARGUS_RETRY_ATTEMPTS` env (default: 3) |
-
-**`session-manager.js`** reduced to 11-line backward-compat re-export barrel — all callers unchanged.
-
-**Pino migration**: All `console.log/warn/error` calls across 27 `src/` files replaced with `logger.info/warn/error` via `childLogger`. One intentional exception: `init.js:312` process-exit error uses bare `console.error` for visibility.
-
-**Retry coverage**: `navigate` and `fill` in `CdpBrowserAdapter` only. `click` is intentionally **not** retried — it is not idempotent (submits forms, toggles state, triggers deletions). A retry after an ambiguous MCP timeout cannot tell whether Chrome already processed the click. All other methods (`type`, `hover`, `drag`, etc.) are also not retried for the same reason.
-
-**Environment variables added:**
-
-- `ARGUS_LOG_LEVEL` — log level (default: `info`)
-- `ARGUS_LOG_PRETTY` — `1` = force pino-pretty, `0` = force JSON, unset = auto-detect TTY
-- `ARGUS_RETRY_ATTEMPTS` — max retry attempts (default: `3`; set to `1` to disable in CI)
-
-**Dependencies added:** `pino@^10.3.1`, `pino-pretty@^13.1.3`
-
-### Gap fixes
-
-Post-audit correctness fixes:
-
-| File | Gap | Fix |
-| --- | --- | --- |
-| `src/utils/logger.js` | `createLogger()` would crash entire app if `pino-pretty` fails to load | Wrapped pino-pretty transport in try-catch; falls back to JSON logger silently |
-| `src/utils/retry.js` | `label` param silently ignored — no debug output on retry | Added `childLogger('retry')` + `logger.debug(...)` per attempt |
-| `src/utils/retry.js` | `ARGUS_RETRY_ATTEMPTS=non-numeric` → `parseInt` returns `NaN` → loop condition `i < NaN` is always `false` → **`fn()` is never called, returns `undefined` silently** | Added `Number.isFinite()` guard: `parsed >= 1 ? parsed : 3` — falls back to default |
-| `src/adapters/browser.js` | `withRetry()` calls had no labels; `click` idempotency exclusion undocumented | Added `label:` to `navigate`/`fill`; added 4-line comment above `click()` |
-| `src/utils/session-persistence.js` | `saveSession()` called `writeFileSync` without ensuring parent directory exists → throws `ENOENT` if session file is in a subdirectory | Added `fs.mkdirSync(path.dirname(sessionFile), { recursive: true })` before write |
-| `src/utils/session-persistence.js` | `clearSession()` removed main file but not stale `.tmp`; also logged nothing when only `.tmp` existed | Added `.tmp` removal with `logger.debug()` log |
-
-Threshold centralization + Zod config validation.
-
-| Change | Details |
-| --- | --- |
-| `src/config/targets.js` | New `export const thresholds = { perf, network, memory, hover, security, apiFrequency, lighthouse }` — all magic-number limits centralized here |
-| `src/config/schema.js` | New Zod schema (`ConfigSchema`) + `validateConfig(targets)` — called at the START of `runCrawl()` in `orchestrator.js` (fires on every crawl, regardless of entry point) |
-| `src/utils/memory-analyzer.js` | Replaced local `DETACHED_NODE_THRESHOLDS` / `HEAP_GROWTH_THRESHOLDS` with `thresholds.memory.*` |
-| `src/utils/hover-analyzer.js` | Replaced inline `8`, `5`, `350` with `thresholds.hover.maxDropdowns`, `maxTooltips`, `waitMs` |
-| `src/utils/security-analyzer.js` | Replaced hardcoded `3000` fallback in injected script with `${thresholds.security.headTimeoutMs}` (interpolated at module load) |
-| `src/utils/api-frequency.js` | Replaced `count >= 5` / `count >= 3` with `thresholds.apiFrequency.criticalCount` / `warningCount` |
-| `src/utils/lighthouse-checker.js` | Removed `LIGHTHOUSE_THRESHOLDS` export; uses `thresholds.lighthouse.*` |
-| `src/orchestration/orchestrator.js` | Removed `PERF_BUDGETS` / `NETWORK_PERF_THRESHOLDS` constants; uses `thresholds.perf.*` / `thresholds.network.*` |
-| `test-harness/validate.js` | Block [79]: 4 assertions — valid config passes, route missing path throws, path without `/` throws, non-number threshold throws |
-
-Plugin registry + god object split. `crawl-and-report.js` (1,615 lines) reduced to a 16-line backward-compat re-export shell.
-
-| New file | Purpose |
-| --- | --- |
-| `src/registry.js` | `registerCheap(a)` / `registerExpensive(a)` / `getCheap()` / `getExpensive()` / `clearAll()` — analyzers self-register at module load |
-| `src/orchestration/orchestrator.js` | Crawl loop + `crawlRouteCheap` / `crawlRouteExpensive` / `runCrawl` |
-| `src/orchestration/report-processor.js` | `deduplicateFindings` + `rebuildSummary` + `processReport` (overrides → baseline → JSON write) |
-| `src/orchestration/dispatcher.js` | `dispatchAll` — Slack / GitHub / HTML routing |
-
-6 expensive analyzers now self-register at module load: `hover`, `snapshot`, `keyboard`, `responsive`, `memory`, `lighthouse`.
-
-Adding a new expensive analyzer = 1 file only — call `registerExpensive({ name, analyze(browser, url, route) })` at the bottom.
-
-All 13 analyzer/orchestration/harness files migrated from `mcp.*` → `browser.*` via `CdpBrowserAdapter`.
-
-| New file | Purpose |
-| --- | --- |
-| `src/adapters/browser.js` | `CdpBrowserAdapter` — single facade for all `chrome-devtools-mcp` calls |
-| `src/domain/finding.js` | `createFinding()` factory — validates type/severity/message at construction |
-| `src/utils/mcp-parsers.js` | `parseConsoleMsgResponse` + `parseNetworkReqResponse` (promoted from watch-mode.js) |
-
-**Adapter method reference** (all analyzers use these):
-
-| `browser.method(args)` | Underlying MCP tool |
-| --- | --- |
-| `browser.navigate(url)` | `navigate_page({ url })` |
-| `browser.evaluate(fn)` | `evaluate_script({ function: fn })` |
-| `browser.snapshot()` | `take_snapshot()` |
-| `browser.screenshot(opts)` | `take_screenshot(opts)` |
-| `browser.heapSnapshot(opts)` | `take_heapsnapshot(opts)` |
-| `browser.click(uid)` | `click({ uid })` |
-| `browser.fill(uid, value)` | `fill({ uid, value })` |
-| `browser.type(text)` | `type_text({ text })` |
-| `browser.pressKey(key)` | `press_key({ key })` |
-| `browser.hover(uid)` | `hover({ uid })` |
-| `browser.drag(src, tgt)` | `drag({ from_uid: src, to_uid: tgt })` |
-| `browser.uploadFile(uid, path)` | `upload_file({ uid, filePath })` |
-| `browser.handleDialog(accept, text)` | `handle_dialog({ accept, promptText })` |
-| `browser.waitFor(opts)` | `wait_for(opts)` |
-| `browser.emulate(viewport)` | `emulate({ viewport })` |
-| `browser.emulateCpu(rate)` | `emulate({ cpuThrottlingRate: rate })` |
-| `browser.resize(w, h)` | `resize_page({ width: w, height: h })` |
-| `browser.getNetworkRequest(id)` | `get_network_request({ requestId: id })` |
-| `browser.lighthouse(url, opts)` | `lighthouse_audit({ url, ...opts })` |
-| `browser.startTrace()` | `performance_start_trace({})` |
-| `browser.stopTrace()` | `performance_stop_trace({})` |
-| `browser.analyzeInsight(opts)` | `performance_analyze_insight(opts)` |
-| `browser.listConsole()` | `list_console_messages({})` → parsed array |
-| `browser.listNetwork()` | `list_network_requests({})` → parsed array |
-| `browser.listConsoleRaw(args)` | `list_console_messages(args)` → raw (for issues panel) |
-| `browser.close()` | `close()` |
-
-> The 7-category gap (54 − 47): `cors_violation`, `mixed_content`, `cookie_attribute_missing`, `low_contrast_native`, `permission_policy_violation`, `focus_lost`, `heading_missing_h1` — no fixture triggers these yet. See v6.103–v6.110 in `argus-v6-strategy.md` §10.
-
-### v6 additions (v6.093–v6.102)
-
-| GAP | Detection types added | Blocks |
-| --- | --- | --- |
-| v6.093 | `csp_violation`, `deprecated_api_use` (verified); `cors_violation`, `mixed_content`, `cookie_attribute_missing`, `low_contrast_native`, `permission_policy_violation` (classified when present, no fixture) | 66, 67, 68 |
-| v6.094 | `slow_third_party_blocking` | [69] |
-| v6.095 | CPU throttle (`emulate({ cpuThrottlingRate })`) during mobile responsive analysis | [71] |
-| v6.096 | `heading_level_skip` | [70] |
-| v6.097 | `focus_visible_missing` (verified); `focus_lost` (implemented, no fixture — v6.105) | [72] |
-| v6.098 | `aria_expanded_no_controls` | [73] |
-| v6.099 | `select_option` flow step added to flow-runner DSL | [74] |
-| v6.100 | `origin` field on all network findings (`first-party`/`third-party`) | [75] |
-| v6.101 | `security_no_https` | [76] |
-| v6.102 | `security_iframe_no_sandbox` | [77] |
+| v9.4.2 | Browser adapter fixes | `take_heapsnapshot` + `emulate({ cpuThrottlingRate })` corrections | 364/367 |
+| v9.4.6 | Security & stability | GAP-002–010: path traversal, Slack lazy-init, 401/403 gating, broken-link timeout | 364/367 |
+| v9.5.0 | Harness regression coverage | 9 regression blocks [85]–[93]; diff.js utilities | 391/394 |
+| v9.5.1 | Harness gap-close | 33 new blocks [94]–[126]: zero-coverage modules + MCP stdio + CLI E2E | 541/544 |
+| v9.5.1 | Code-quality fixes | 14 code-quality gaps (GAP-014–040); CSS registerExpensive | 541/544 |
+| v9.5.2 | A7 Theme & Dark Mode | `theme-analyzer.js` + `emulateColorScheme`; block [127] | 548/551 |
+| v9.5.3 | D9 Design Fidelity | `design-fidelity-analyzer.js` 13 finding types; `figma.js` 4-selector inference; block [128] 30 assertions | 569/572 |
+| v9.5.4 | Web Vitals + bundle size | `web-vitals-analyzer.js` LCP/CLS/FCP/TTI/TTFB + bundle size; block [129] | 569/572 |
+| v9.5.5 | A8 Visual Regression | `visual-diff-analyzer.js` baseline screenshot comparison; block [130] 9 assertions | 578/581 |
+| v9.5.6 | A12 Deep Accessibility | `a11y-deep-analyzer.js` axe-core 4.12 + CVD color blind simulation; block [131] 9 assertions | 587/590 |
+| v9.5.7 | argus_visual_diff (8th MCP tool) | 8th MCP tool; blocks [80m]+[80n]+[117c/d] updated | 589/592 |
+| v9.5.8 | N1 / A9 / A10 / A11 | `har-recorder.js` + `motion-analyzer.js` + `font-analyzer.js` + `form-analyzer.js`; blocks [132]–[135] (24 assertions) | 613/616 |
+| v9.5.9 | GitHub Check Runs | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
 
 ---
 
