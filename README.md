@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-641%2F644-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-650%2F653-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**
@@ -331,7 +331,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-3 permanent test failures (`641/644`) are MCP-layer restrictions — not fixable in Argus code:
+3 permanent test failures (`650/653`) are MCP-layer restrictions — not fixable in Argus code:
 
 | Tool | Constraint |
 |---|---|
@@ -351,7 +351,7 @@ src/
   adapters/browser.js   — CdpBrowserAdapter — wraps all chrome-devtools-mcp calls
   config/targets.js     — routes, thresholds, auth steps
   cli/init.js           — argus init interactive setup wizard
-test-harness/           — 138-block correctness harness, 62 fixture pages
+test-harness/           — 138-block correctness harness, 653 hard assertions, 62 fixture pages
 test/unit/              — 61 Vitest unit tests (no Chrome required)
 landing/                — Product landing page (React 19 + Vite + Tailwind)
 ```

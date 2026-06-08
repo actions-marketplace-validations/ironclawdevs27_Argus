@@ -33,7 +33,7 @@ import { CdpBrowserAdapter }                  from './adapters/browser.js';
 import { getFigmaFrame }                      from './adapters/figma.js';
 import { analyzeDesignFidelity }             from './utils/design-fidelity-analyzer.js';
 import { analyzeVisualRegression }           from './utils/visual-diff-analyzer.js';
-import { parsePrUrl, fetchPrFiles, mapFilesToRoutes } from './utils/pr-diff-analyzer.js';
+import { fetchPrFiles, mapFilesToRoutes } from './utils/pr-diff-analyzer.js';
 
 const REPORTS_DIR = path.resolve(process.cwd(), 'reports');
 

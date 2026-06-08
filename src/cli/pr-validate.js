@@ -26,7 +26,7 @@ import path from 'path';
 import { fileURLToPath }                              from 'url';
 import { createMcpClient }                            from '../utils/mcp-client.js';
 import { crawlRouteCheap }                            from '../orchestration/crawl-and-report.js';
-import { parsePrUrl, fetchPrFiles, mapFilesToRoutes } from '../utils/pr-diff-analyzer.js';
+import { fetchPrFiles, mapFilesToRoutes } from '../utils/pr-diff-analyzer.js';
 
 // ── Exported helpers (testable without Chrome) ────────────────────────────────
 
