@@ -154,16 +154,14 @@ async function loadRoutes() {
     }
   }
 
-  // 3. Default routes from the package's targets.js
-  try {
-    const { routes } = await import('../config/targets.js');
-    if (Array.isArray(routes) && routes.length > 0) {
-      return routes;
-    }
-  } catch { /* targets.js may not export routes in all environments */ }
-
-  // 4. Final fallback — audit root path only
+  // 3. Final fallback — audit root path only
+  // NOTE: We deliberately do NOT fall back to the package's targets.js here.
+  // targets.js contains the developer's own demo routes with app-specific
+  // waitFor selectors (e.g. [data-testid="dashboard"]) that do not exist on
+  // user apps — falling back to them causes false-positive load_failure
+  // findings and incorrectly blocks merges.
   console.log('[argus] No routes configured — falling back to root path audit');
+  console.log('[argus] Tip: add argus.routes.json to your repo root to audit specific routes.');
   return [{ path: '/', name: 'home' }];
 }
 
