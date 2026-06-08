@@ -86,7 +86,7 @@ runs:
 
     - name: Install argusqa-os
       shell: bash
-      run: npm install -g argusqa-os@latest
+      run: npm install -g argusqa-os@9.6.3
 
     - name: Launch Chrome
       shell: bash
@@ -109,7 +109,8 @@ runs:
 
         echo "[argus] Using Chrome binary: $CHROME_BIN"
 
-        # shellcheck disable=SC2086
+        # Split extra flags on whitespace only — prevents shell injection via semicolons/pipes
+        read -ra CHROME_EXTRA_FLAGS <<< "${ARGUS_CHROME_FLAGS:-}"
         "$CHROME_BIN" \
           --remote-debugging-port=9222 \
           --headless=new \
@@ -117,7 +118,7 @@ runs:
           --disable-gpu \
           --disable-dev-shm-usage \
           --user-data-dir=/tmp/argus-chrome \
-          $ARGUS_CHROME_FLAGS &
+          "${CHROME_EXTRA_FLAGS[@]}" &
 
         echo "[argus] Waiting for Chrome DevTools Protocol to be ready..."
         for i in $(seq 1 20); do
@@ -143,4 +144,7 @@ runs:
         ARGUS_ROUTES_FILE: ${{ inputs.routes-file }}
         ARGUS_RETRY_ATTEMPTS: '2'
         MCP_BROWSER_URL: 'http://127.0.0.1:9222'
-      run: argus-pr-validate
+        REPORT_OUTPUT_DIR: '/tmp/argus-reports'
+      run: |
+        mkdir -p /tmp/argus-reports
+        argus-pr-validate

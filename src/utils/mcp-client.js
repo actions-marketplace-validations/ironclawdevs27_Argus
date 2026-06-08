@@ -57,7 +57,7 @@ const TOOL_TIMEOUT_MS = parseInt(process.env.MCP_TOOL_TIMEOUT_MS ?? '30000', 10)
 export async function createMcpClient() {
   // On Windows, npx is npx.cmd — shell:true resolves this cross-platform.
   const proc = spawn('npx', [
-    '-y', 'chrome-devtools-mcp@latest',
+    '-y', 'chrome-devtools-mcp@1.1.1',
     `--browser-url=${BROWSER_URL}`,
     '--headless=true',
     '--viewport=1920x1080',
