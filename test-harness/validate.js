@@ -87,6 +87,7 @@ import { createFinding } from '../src/domain/finding.js';
 import { withRetry } from '../src/utils/retry.js';
 import { diffNetworkRequests, diffConsoleMessages } from '../src/utils/diff.js';
 import { parsePrUrl, mapFilesToRoutes } from '../src/utils/pr-diff-analyzer.js';
+import { buildStepSummary, writeGithubOutputs, writeStepSummary } from '../src/cli/pr-validate.js';
 
 // ── Section 1 gap-closer imports (blocks [94]–[107]) ──────────────────────────
 import { parseConsoleMsgResponse, parseNetworkReqResponse } from '../src/utils/mcp-parsers.js';
@@ -5719,6 +5720,113 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       Array.isArray(result137h) && result137h.length === 0,
       `[137h] mapFilesToRoutes returns empty array when routes is empty (got ${result137h.length})`
+    );
+  }
+
+  // ── Block [138] Sprint 7 — PR Validate CLI helpers (no Chrome required) ──────
+  {
+    console.log('\n[138] pr-validate.js CLI — buildStepSummary + writeGithubOutputs unit tests');
+
+    // [138a] buildStepSummary is an exported function
+    assert(
+      typeof buildStepSummary === 'function',
+      '[138a] buildStepSummary is exported from src/cli/pr-validate.js'
+    );
+
+    // [138b] writeGithubOutputs is an exported function
+    assert(
+      typeof writeGithubOutputs === 'function',
+      '[138b] writeGithubOutputs is exported from src/cli/pr-validate.js'
+    );
+
+    // [138c] buildStepSummary with blocked=true contains "BLOCKED"
+    const md138blocked = buildStepSummary({
+      blocked: true,
+      summary: { critical: 2, warning: 0, info: 1 },
+      affectedRoutes: [{ path: '/checkout' }],
+      perRoute: [{ route: '/checkout', critical: 2, warning: 0, info: 1 }],
+      findings: [
+        { severity: 'critical', type: 'console_error', message: 'TypeError: x is null', url: 'http://localhost:3000/checkout' },
+      ],
+      changedFiles: ['src/pages/checkout.tsx'],
+      blockOn: 'critical',
+    });
+    assert(
+      typeof md138blocked === 'string' && md138blocked.includes('BLOCKED'),
+      `[138c] buildStepSummary(blocked=true) contains "BLOCKED" (got: ${md138blocked.slice(0, 80)})`
+    );
+
+    // [138d] buildStepSummary with blocked=false contains "PASSED"
+    const md138passed = buildStepSummary({
+      blocked: false,
+      summary: { critical: 0, warning: 0, info: 2 },
+      affectedRoutes: [{ path: '/login' }],
+      perRoute: [{ route: '/login', critical: 0, warning: 0, info: 2 }],
+      findings: [],
+      changedFiles: ['src/pages/login.tsx'],
+      blockOn: 'critical',
+    });
+    assert(
+      typeof md138passed === 'string' && md138passed.includes('PASSED'),
+      `[138d] buildStepSummary(blocked=false) contains "PASSED" (got: ${md138passed.slice(0, 80)})`
+    );
+
+    // [138e] buildStepSummary with critical findings shows critical count in the summary table
+    assert(
+      md138blocked.includes('**2**'),
+      `[138e] buildStepSummary with 2 criticals bolds the critical count in the table`
+    );
+
+    // [138f] buildStepSummary escapes pipe chars in finding messages
+    const md138pipe = buildStepSummary({
+      blocked: false,
+      summary: { critical: 0, warning: 1, info: 0 },
+      affectedRoutes: [{ path: '/' }],
+      perRoute: [{ route: '/', critical: 0, warning: 1, info: 0 }],
+      findings: [{ severity: 'warning', type: 'seo_meta', message: 'Title | Subtitle has pipe', url: '/' }],
+      changedFiles: [],
+      blockOn: 'critical',
+    });
+    assert(
+      md138pipe.includes('Title \\| Subtitle has pipe'),
+      `[138f] buildStepSummary escapes "|" in finding messages to "\\|"`
+    );
+
+    // [138g] writeGithubOutputs writes blocked=true to a temp file via GITHUB_OUTPUT
+    const tmpOutput138 = path.join(os.tmpdir(), `argus-test-output-${Date.now()}.txt`);
+    const savedOutput138 = process.env.GITHUB_OUTPUT;
+    process.env.GITHUB_OUTPUT = tmpOutput138;
+    writeGithubOutputs({
+      blocked: true,
+      summary: { critical: 3, warning: 1, info: 0 },
+      affectedRoutes: [{ path: '/dashboard' }, { path: '/checkout' }],
+    });
+    if (savedOutput138 === undefined) delete process.env.GITHUB_OUTPUT;
+    else process.env.GITHUB_OUTPUT = savedOutput138;
+    const written138 = fs.existsSync(tmpOutput138) ? fs.readFileSync(tmpOutput138, 'utf8') : '';
+    try { fs.unlinkSync(tmpOutput138); } catch { /* best-effort */ }
+    assert(
+      written138.includes('blocked=true'),
+      `[138g] writeGithubOutputs writes blocked=true to GITHUB_OUTPUT file`
+    );
+
+    // [138h] writeGithubOutputs writes correct critical_count
+    assert(
+      written138.includes('critical_count=3'),
+      `[138h] writeGithubOutputs writes critical_count=3 to GITHUB_OUTPUT file (got: ${written138.trim()})`
+    );
+
+    // [138i] writeGithubOutputs writes affected_routes as comma-separated string
+    assert(
+      written138.includes('affected_routes=/dashboard,/checkout'),
+      `[138i] writeGithubOutputs writes affected_routes comma-separated (got: ${written138.trim()})`
+    );
+
+    // [138j] pr-validate.js CLI file exists on disk at the expected src/cli path
+    const cliPath138 = path.join(__dirname, '../src/cli/pr-validate.js');
+    assert(
+      fs.existsSync(cliPath138),
+      `[138j] src/cli/pr-validate.js exists at expected path (${cliPath138})`
     );
   }
 }

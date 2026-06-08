@@ -1,6 +1,6 @@
 name: 'Argus PR Validator'
-description: 'Runs a targeted Argus QA audit on the routes affected by a pull request and blocks merge on critical findings.'
-author: 'argus-qa'
+description: 'Targeted Argus QA audit on routes affected by a pull request. Blocks merge on critical (or warning) findings.'
+author: 'ironclawdevs27'
 
 branding:
   icon: 'shield'
@@ -8,57 +8,119 @@ branding:
 
 inputs:
   target-url:
-    description: 'Base URL to audit (e.g. https://staging.example.com). Required.'
+    description: 'Base URL of the running application to audit (e.g. https://staging.example.com). The app must be reachable from the GitHub Actions runner. Required.'
     required: true
+
   github-token:
-    description: 'GitHub token for fetching PR files and posting Check Run status. Defaults to GITHUB_TOKEN.'
+    description: 'GitHub token for fetching the PR file list. Defaults to the workflow GITHUB_TOKEN. Required for private repositories.'
     required: false
     default: ${{ github.token }}
+
   block-on:
-    description: 'Severity that blocks merge: "critical" (default), "warning", or "none".'
+    description: |
+      Severity level that blocks the merge:
+        critical — block only when critical findings exist (default)
+        warning  — block on any warning or critical finding
+        none     — never block (report-only mode)
     required: false
     default: 'critical'
-  chrome-flags:
-    description: 'Extra flags passed to Chrome when launching headless (space-separated).'
+
+  pr-url:
+    description: 'Full GitHub PR URL (e.g. https://github.com/owner/repo/pull/42). Auto-detected from the workflow pull_request event context when not provided.'
     required: false
     default: ''
 
+  routes-file:
+    description: |
+      Path to an argus.routes.json file (workspace-relative or absolute) containing a JSON array of
+      {path, name} route objects, e.g. [{"path":"/","name":"Home"},{"path":"/login","name":"Login"}].
+      When omitted, Argus looks for argus.routes.json in the workspace root, then falls back to
+      auditing the root path only.
+    required: false
+    default: ''
+
+  chrome-flags:
+    description: 'Extra flags to pass to Chrome at startup, space-separated (e.g. "--disable-web-security --window-size=1920,1080").'
+    required: false
+    default: ''
+
+  node-version:
+    description: 'Node.js version to use.'
+    required: false
+    default: '20'
+
 outputs:
   blocked:
-    description: '"true" if findings at or above block-on severity were found, "false" otherwise.'
+    description: '"true" if findings at or above the block-on severity were found, "false" otherwise.'
     value: ${{ steps.audit.outputs.blocked }}
+
   critical-count:
-    description: 'Number of critical findings across all affected routes.'
+    description: 'Total number of critical-severity findings across all audited routes.'
     value: ${{ steps.audit.outputs.critical_count }}
+
   warning-count:
-    description: 'Number of warning findings across all affected routes.'
+    description: 'Total number of warning-severity findings across all audited routes.'
     value: ${{ steps.audit.outputs.warning_count }}
+
   affected-routes:
-    description: 'Comma-separated list of routes that were audited.'
+    description: 'Comma-separated list of route paths that were audited (e.g. "/,/login,/checkout").'
     value: ${{ steps.audit.outputs.affected_routes }}
 
 runs:
   using: 'composite'
   steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
     - name: Install argusqa-os
       shell: bash
       run: npm install -g argusqa-os@latest
 
     - name: Launch Chrome
       shell: bash
+      env:
+        ARGUS_CHROME_FLAGS: ${{ inputs.chrome-flags }}
       run: |
-        google-chrome \
+        # Resolve the Chrome binary — try common names in order.
+        CHROME_BIN=$(command -v google-chrome 2>/dev/null \
+                  || command -v google-chrome-stable 2>/dev/null \
+                  || command -v chromium-browser 2>/dev/null \
+                  || command -v chromium 2>/dev/null \
+                  || true)
+
+        if [ -z "$CHROME_BIN" ]; then
+          echo "::error::No Chrome or Chromium binary found on this runner."
+          echo "::error::Install it before this step, e.g.:"
+          echo "::error::  sudo apt-get update && sudo apt-get install -y google-chrome-stable"
+          exit 1
+        fi
+
+        echo "[argus] Using Chrome binary: $CHROME_BIN"
+
+        # shellcheck disable=SC2086
+        "$CHROME_BIN" \
           --remote-debugging-port=9222 \
           --headless=new \
           --no-sandbox \
           --disable-gpu \
+          --disable-dev-shm-usage \
           --user-data-dir=/tmp/argus-chrome \
-          ${{ inputs.chrome-flags }} &
-        # Wait for Chrome to be ready
+          $ARGUS_CHROME_FLAGS &
+
+        echo "[argus] Waiting for Chrome DevTools Protocol to be ready..."
         for i in $(seq 1 20); do
-          curl -sf http://localhost:9222/json/version > /dev/null && break
+          curl -sf http://localhost:9222/json/version >/dev/null 2>&1 && break
           sleep 0.5
         done
+
+        if ! curl -sf http://localhost:9222/json/version >/dev/null 2>&1; then
+          echo "::error::Chrome failed to start on port 9222 after 10 seconds."
+          exit 1
+        fi
+
+        echo "[argus] Chrome is ready."
 
     - name: Run PR audit
       id: audit
@@ -67,36 +129,9 @@ runs:
         TARGET_DEV_URL: ${{ inputs.target-url }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         ARGUS_BLOCK_ON: ${{ inputs.block-on }}
-        ARGUS_RETRY_ATTEMPTS: '1'
+        ARGUS_PR_URL: ${{ inputs.pr-url != '' && inputs.pr-url || format('https://github.com/{0}/pull/{1}', github.repository, github.event.pull_request.number) }}
+        ARGUS_ROUTES_FILE: ${{ inputs.routes-file }}
+        ARGUS_RETRY_ATTEMPTS: '2'
+        MCP_BROWSER_URL: 'http://127.0.0.1:9222'
       run: |
-        PR_URL="https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
-
-        RESULT=$(node -e "
-          import('argusqa-os/src/utils/pr-diff-analyzer.js').then(async ({ parsePrUrl, fetchPrFiles, mapFilesToRoutes }) => {
-            const { routes } = await import('argusqa-os/src/config/targets.js');
-            const files  = await fetchPrFiles('$PR_URL', process.env.GITHUB_TOKEN);
-            const affected = mapFilesToRoutes(files, routes ?? []);
-            console.log(JSON.stringify({ files, affected: affected.map(r => r.path) }));
-          }).catch(e => { console.error(e.message); process.exit(1); });
-        " 2>&1)
-
-        BLOCKED="${{ inputs.block-on == 'none' && 'false' || 'false' }}"
-        CRITICAL=0
-        WARNING=0
-        ROUTES=""
-
-        if echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d)" > /dev/null 2>&1; then
-          ROUTES=$(echo "$RESULT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(','.join(d.get('affected',[])))") || true
-        fi
-
-        echo "blocked=$BLOCKED"         >> "$GITHUB_OUTPUT"
-        echo "critical_count=$CRITICAL" >> "$GITHUB_OUTPUT"
-        echo "warning_count=$WARNING"   >> "$GITHUB_OUTPUT"
-        echo "affected_routes=$ROUTES"  >> "$GITHUB_OUTPUT"
-
-    - name: Fail on blocked
-      if: steps.audit.outputs.blocked == 'true'
-      shell: bash
-      run: |
-        echo "::error::Argus PR Validator: ${{ steps.audit.outputs.critical_count }} critical finding(s) found. Merge blocked."
-        exit 1
+        node "$(npm root -g)/argusqa-os/src/cli/pr-validate.js"

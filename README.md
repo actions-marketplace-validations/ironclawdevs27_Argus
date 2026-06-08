@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-631%2F634-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-641%2F644-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**
@@ -62,7 +62,7 @@ Argus scans your app and either posts findings to Slack or opens a local `report
 
 ## What Argus Catches
 
-31 analysis engines, 137 distinct issue types, zero test-file maintenance:
+31 analysis engines, 138 distinct issue types, zero test-file maintenance:
 
 | Category | What it detects |
 |---|---|
@@ -208,7 +208,7 @@ npm run report:html    # Generate reports/report.html from last JSON audit
 npm run server         # Start Slack slash-command server (port 3001)
 npm run init           # Interactive setup wizard
 npm run test:unit      # 61 unit tests — no Chrome required
-npm run test:harness   # 137-block correctness harness — requires Chrome
+npm run test:harness   # 138-block correctness harness — requires Chrome
 ```
 
 **Watch mode** — live monitoring as you develop:
@@ -331,7 +331,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-3 permanent test failures (`631/634`) are MCP-layer restrictions — not fixable in Argus code:
+3 permanent test failures (`641/644`) are MCP-layer restrictions — not fixable in Argus code:
 
 | Tool | Constraint |
 |---|---|
@@ -351,7 +351,7 @@ src/
   adapters/browser.js   — CdpBrowserAdapter — wraps all chrome-devtools-mcp calls
   config/targets.js     — routes, thresholds, auth steps
   cli/init.js           — argus init interactive setup wizard
-test-harness/           — 137-block correctness harness, 62 fixture pages
+test-harness/           — 138-block correctness harness, 62 fixture pages
 test/unit/              — 61 Vitest unit tests (no Chrome required)
 landing/                — Product landing page (React 19 + Vite + Tailwind)
 ```

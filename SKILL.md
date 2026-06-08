@@ -14,7 +14,7 @@ Argus is an AI-driven automated QA harness that audits web pages against 63 dete
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
 - `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate)
-- `test-harness/validate.js` — 137-block correctness harness (634 hard assertions)
+- `test-harness/validate.js` — 138-block correctness harness (644 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -1673,14 +1673,14 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.6.0` |
-| **Test blocks** | 137 |
-| **Hard assertions** | 634 |
+| **Version** | `9.6.1` |
+| **Test blocks** | 138 |
+| **Hard assertions** | 644 |
 | **Soft assertions** | ~12 (Lighthouse / perf traces — headless-unavailable) |
 | **Detection categories** | 63 in production code; **60 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
 | **Analysis engines** | 31 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **631/634** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
+| **Harness gate** | **641/644** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (always 3)
@@ -1722,6 +1722,7 @@ See `OSS-PR-STRATEGY.md` for the chrome-devtools-mcp contribution plan to fix al
 | v9.5.8 | Sprint 5/5b/5c/5d — N1 / A9 / A10 / A11 | `har-recorder.js` + `motion-analyzer.js` + `font-analyzer.js` + `form-analyzer.js`; blocks [132]–[135] (24 assertions) | 613/616 |
 | v9.5.9 | Sprint 6 — GitHub Check Runs | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
 | v9.6.0 | Sprint 7 — PR Diff Analyzer | `pr-diff-analyzer.js` — `parsePrUrl` / `fetchPrFiles` / `mapFilesToRoutes`; `argus_pr_validate` 9th MCP tool; `action.yml` composite GA wrapper; `ARGUS_BLOCK_ON`; block [137] (8 assertions) | 631/634 |
+| v9.6.1 | Sprint 7 — GitHub Action CLI | `src/cli/pr-validate.js` — full headless CI entry point; `buildStepSummary` + `writeGithubOutputs` + `writeStepSummary`; inline `::error::`/`::warning::` annotations; `GITHUB_STEP_SUMMARY` + `GITHUB_OUTPUT`; `action.yml` fully fixed (Chrome binary detection, env-var injection safety, `routes-file`/`node-version` inputs, `setup-node@v4`); block [138] (10 assertions) | 641/644 |
 
 ---
 

@@ -784,7 +784,7 @@ argus/
 │       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
 │       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
 ├── test-harness/
-│   ├── validate.js                   — 137-block correctness harness (631/634 gate)
+│   ├── validate.js                   — 138-block correctness harness (641/644 gate)
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
 │   ├── pages/                        — 62 fixture HTML pages (one per detection category)
@@ -847,7 +847,7 @@ argus/
 
 ## Known MCP Tool Limitations
 
-**3 permanent test failures** in the harness (`631/634`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 3 failures remain.
+**3 permanent test failures** in the harness (`641/644`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 3 failures remain.
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 

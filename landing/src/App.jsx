@@ -27,8 +27,8 @@ const navHrefs = {
 
 const stats = [
   { num: '63', label: 'DETECTION\nTYPES' },
-  { num: '137', label: 'TEST\nBLOCKS' },
-  { num: '634', label: 'ASSERTIONS\nRUN' },
+  { num: '138', label: 'TEST\nBLOCKS' },
+  { num: '644', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']
@@ -738,7 +738,7 @@ const docChapters = [
   {
     num: '05',
     title: 'Test Coverage',
-    tagline: '137 blocks, 634 hard assertions, fixture-driven with zero ambiguity',
+    tagline: '138 blocks, 644 hard assertions, fixture-driven with zero ambiguity',
     sections: [
       {
         body: 'Every detection category has a corresponding fixture HTML page that reliably triggers exactly that bug. Fixtures are served via HTTP — never file:// — so CORS, ES modules, and fetch APIs work correctly. Each block has at minimum 3 hard assertions and passes consistently across environments without flakiness.',
@@ -762,6 +762,7 @@ const docChapters = [
           'Block 135: Sprint 5d A11 Form Validation — required/autocomplete/aria, 9 assertions',
           'Block 136: Sprint 6 GitHub Check Runs — createCheckRun/completeCheckRun, 10 assertions',
           'Block 137: Sprint 7 PR Diff Analyzer — parsePrUrl / mapFilesToRoutes / argus_pr_validate MCP tool, 8 assertions',
+          'Block 138: Sprint 7 GitHub Action CLI — buildStepSummary / writeGithubOutputs / pr-validate.js, 10 assertions',
           '61 Vitest unit tests covering core logic — zero Chrome dependency',
           '3 assertions permanently fail due to MCP-level constraints (documented as expected)',
         ],
@@ -777,8 +778,8 @@ const docChapters = [
       {
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
-npm run test:harness  # 634 hard assertions — Chrome required (headless)
-# Expected: 631/634 (3 permanent MCP-limited failures: drag, Issues panel)
+npm run test:harness  # 644 hard assertions — Chrome required (headless)
+# Expected: 641/644 (3 permanent MCP-limited failures: drag, Issues panel)
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
     ],
@@ -2305,7 +2306,7 @@ function DocsSection() {
             How we built it.
           </h2>
           <p style={{ margin: 0, maxWidth: 520, fontSize: 'clamp(0.9rem, 1.3vw, 1.05rem)', color: 'rgba(255,255,255,0.38)', lineHeight: 1.7 }}>
-            From a single file to 137 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
+            From a single file to 138 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
           </p>
         </motion.div>
 

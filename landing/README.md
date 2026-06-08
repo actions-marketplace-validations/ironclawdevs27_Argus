@@ -250,6 +250,21 @@ Sprint 7 — PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th M
 
 ---
 
+## Stats Update (2026-06-08 — Sprint 7 v9.6.1)
+
+`src/cli/pr-validate.js` headless CI entry point + `action.yml` rewrite + block [138] (10 assertions, CLI helper unit tests — no Chrome required). No new detection categories or fixture pages.
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `137` | `138` |
+| `stats[2].num` (ASSERTIONS RUN) | `634` | `644` |
+| Docs § "Test Coverage" tagline | `137 blocks, 634 hard assertions` | `138 blocks, 644 hard assertions` |
+| Docs § "Running" code | `634 hard assertions`, `631/634` | `644 hard assertions`, `641/644` |
+| "How we built it" caption | `137 test blocks` | `138 test blocks` |
+| Block [138] bullet | — | Added to Breakdown section |
+
+---
+
 ## Stats Update (2026-06-07 — Sprint 6 v9.5.9)
 
 Sprint 6 — GitHub Check Runs: `github-reporter.js` extended with `createCheckRun`/`completeCheckRun` (GitHub Checks API), `generateReleaseNotes()`, `ARGUS_CRITICAL_THRESHOLD` gate, `ARGUS_DIFF_IMAGE_URL`, `GITHUB_CHECK_NAME`; block [136] (10 assertions). No new detection categories or fixture pages. Hero and docs updated:
