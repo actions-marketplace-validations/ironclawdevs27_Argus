@@ -41,6 +41,9 @@ const slides = [
   'Watch Mode — Passive Bug Detection\nWhile You Browse\nYour Own App',
   'Dev vs Staging Diff —\nCatch Environment-Only\nRegressions Automatically',
   'Figma Design Fidelity —\nCompare Live DOM Against Design Specs.\n13 Properties Checked Automatically',
+  'Visual Regression —\nPixel-Level Screenshot Baseline.\nAuto-Detects Every UI Change',
+  'Deep Accessibility —\naxe-core 80+ WCAG Rules +\nColor-Blind CVD Simulation',
+  'HAR Network Baseline —\nTrack Every Request Across Runs.\nCatch Silent API Regressions',
 ]
 
 const fadeDown = {
@@ -362,7 +365,7 @@ SLACK_CHANNEL_DIGEST=C0000000002     # #bugs-digest`,
       {
         num: '05',
         title: 'Audit via Claude',
-        desc: 'Ask Claude directly. Seven tools available — from fast audits to Figma design fidelity checks.',
+        desc: 'Ask Claude directly. Eight tools available — from fast audits to visual regression and Figma design fidelity.',
         code: `# Fast audit — JS errors, network, a11y, SEO, security, CSS, content:
 "Run argus_audit on http://localhost:3000/checkout"
 
@@ -382,7 +385,11 @@ SLACK_CHANNEL_DIGEST=C0000000002     # #bugs-digest`,
 "Run argus_get_context"
 
 # Design fidelity — compare live page against Figma frame (requires FIGMA_API_TOKEN):
-"Run argus_design_audit on http://localhost:3000 with figmaFrameUrl: https://figma.com/file/..."`,
+"Run argus_design_audit on http://localhost:3000 with figmaFrameUrl: https://figma.com/file/..."
+
+# Visual regression — pixel-level screenshot diff against saved baseline:
+"Run argus_visual_diff on http://localhost:3000"
+# Pass updateBaseline: true after intentional UI changes to reset the baseline`,
       },
     ],
   },
@@ -455,7 +462,7 @@ jobs:
       - name: Run Argus
         run: node node_modules/argusqa-os/src/orchestration/crawl-and-report.js
         env:
-          TARGET_DEV_URL: \${{ secrets.TARGET_STAGING_URL }}
+          TARGET_STAGING_URL: \${{ secrets.TARGET_STAGING_URL }}
           SLACK_BOT_TOKEN: \${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_CRITICAL: \${{ secrets.SLACK_CHANNEL_CRITICAL }}
           SLACK_CHANNEL_WARNINGS: \${{ secrets.SLACK_CHANNEL_WARNINGS }}
@@ -488,7 +495,7 @@ const pricingPlans = [
     dark: false,
     description: 'The complete QA harness, self-hosted. Full source on GitHub. No restrictions.',
     benefits: [
-      'All 59 detection categories',
+      'All 63 detection categories',
       'MCP server — callable from Claude',
       'CLI for CI/CD pipelines',
       'Slack & GitHub PR integration',
@@ -568,7 +575,7 @@ const pricingPlans = [
 
 // ── Pricing comparison rows ────────────────────────────────────────────────────
 const COMPARISON_ROWS = [
-  { feature: 'All 59 detection categories',         open: true,  pro: true,  team: true,  enterprise: true  },
+  { feature: 'All 63 detection categories',         open: true,  pro: true,  team: true,  enterprise: true  },
   { feature: 'MCP server & CLI tools',              open: true,  pro: true,  team: true,  enterprise: true  },
   { feature: 'Slack & GitHub PR integration',       open: true,  pro: true,  team: true,  enterprise: true  },
   { feature: 'Baseline & trend tracking',           open: true,  pro: true,  team: true,  enterprise: true  },
@@ -601,7 +608,7 @@ const docChapters = [
       {
         title: 'Key Capabilities',
         bullets: [
-          'Crawls every route and detects 56+ classes of bugs automatically',
+          'Crawls every route and detects 63+ classes of bugs automatically',
           'Executes DSL-defined multi-step user flows with inline assertions',
           'Compares dev vs staging environments and diffs the findings set',
           'Tracks per-run baselines — only new issues trigger alerts',
@@ -644,12 +651,13 @@ const docChapters = [
   },
   {
     num: '03',
-    title: '56 Detection Categories',
+    title: '63 Detection Categories',
     tagline: 'Every surface a browser exposes — console, network, DOM, accessibility, performance, and design fidelity',
     sections: [
       {
         title: 'Core Browser Audits',
         bullets: [
+          'Crawls every route and detects 63+ classes of bugs automatically',
           'Console errors and unhandled rejections',
           'Network failures: 4xx, 5xx, CORS, redirect chains',
           'SEO: title, meta description, Open Graph, sitemap, canonical',
@@ -672,7 +680,7 @@ const docChapters = [
         title: 'Integrations',
         bullets: [
           'Codebase cross-reference: missing env vars, feature flag leakage, dead routes',
-          'GitHub PR: findings table comment + commit status check; blocks merge on criticals',
+          'GitHub PR: findings table comment + commit status check + GitHub Check Runs; blocks merge on criticals',
           'Auto route discovery: sitemap.xml, Next.js pages/app directory, React Router grep',
           'argus init CLI: interactive setup wizard; detects framework, writes .env and targets.js',
         ],
@@ -680,16 +688,22 @@ const docChapters = [
       {
         title: 'Extended Detections',
         bullets: [
-          'Redirect chains, cookie flags, form validation, font loading (FOUT/FOIT)',
-          'Core Web Vitals (LCP, FID, CLS), resource hints, cache headers, debugger statements',
+          'Redirect chains, cookie flags, API contract validation, severity policy overrides',
+          'Core Web Vitals (LCP, FID, CLS, FCP, TTFB) via Performance API — headless-compatible',
+          'Bundle size regression: JS ≥ 500 KB / ≥ 2 MB, CSS ≥ 150 KB',
           'Duplicate element IDs, mixed content, HTML dashboard, parallel route crawling',
-          'API contract validation, severity policy overrides, auth token refresh',
           'Hover-state CSS bugs, accessibility tree analysis, keystroke constraint enforcement',
-          'Drag-and-drop API events, file upload flow validation (type, size, progress, errors)',
           'Chrome DevTools Issues panel, HAR network timing, mobile CPU throttle',
           'Keyboard focus visibility, ARIA state checks, iframe sandbox detection',
           'A7 — Theme & Dark Mode: CSS var comparison under prefers-color-scheme: dark',
-          'D9 — Figma Design Fidelity: 13 properties compared against Figma REST API (color, typography, spacing, shadow, position drift, and more)',
+          'A8 — Visual Regression: pixel-level screenshot baseline comparison via pixelmatch',
+          'A9 — Motion & Animation: prefers-reduced-motion violations, autoplay without controls',
+          'A10 — Font Loading: FOIT, FOUT, missing fallbacks, slow loads > 1s, suboptimal formats',
+          'A11 — Form Validation: missing required/autocomplete/aria-describedby, unlabelled inputs',
+          'A12 — Deep Accessibility: axe-core 4.12 (80+ WCAG rules) + protanopia/deuteranopia CVD simulation',
+          'N1 — HAR Network Baseline: new requests, missing requests, status-code regressions vs saved baseline',
+          'D9 — Figma Design Fidelity: 13 properties vs Figma REST API (color, typography, spacing, shadow, position drift, and more)',
+          'Sprint 6 — GitHub Check Runs: createCheckRun/completeCheckRun, selector-linked findings, release notes generator',
         ],
       },
     ],
@@ -737,6 +751,16 @@ const docChapters = [
           'Blocks 65–78: production crawl pipeline, watch mode, extended phases',
           'Blocks 79–93: config validation, MCP server registration, createFinding(), withRetry(), watch dashboard, cli/init.js, and crawlRouteCheap production path coverage',
           'Blocks 94–126: infrastructure contracts — module APIs, MCP stdio transport, unhappy-path crawl paths, 12k-message stress test, and CLI end-to-end file write',
+          'Block 127: A7 Theme & Dark Mode — emulateColorScheme, 7 assertions',
+          'Block 128: D9 Figma Design Fidelity — 30 assertions [128a–128ad]',
+          'Block 129: Sprint 9 Core Web Vitals — LCP/CLS/FCP/TTI/TTFB + bundle size, 7 hard + 2 soft',
+          'Block 130: A8 Visual Regression — pixelmatch baseline comparison, 9 assertions',
+          'Block 131: A12 Deep Accessibility — axe-core + CVD simulation, 9 assertions',
+          'Block 132: N1 HAR Network Baseline — record + diff, 9 assertions',
+          'Block 133: A9 Motion & Animation — prefers-reduced-motion, 9 assertions',
+          'Block 134: A10 Font Loading — FOIT/FOUT/fallback/slow, 9 assertions',
+          'Block 135: A11 Form Validation — required/autocomplete/aria, 9 assertions',
+          'Block 136: Sprint 6 GitHub Check Runs — createCheckRun/completeCheckRun, 10 assertions',
           '61 Vitest unit tests covering core logic — zero Chrome dependency',
           '3 assertions permanently fail due to MCP-level constraints (documented as expected)',
         ],
@@ -799,7 +823,7 @@ npm run test:harness  # 626 hard assertions — Chrome required (headless)
         body: 'The MCP server turns Argus into a first-class tool that Claude (or any MCP client) can invoke directly from a conversation. No terminal, no config file editing — Claude calls argus_audit the same way it calls any tool. The audit runs, the findings come back structured, and Claude can summarise, filter, or suggest fixes inline.',
       },
       {
-        title: 'Seven Exposed Tools',
+        title: 'Eight Exposed Tools',
         bullets: [
           'argus_audit(url) — cheap QA pass: console errors, network failures, SEO, security headers, content issues',
           'argus_audit_full(url) — all analyzers including memory, responsive, hover-state, accessibility tree, keyboard walk',
@@ -808,6 +832,7 @@ npm run test:harness  # 626 hard assertions — Chrome required (headless)
           'argus_watch_snapshot() — snapshots the currently open Chrome tab without navigating; accepts tabId for multi-tab workflows',
           'argus_get_context() — LLM-optimized diagnostic context with fix-loop: pass snapshot_id back to get resolved/new_issues/persisting diff',
           'argus_design_audit(url, figmaFrameUrl) — compares live DOM against Figma frame via REST API; 13 mismatch finding types with selector fallback; requires FIGMA_API_TOKEN',
+          'argus_visual_diff(url) — pixel-level screenshot baseline comparison via pixelmatch; first call saves baseline, subsequent calls emit visual_regression findings; pass updateBaseline: true to reset after intentional UI changes',
         ],
       },
       {
@@ -1084,7 +1109,7 @@ function DetectionSection() {
                 lineHeight: 1.1, letterSpacing: '-0.02em', whiteSpace: 'pre-line', margin: 0,
               }}
             >
-              {'56 types.\nZero blind spots.'}
+              {'63 types.\nZero blind spots.'}
             </h2>
             <p style={{ margin: '1rem 0 0', fontSize: '0.85rem', color: 'rgba(10,10,10,0.45)', lineHeight: 1.6 }}>
               Click any category to see every detection it covers.
@@ -2279,7 +2304,7 @@ function DocsSection() {
             How we built it.
           </h2>
           <p style={{ margin: 0, maxWidth: 520, fontSize: 'clamp(0.9rem, 1.3vw, 1.05rem)', color: 'rgba(255,255,255,0.38)', lineHeight: 1.7 }}>
-            From a single file to 126 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
+            From a single file to 136 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
           </p>
         </motion.div>
 
