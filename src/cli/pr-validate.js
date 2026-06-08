@@ -329,7 +329,10 @@ async function main() {
     console.log(JSON.stringify(result, null, 2));
 
     if (blocked) {
-      console.error(`::error::Argus PR Validator: ${summary.critical} critical finding(s) found. Merge blocked (block-on=${blockOn}).`);
+      const blockReason = blockOn === 'warning'
+        ? `${summary.critical} critical + ${summary.warning} warning finding(s) found`
+        : `${summary.critical} critical finding(s) found`;
+      console.error(`::error::Argus PR Validator: ${blockReason}. Merge blocked (block-on=${blockOn}).`);
       process.exit(1);
     }
 
