@@ -28,16 +28,20 @@ const navHrefs = {
 const stats = [
   { num: '63', label: 'DETECTION\nTYPES' },
   { num: '138', label: 'TEST\nBLOCKS' },
-  { num: '644', label: 'ASSERTIONS\nRUN' },
+  { num: '653', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']
+
+const GLAMA_BADGE_URL = 'https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg'
+const GLAMA_URL = 'https://glama.ai/mcp/servers/ironclawdevs27/Argus'
 
 const slides = [
   'AI-Powered QA Engine Built Around Chrome DevTools Protocol And Real Browser Automation',
   'Catching Bugs Before\nThey Hit Your\nProduction',
   'Zero Test Scripts — Add One Block\nTo Your Claude Config.\nQA Runs Automatically',
   'Open Source Forever — MCP Server,\nCLI, Slack & GitHub Alerts,\nAll Included At No Cost',
+  { type: 'badge', src: GLAMA_BADGE_URL, href: GLAMA_URL, alt: 'Argus on Glama MCP' },
   'Watch Mode — Passive Bug Detection\nWhile You Browse\nYour Own App',
   'Dev vs Staging Diff —\nCatch Environment-Only\nRegressions Automatically',
   'Figma Design Fidelity —\nCompare Live DOM Against Design Specs.\n13 Properties Checked Automatically',
@@ -738,7 +742,7 @@ const docChapters = [
   {
     num: '05',
     title: 'Test Coverage',
-    tagline: '138 blocks, 644 hard assertions, fixture-driven with zero ambiguity',
+    tagline: '138 blocks, 653 hard assertions, fixture-driven with zero ambiguity',
     sections: [
       {
         body: 'Every detection category has a corresponding fixture HTML page that reliably triggers exactly that bug. Fixtures are served via HTTP — never file:// — so CORS, ES modules, and fetch APIs work correctly. Each block has at minimum 3 hard assertions and passes consistently across environments without flakiness.',
@@ -778,8 +782,8 @@ const docChapters = [
       {
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
-npm run test:harness  # 644 hard assertions — Chrome required (headless)
-# Expected: 641/644 (3 permanent MCP-limited failures: drag, Issues panel)
+npm run test:harness  # 653 hard assertions — Chrome required (headless)
+# Expected: 650/653 (3 permanent MCP-limited failures: drag, Issues panel)
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
     ],
@@ -2373,6 +2377,154 @@ function DocsSection() {
   )
 }
 
+// ── Ecosystem / Listed-On section ─────────────────────────────────────────────
+const ecosystemLinks = [
+  {
+    name: 'GitHub',
+    sub: 'Source Code',
+    url: GITHUB_URL,
+    tag: 'OPEN SOURCE',
+  },
+  {
+    name: 'Glama MCP',
+    sub: 'MCP Registry',
+    url: GLAMA_URL,
+    tag: 'FEATURED',
+  },
+  {
+    name: 'PR Validator',
+    sub: 'GitHub Actions',
+    url: 'https://github.com/marketplace/actions/argus-pr-validator',
+    tag: 'CI/CD',
+  },
+  {
+    name: 'Pulse MCP',
+    sub: 'MCP Directory',
+    url: 'https://www.pulsemcp.com/servers/ironclawdevs27-argus',
+    tag: 'DIRECTORY',
+  },
+  {
+    name: 'mcp.so',
+    sub: 'MCP Directory',
+    url: 'https://mcp.so/server/argus-qa/ironclawdevs27',
+    tag: 'DIRECTORY',
+  },
+  {
+    name: 'mcpservers.org',
+    sub: 'MCP Registry',
+    url: 'https://mcpservers.org/servers/ironclawdevs27/argus',
+    tag: 'DIRECTORY',
+  },
+  {
+    name: 'MCP Registry',
+    sub: 'Official Registry',
+    url: 'https://registry.modelcontextprotocol.io/?q=argus',
+    tag: 'OFFICIAL',
+  },
+]
+
+function ListedOnSection() {
+  return (
+    <section
+      id="ecosystem"
+      style={{
+        background: '#040404',
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        padding: 'clamp(3.5rem, 7vw, 6rem) clamp(1.25rem, 6vw, 5rem)',
+      }}
+    >
+      <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          style={{ marginBottom: 'clamp(2.5rem, 5vw, 4rem)', textAlign: 'center' }}
+        >
+          <p style={{
+            margin: '0 0 0.75rem',
+            fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em',
+            textTransform: 'uppercase', color: 'rgba(255,255,255,0.28)',
+          }}>
+            Find Argus On
+          </p>
+          <h2 style={{
+            margin: 0,
+            fontSize: 'clamp(1.6rem, 4vw, 2.8rem)', fontWeight: 600,
+            color: '#fff', lineHeight: 1.1, letterSpacing: '-0.02em',
+          }}>
+            The MCP Ecosystem
+          </h2>
+        </motion.div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 148px), 1fr))',
+          gap: '0.875rem',
+        }}>
+          {ecosystemLinks.map((link, i) => (
+            <motion.a
+              key={link.name}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ delay: i * 0.07, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                padding: 'clamp(1rem, 2vw, 1.25rem)',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '1rem',
+                textDecoration: 'none',
+                transition: 'background 0.2s ease, border-color 0.2s ease, transform 0.2s ease',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(94,14,215,0.1)'
+                e.currentTarget.style.borderColor = 'rgba(94,14,215,0.35)'
+                e.currentTarget.style.transform = 'translateY(-2px)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
+            >
+              <span style={{
+                display: 'inline-block',
+                fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: ACCENT,
+                background: 'rgba(94,14,215,0.12)',
+                padding: '0.18rem 0.5rem',
+                borderRadius: '2rem',
+                alignSelf: 'flex-start',
+              }}>
+                {link.tag}
+              </span>
+              <div>
+                <p style={{ margin: 0, fontSize: '0.92rem', fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
+                  {link.name}
+                </p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: 'rgba(255,255,255,0.32)', letterSpacing: '0.04em' }}>
+                  {link.sub}
+                </p>
+              </div>
+              <ArrowUpRight size={14} color="rgba(255,255,255,0.2)" style={{ alignSelf: 'flex-end', marginTop: 'auto' }} />
+            </motion.a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function Footer() {
   return (
     <footer
@@ -2629,9 +2781,25 @@ export default function App() {
                   style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
                 >
                   <div className="mb-3 sm:mb-4" style={{ width: '2rem', height: '2px', background: ACCENT, borderRadius: 2 }} />
-                  <p className="font-semibold tracking-widest uppercase text-black leading-relaxed text-left whitespace-pre-line" style={{ fontSize: 'clamp(0.75rem, 1.6vw, 0.85rem)' }}>
-                    {slides[slideIndex]}
-                  </p>
+                  {typeof slides[slideIndex] === 'string' ? (
+                    <p className="font-semibold tracking-widest uppercase text-black leading-relaxed text-left whitespace-pre-line" style={{ fontSize: 'clamp(0.75rem, 1.6vw, 0.85rem)' }}>
+                      {slides[slideIndex]}
+                    </p>
+                  ) : (
+                    <a
+                      href={slides[slideIndex].href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'block' }}
+                      aria-label={slides[slideIndex].alt}
+                    >
+                      <img
+                        src={slides[slideIndex].src}
+                        alt={slides[slideIndex].alt}
+                        style={{ maxWidth: '100%', height: 'auto', borderRadius: '0.5rem' }}
+                      />
+                    </a>
+                  )}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -2732,6 +2900,7 @@ export default function App() {
       <SetupSection />
       <PricingSection />
       <DocsSection />
+      <ListedOnSection />
       <Footer />
     </div>
     </MotionConfig>
