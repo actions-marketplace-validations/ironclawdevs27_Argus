@@ -11,6 +11,9 @@ reports/*.jpg
 reports/*.webp
 reports/*.diff.png
 
+# Release notes — local scratch pad, copy-paste into GitHub release form
+RELEASE_NOTES.md
+
 # Internal planning docs — keep local only
 session.md
 solution.md
