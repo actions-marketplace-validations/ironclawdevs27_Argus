@@ -246,8 +246,19 @@ async function main() {
     // Step 5: Audit each affected route via crawlRouteCheap
     // Preserve path prefix (e.g. /project/ in GitHub Pages) — .origin would strip it
     const baseUrl = targetUrl.replace(/\/$/, '');
-    for (const route of affected) {
-      const url = new URL(route.path, targetUrl).href;
+
+    // Normalize route paths — crawlRouteCheap builds URLs via string concat (baseUrl + route.path)
+    // so paths without a leading slash produce malformed URLs like https://example.comlogin
+    const normalizedAffected = affected.map(r => {
+      if (!r.path.startsWith('/')) {
+        console.log(`::warning::Route path "${r.path}" has no leading slash — normalizing to "/${r.path}". Update argus.routes.json to use a leading slash.`);
+        return { ...r, path: `/${r.path}` };
+      }
+      return r;
+    });
+
+    for (const route of normalizedAffected) {
+      const url = `${baseUrl}${route.path}`;
       console.log(`[argus] → Auditing ${url}`);
 
       try {
@@ -276,6 +287,18 @@ async function main() {
       }
     }
 
+    // Guard: if every route failed with an exception, the app was unreachable after
+    // the preflight check (e.g. race condition where app died between check and crawl).
+    // Throwing here causes the step to exit 1, which correctly blocks the merge.
+    const routeFailCount = perRoute.filter(r => r.error).length;
+    if (routeFailCount > 0 && routeFailCount === perRoute.length) {
+      throw new Error(
+        `All ${perRoute.length} route audit(s) failed — Chrome could not reach the app. ` +
+        `Ensure TARGET_DEV_URL is accessible throughout the job. ` +
+        `First error: ${perRoute[0].error}`,
+      );
+    }
+
     // Step 6: Compute aggregate summary and merge-block decision
     const summary = {
       critical: allFindings.filter(f => f.severity === 'critical').length,
@@ -289,13 +312,13 @@ async function main() {
       false;
 
     // Step 7: Write GitHub Actions outputs and step summary
-    writeGithubOutputs({ blocked, summary, affectedRoutes: affected });
-    writeStepSummary(buildStepSummary({ blocked, summary, affectedRoutes: affected, perRoute, findings: allFindings, changedFiles: files, blockOn }));
+    writeGithubOutputs({ blocked, summary, affectedRoutes: normalizedAffected });
+    writeStepSummary(buildStepSummary({ blocked, summary, affectedRoutes: normalizedAffected, perRoute, findings: allFindings, changedFiles: files, blockOn }));
 
     // Step 8: Emit JSON result to stdout for downstream pipeline steps
     const result = {
       prUrl, targetUrl,
-      affectedRoutes: affected.map(r => r.path),
+      affectedRoutes: normalizedAffected.map(r => r.path),
       changedFiles: files,
       findings: allFindings,
       perRoute,
