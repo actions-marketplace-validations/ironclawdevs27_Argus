@@ -123,6 +123,20 @@ export function writeStepSummary(markdown) {
   fs.appendFileSync(summaryPath, markdown);
 }
 
+// ── Preflight reachability check ──────────────────────────────────────────────
+
+async function checkTargetReachable(url) {
+  try {
+    // fetch throws only on network errors (ECONNREFUSED, ETIMEDOUT, DNS failure).
+    // HTTP error status codes (4xx/5xx) still mean the server is up — Argus should
+    // audit those pages, so we only gate on network-level failures.
+    await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 // ── Route loader ──────────────────────────────────────────────────────────────
 
 async function loadRoutes() {
@@ -217,20 +231,27 @@ async function main() {
 
     console.log(`[argus] Auditing ${affected.length} route(s): ${affected.map(r => r.path).join(', ')}`);
 
-    // Step 3: Connect to Chrome via the chrome-devtools MCP client
+    // Step 3: Verify target is reachable before spending time on Chrome startup
+    console.log(`[argus] Verifying target is reachable: ${targetUrl}`);
+    const reachable = await checkTargetReachable(targetUrl);
+    if (!reachable.ok) {
+      throw new Error(`Target URL not reachable (${targetUrl}): ${reachable.error}. Make sure your app is running and accessible from the runner before this action fires.`);
+    }
+
+    // Step 4: Connect to Chrome via the chrome-devtools MCP client
     console.log('[argus] Connecting to Chrome on port 9222...');
     mcp = await createMcpClient();
     console.log('[argus] Chrome connected.');
 
-    const baseOrigin = new URL(targetUrl).origin;
-
-    // Step 4: Audit each affected route via crawlRouteCheap
+    // Step 5: Audit each affected route via crawlRouteCheap
+    // Preserve path prefix (e.g. /project/ in GitHub Pages) — .origin would strip it
+    const baseUrl = targetUrl.replace(/\/$/, '');
     for (const route of affected) {
       const url = new URL(route.path, targetUrl).href;
       console.log(`[argus] → Auditing ${url}`);
 
       try {
-        const raw      = await crawlRouteCheap(route, baseOrigin, mcp);
+        const raw      = await crawlRouteCheap(route, baseUrl, mcp);
         const findings = Array.isArray(raw.errors) ? raw.errors : [];
         allFindings.push(...findings);
 
@@ -255,7 +276,7 @@ async function main() {
       }
     }
 
-    // Step 5: Compute aggregate summary and merge-block decision
+    // Step 6: Compute aggregate summary and merge-block decision
     const summary = {
       critical: allFindings.filter(f => f.severity === 'critical').length,
       warning:  allFindings.filter(f => f.severity === 'warning').length,
@@ -267,11 +288,11 @@ async function main() {
       blockOn === 'warning'  ? summary.critical + summary.warning > 0 :
       false;
 
-    // Step 6: Write GitHub Actions outputs and step summary
+    // Step 7: Write GitHub Actions outputs and step summary
     writeGithubOutputs({ blocked, summary, affectedRoutes: affected });
     writeStepSummary(buildStepSummary({ blocked, summary, affectedRoutes: affected, perRoute, findings: allFindings, changedFiles: files, blockOn }));
 
-    // Step 7: Emit JSON result to stdout for downstream pipeline steps
+    // Step 8: Emit JSON result to stdout for downstream pipeline steps
     const result = {
       prUrl, targetUrl,
       affectedRoutes: affected.map(r => r.path),

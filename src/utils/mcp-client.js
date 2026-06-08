@@ -133,6 +133,8 @@ export async function createMcpClient() {
     capabilities: {},
     clientInfo: { name: 'argus', version: '1.0.0' },
   });
+  // MCP 2024-11-05 spec: client MUST send this notification before any tool calls
+  proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n');
 
   /**
    * Call an MCP tool by name with params.

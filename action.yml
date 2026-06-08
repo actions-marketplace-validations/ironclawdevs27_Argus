@@ -72,7 +72,7 @@ outputs:
     description: 'Total number of warning-severity findings across all audited routes.'
     value: ${{ steps.audit.outputs.warning_count }}
 
-  affected-routes:
+  affected_routes:
     description: 'Comma-separated list of route paths that were audited (e.g. "/,/login,/checkout").'
     value: ${{ steps.audit.outputs.affected_routes }}
 
@@ -86,7 +86,7 @@ runs:
 
     - name: Install argusqa-os
       shell: bash
-      run: npm install -g argusqa-os@9.6.3
+      run: npm install -g argusqa-os@9.6.4 chrome-devtools-mcp@1.1.1
 
     - name: Launch Chrome
       shell: bash
