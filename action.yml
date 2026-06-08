@@ -1,11 +1,5 @@
 name: 'Argus PR Validator'
-description: |
-  Targeted Argus QA audit on routes affected by a pull request. Blocks merge on critical (or warning) findings.
-
-  Prerequisites (add these steps before this action in your workflow):
-    1. actions/checkout — required so argus.routes.json can be read from your workspace root.
-    2. Start your application — the target-url must be reachable from the runner before this action fires.
-    3. Chrome/Chromium — GitHub-hosted ubuntu-latest runners include google-chrome-stable; self-hosted runners must install it manually.
+description: 'Targeted QA audit on routes affected by a pull request. Blocks merge on critical or warning findings.'
 author: 'ironclawdevs27'
 
 branding:
