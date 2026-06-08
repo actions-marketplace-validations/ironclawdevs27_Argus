@@ -125,7 +125,7 @@ export function writeStepSummary(markdown) {
 
 // ── Preflight reachability check ──────────────────────────────────────────────
 
-async function checkTargetReachable(url) {
+export async function checkTargetReachable(url) {
   try {
     // fetch throws only on network errors (ECONNREFUSED, ETIMEDOUT, DNS failure).
     // HTTP error status codes (4xx/5xx) still mean the server is up — Argus should
@@ -135,6 +135,21 @@ async function checkTargetReachable(url) {
   } catch (err) {
     return { ok: false, error: err.message };
   }
+}
+
+/**
+ * Normalize route paths — crawlRouteCheap builds URLs via string concatenation
+ * (baseUrl + route.path), so paths without a leading slash produce malformed URLs.
+ * @param {Array<{path: string, name?: string}>} routes
+ * @returns {Array<{path: string, name?: string}>}
+ */
+export function normalizeRoutePaths(routes) {
+  return routes.map(r => {
+    if (!r.path.startsWith('/')) {
+      return { ...r, path: `/${r.path}` };
+    }
+    return r;
+  });
 }
 
 // ── Route loader ──────────────────────────────────────────────────────────────
@@ -249,10 +264,9 @@ async function main() {
 
     // Normalize route paths — crawlRouteCheap builds URLs via string concat (baseUrl + route.path)
     // so paths without a leading slash produce malformed URLs like https://example.comlogin
-    const normalizedAffected = affected.map(r => {
-      if (!r.path.startsWith('/')) {
-        console.log(`::warning::Route path "${r.path}" has no leading slash — normalizing to "/${r.path}". Update argus.routes.json to use a leading slash.`);
-        return { ...r, path: `/${r.path}` };
+    const normalizedAffected = normalizeRoutePaths(affected).map((r, i) => {
+      if (r.path !== affected[i].path) {
+        console.log(`::warning::Route path "${affected[i].path}" has no leading slash — normalizing. Update argus.routes.json to use a leading slash.`);
       }
       return r;
     });

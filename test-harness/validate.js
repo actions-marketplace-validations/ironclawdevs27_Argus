@@ -87,7 +87,7 @@ import { createFinding } from '../src/domain/finding.js';
 import { withRetry } from '../src/utils/retry.js';
 import { diffNetworkRequests, diffConsoleMessages } from '../src/utils/diff.js';
 import { parsePrUrl, mapFilesToRoutes } from '../src/utils/pr-diff-analyzer.js';
-import { buildStepSummary, writeGithubOutputs, writeStepSummary } from '../src/cli/pr-validate.js';
+import { buildStepSummary, writeGithubOutputs, writeStepSummary, checkTargetReachable, normalizeRoutePaths } from '../src/cli/pr-validate.js';
 
 // ── Section 1 gap-closer imports (blocks [94]–[107]) ──────────────────────────
 import { parseConsoleMsgResponse, parseNetworkReqResponse } from '../src/utils/mcp-parsers.js';
@@ -5721,6 +5721,36 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       Array.isArray(result137h) && result137h.length === 0,
       `[137h] mapFilesToRoutes returns empty array when routes is empty (got ${result137h.length})`
     );
+
+    // [137i] mapFilesToRoutes returns [] for a .github/-only PR (EXCLUDED_PATTERNS)
+    const result137i = mapFilesToRoutes(
+      ['.github/workflows/ci.yml', '.github/dependabot.yml'],
+      routes137,
+    );
+    assert(
+      Array.isArray(result137i) && result137i.length === 0,
+      `[137i] mapFilesToRoutes returns [] for .github/-only PR — audit should be skipped (got ${result137i.length})`
+    );
+
+    // [137j] mapFilesToRoutes returns [] for a docs/markdown-only PR (EXCLUDED_PATTERNS)
+    const result137j = mapFilesToRoutes(
+      ['README.md', 'docs/setup.md', 'CHANGELOG.md'],
+      routes137,
+    );
+    assert(
+      Array.isArray(result137j) && result137j.length === 0,
+      `[137j] mapFilesToRoutes returns [] for markdown-only PR — audit should be skipped (got ${result137j.length})`
+    );
+
+    // [137k] mapFilesToRoutes proceeds to route matching when mix of excluded + app files
+    const result137k = mapFilesToRoutes(
+      ['.github/workflows/ci.yml', 'src/pages/login.tsx'],
+      [{ path: '/login', name: 'Login' }, { path: '/home', name: 'Home' }],
+    );
+    assert(
+      result137k.length === 1 && result137k[0].path === '/login',
+      `[137k] mapFilesToRoutes proceeds when PR has excluded files alongside app files (got: ${JSON.stringify(result137k.map(r => r.path))})`
+    );
   }
 
   // ── Block [138] Sprint 7 — PR Validate CLI helpers (no Chrome required) ──────
@@ -5827,6 +5857,52 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       fs.existsSync(cliPath138),
       `[138j] src/cli/pr-validate.js exists at expected path (${cliPath138})`
+    );
+
+    // [138k] checkTargetReachable returns { ok: true } for a live server (harness fixture)
+    const reach138k = await checkTargetReachable(`http://localhost:${devPort}/`);
+    assert(
+      reach138k.ok === true,
+      `[138k] checkTargetReachable returns ok=true for live harness server on port ${devPort} (got: ${JSON.stringify(reach138k)})`
+    );
+
+    // [138l] checkTargetReachable returns { ok: false } for a port with nothing listening
+    const reach138l = await checkTargetReachable('http://localhost:19999/');
+    assert(
+      reach138l.ok === false && typeof reach138l.error === 'string',
+      `[138l] checkTargetReachable returns ok=false + error string for unreachable port (got: ${JSON.stringify(reach138l)})`
+    );
+
+    // [138m] checkTargetReachable returns ok=true for HTTP 4xx (server is up, route just missing)
+    const reach138m = await checkTargetReachable(`http://localhost:${devPort}/this-path-does-not-exist-404`);
+    assert(
+      reach138m.ok === true,
+      `[138m] checkTargetReachable returns ok=true for HTTP 404 — only network errors fail (got: ${JSON.stringify(reach138m)})`
+    );
+
+    // [138n] normalizeRoutePaths prepends leading slash to paths that are missing it
+    const norm138n = normalizeRoutePaths([{ path: 'login', name: 'Login' }]);
+    assert(
+      norm138n[0].path === '/login',
+      `[138n] normalizeRoutePaths prepends / to route path missing leading slash (got: "${norm138n[0].path}")`
+    );
+
+    // [138o] normalizeRoutePaths leaves paths that already have a leading slash unchanged
+    const norm138o = normalizeRoutePaths([{ path: '/checkout', name: 'Checkout' }]);
+    assert(
+      norm138o[0].path === '/checkout',
+      `[138o] normalizeRoutePaths leaves correctly-prefixed paths unchanged (got: "${norm138o[0].path}")`
+    );
+
+    // [138p] all-routes-failed guard condition: detects when every perRoute entry has an error
+    const failedPerRoute138 = [
+      { route: '/login', critical: 0, warning: 0, info: 0, error: 'navigate timeout' },
+      { route: '/checkout', critical: 0, warning: 0, info: 0, error: 'MCP tool timeout' },
+    ];
+    const failCount138 = failedPerRoute138.filter(r => r.error).length;
+    assert(
+      failCount138 > 0 && failCount138 === failedPerRoute138.length,
+      `[138p] all-routes-failed guard condition correctly identifies all-failed perRoute array (failCount=${failCount138}, total=${failedPerRoute138.length})`
     );
   }
 }
