@@ -1025,11 +1025,11 @@ export async function runCrawl(mcp, routeOverrides = null, baseUrlOverride = nul
 
   // Auth session persistence (B2)
   const sessionFile = auth?.sessionFile ?? '.argus-session.json';
-  if (auth && auth.steps?.length > 0) {
-    if (!hasSession(sessionFile, auth.sessionMaxAgeMs)) {
-      logger.info(`[ARGUS] Auth: running login flow (${auth.steps.length} steps)...`);
+  if (auth?.steps?.length > 0) {
+    if (!hasSession(sessionFile, auth?.sessionMaxAgeMs)) {
+      logger.info(`[ARGUS] Auth: running login flow (${auth?.steps?.length ?? 0} steps)...`);
       try {
-        await runLoginFlow(browser, targetBaseUrl, auth.steps);
+        await runLoginFlow(browser, targetBaseUrl, auth?.steps ?? []);
         await saveSession(browser, sessionFile);
       } catch (err) {
         logger.warn(`[ARGUS] Auth: login flow failed — crawl will proceed unauthenticated: ${err.message}`);

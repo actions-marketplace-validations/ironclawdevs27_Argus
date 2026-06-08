@@ -40,9 +40,9 @@ function collectSourceFiles(sourceDir) {
       if (e.isDirectory()) { walk(full); }
       else if (SOURCE_EXTENSIONS.has(path.extname(e.name))) {
         try {
-          const stat = fs.statSync(full);
-          if (stat.size > 1_000_000) continue; // skip files > 1MB (minified bundles, etc.)
-          files.push({ filePath: full, content: fs.readFileSync(full, 'utf8') });
+          const content = fs.readFileSync(full, 'utf8');
+          if (Buffer.byteLength(content, 'utf8') > 1_000_000) continue; // skip files > 1MB
+          files.push({ filePath: full, content });
         } catch {}
       }
     }

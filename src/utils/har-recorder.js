@@ -79,20 +79,25 @@ export async function analyzeHar(browser, url, opts = {}) {
   const harFile = path.join(harDir, `${slug}.json`);
 
   // ── First run: save baseline ──────────────────────────────────────────────
-  if (!fs.existsSync(harFile)) {
-    try {
-      fs.mkdirSync(harDir, { recursive: true });
-      const baseline = {
-        version: '1.2',
-        createdAt: new Date().toISOString(),
-        url,
-        entries: requests.map(toBaselineEntry),
-      };
-      fs.writeFileSync(harFile, JSON.stringify(baseline, null, 2));
-    } catch (err) {
+  // Use flag:'wx' for atomic create — throws EEXIST if baseline already exists (TOCTOU-safe).
+  fs.mkdirSync(harDir, { recursive: true });
+  const baseline = {
+    version: '1.2',
+    createdAt: new Date().toISOString(),
+    url,
+    entries: requests.map(toBaselineEntry),
+  };
+  let harIsNew = false;
+  try {
+    fs.writeFileSync(harFile, JSON.stringify(baseline, null, 2), { flag: 'wx' });
+    harIsNew = true;
+  } catch (err) {
+    if (err.code !== 'EEXIST') {
       logger.warn(`[ARGUS] har-recorder: failed to write baseline: ${err.message}`);
       return findings;
     }
+  }
+  if (harIsNew) {
 
     findings.push({
       type:         'har_baseline_created',

@@ -141,13 +141,18 @@ export async function analyzeVisualRegression(browser, url, opts = {}) {
   const baselinePath = path.join(baselineDir, `${slug}.png`);
 
   // ── 3. First run: save baseline ─────────────────────────────────────────────
-  if (!fs.existsSync(baselinePath)) {
-    try {
-      fs.writeFileSync(baselinePath, currentBuf);
-    } catch (err) {
+  // Use flag:'wx' for atomic create — throws EEXIST if baseline was written concurrently (TOCTOU-safe).
+  let baselineIsNew = false;
+  try {
+    fs.writeFileSync(baselinePath, currentBuf, { flag: 'wx' });
+    baselineIsNew = true;
+  } catch (err) {
+    if (err.code !== 'EEXIST') {
       logger.warn(`[ARGUS] visual-diff: could not write baseline ${baselinePath}: ${err.message}`);
       return findings;
     }
+  }
+  if (baselineIsNew) {
 
     findings.push({
       type:     'visual_baseline_created',
