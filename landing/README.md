@@ -219,3 +219,29 @@ Sprint 3 Extension — argus_visual_diff MCP tool: wired existing visual-diff-an
 | Hard assertions | 590 | **592** ([80m]+[80n] registration + [117c/d] threshold) |
 | Harness gate | 587/590 | **589/592** |
 | Version | 9.5.6 | **9.5.7** |
+
+## Stats Update (2026-06-07 — Sprints 5/5b/5c/5d v9.5.8)
+
+Sprints 5/5b/5c/5d — N1 HAR Network Baseline, A9 Motion & Animation, A10 Font Loading, A11 Form Validation: `har-recorder.js`, `motion-analyzer.js`, `font-analyzer.js`, `form-analyzer.js` (blocks [132]–[135], 4 new fixture pages). Hero and docs updated:
+
+| Field | Old | New |
+|---|---|---|
+| `stats[0].num` (DETECTION TYPES) | `59` | `63` |
+| `stats[1].num` (TEST BLOCKS) | `131` | `135` |
+| `stats[2].num` (ASSERTIONS RUN) | `592` | `616` |
+| Docs § "Test Coverage" tagline | `131 blocks, 592 hard assertions` | `135 blocks, 616 hard assertions` |
+| Docs § "Running" code | `592 hard assertions`, `589/592` | `616 hard assertions`, `613/616` |
+| Feature table detection count | `59` | `63` |
+| "How we built it" caption | `131 test blocks` | `135 test blocks` |
+
+## Stats Update (2026-06-07 — Sprint 6 v9.5.9)
+
+Sprint 6 — GitHub Check Runs: `github-reporter.js` extended with `createCheckRun`/`completeCheckRun` (GitHub Checks API), `generateReleaseNotes()`, `ARGUS_CRITICAL_THRESHOLD` gate, `ARGUS_DIFF_IMAGE_URL`, `GITHUB_CHECK_NAME`; block [136] (10 assertions). No new detection categories or fixture pages. Hero and docs updated:
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `135` | `136` |
+| `stats[2].num` (ASSERTIONS RUN) | `616` | `626` |
+| Docs § "Test Coverage" tagline | `135 blocks, 616 hard assertions` | `136 blocks, 626 hard assertions` |
+| Docs § "Running" code | `616 hard assertions`, `613/616` | `626 hard assertions`, `623/626` |
+| "How we built it" caption | `135 test blocks` | `136 test blocks` |

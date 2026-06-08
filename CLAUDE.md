@@ -65,7 +65,7 @@ src/
     network-timing-analyzer.js — HAR timing analysis for slow third-party detection
     lighthouse-checker.js     — Lighthouse soft assertions
     codebase-analyzer.js      — C1: static source analysis
-    github-reporter.js        — C2: PR comment + commit status
+    github-reporter.js        — C2: PR comment + commit status + Check Runs
     route-discoverer.js       — C3: sitemap + Next.js + React Router discovery
     contract-validator.js     — D7.4: API response schema validation
     parallel-crawler.js       — D7.3: parallel route crawling
@@ -76,7 +76,7 @@ src/
     css-analyzer.js           — CSS rule analysis
     theme-analyzer.js         — A7: Theme & Dark Mode detection
     design-fidelity-analyzer.js — D9: Figma design token vs DOM comparison
-    web-vitals-analyzer.js    — Sprint 9: LCP/CLS/FCP/TTI/TTFB via Performance API + bundle size regression
+    web-vitals-analyzer.js    — Web Vitals: LCP/CLS/FCP/TTI/TTFB via Performance API + bundle size regression
     visual-diff-analyzer.js   — A8: Visual regression — pixelmatch screenshot baseline comparison
     a11y-deep-analyzer.js     — A12: Deep Accessibility — axe-core 4.12 injection (80+ WCAG rules) + protanopia/deuteranopia CVD color blind simulation
     har-recorder.js           — N1: HAR Network Baseline — record + diff network requests per route
@@ -190,7 +190,7 @@ REPORT_OUTPUT_DIR=./reports
 A11Y_CONTRAST_AA=                  # WCAG AA min contrast ratio for CVD simulation (default: 4.5)
 A11Y_MAX_AXE=                      # max axe-core violations per page (default: 50)
 
-# Sprint 6: GitHub PR rich comments (optional)
+# GitHub PR rich comments + Check Runs (optional)
 ARGUS_CRITICAL_THRESHOLD=          # new criticals before blocking merge (default: 1; 0 = never block)
 ARGUS_DIFF_IMAGE_URL=              # visual diff image URL to embed in PR comment
 GITHUB_CHECK_NAME=                 # GitHub Check Run name (default: argus-qa)

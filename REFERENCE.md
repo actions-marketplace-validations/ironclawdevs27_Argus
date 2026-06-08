@@ -742,7 +742,7 @@ argus/
 │   │   ├── network-timing-analyzer.js — HAR timing — slow third-party detection
 │   │   ├── theme-analyzer.js         — A7: Theme & Dark Mode detection
 │   │   ├── design-fidelity-analyzer.js — D9: Figma design token vs DOM (13 finding types)
-│   │   ├── web-vitals-analyzer.js    — Sprint 9: LCP/CLS/FCP/TTI/TTFB + bundle size
+│   │   ├── web-vitals-analyzer.js    — Web Vitals: LCP/CLS/FCP/TTI/TTFB + bundle size
 │   │   ├── visual-diff-analyzer.js   — A8: Visual regression via pixelmatch
 │   │   ├── a11y-deep-analyzer.js     — A12: axe-core 4.12 + CVD color blind simulation
 │   │   ├── har-recorder.js           — N1: HAR network baseline record + diff
