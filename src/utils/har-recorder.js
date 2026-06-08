@@ -111,15 +111,15 @@ export async function analyzeHar(browser, url, opts = {}) {
   }
 
   // ── Subsequent runs: compare against baseline ─────────────────────────────
-  let baseline;
+  let existingBaseline;
   try {
-    baseline = JSON.parse(fs.readFileSync(harFile, 'utf8'));
+    existingBaseline = JSON.parse(fs.readFileSync(harFile, 'utf8'));
   } catch (err) {
     logger.warn(`[ARGUS] har-recorder: failed to read baseline: ${err.message}`);
     return findings;
   }
 
-  const baselineEntries = baseline.entries ?? [];
+  const baselineEntries = existingBaseline.entries ?? [];
   const baselineMap     = new Map(baselineEntries.map(e => [normaliseUrl(e.request.url), e]));
   const currentMap      = new Map(requests.map(r => [normaliseUrl(r.url), r]));
 
