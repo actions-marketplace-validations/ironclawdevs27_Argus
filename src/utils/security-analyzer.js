@@ -18,6 +18,7 @@
  *      • HTTP resource on HTTPS page (D6.9) — skips loopback; only fires on real HTTPS origins
  */
 
+import { execFile }    from 'child_process';
 import { thresholds }  from '../config/targets.js';
 import { childLogger } from './logger.js';
 
@@ -111,7 +112,27 @@ export const SECURITY_ANALYSIS_SCRIPT = `async () => {
     }
   } catch (e) {}
 
-  return JSON.stringify({ storageTokenKeys: storageTokenKeys, evalUsage: evalUsage, jsCookies: jsCookies, hasCSP: hasCSP, hasXFrame: hasXFrame, unsandboxedIframes: unsandboxedIframes, unsafeBlankLinks: unsafeBlankLinks });
+  // 7. SRI check — external scripts and stylesheets without integrity attribute
+  var sriViolations = [];
+  try {
+    var pageOrigin = location.origin;
+    var extScripts = Array.prototype.slice.call(document.querySelectorAll('script[src]:not([integrity])'));
+    for (var sri_i = 0; sri_i < extScripts.length && sri_i < 20; sri_i++) {
+      var scriptSrc = extScripts[sri_i].src || '';
+      if (scriptSrc && !scriptSrc.startsWith(pageOrigin) && !scriptSrc.startsWith('/') && !scriptSrc.startsWith('blob:') && !scriptSrc.startsWith('data:')) {
+        sriViolations.push({ tag: 'script', src: scriptSrc.slice(0, 200) });
+      }
+    }
+    var extLinks = Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"][href]:not([integrity])'));
+    for (var sri_j = 0; sri_j < extLinks.length && sri_j < 20; sri_j++) {
+      var linkHref = extLinks[sri_j].href || '';
+      if (linkHref && !linkHref.startsWith(pageOrigin) && !linkHref.startsWith('/') && !linkHref.startsWith('blob:') && !linkHref.startsWith('data:')) {
+        sriViolations.push({ tag: 'link', src: linkHref.slice(0, 200) });
+      }
+    }
+  } catch (e) {}
+
+  return JSON.stringify({ storageTokenKeys: storageTokenKeys, evalUsage: evalUsage, jsCookies: jsCookies, hasCSP: hasCSP, hasXFrame: hasXFrame, unsandboxedIframes: unsandboxedIframes, unsafeBlankLinks: unsafeBlankLinks, sriViolations: sriViolations });
 }`;
 
 /**
@@ -219,6 +240,20 @@ export function parseSecurityAnalysisResult(rawResult, url) {
     });
   }
 
+  // SRI violations — external scripts/stylesheets without integrity attribute
+  if (Array.isArray(data.sriViolations) && data.sriViolations.length > 0) {
+    for (const v of data.sriViolations) {
+      bugs.push({
+        type:    'security_missing_sri',
+        tag:     v.tag,
+        src:     v.src,
+        message: `External <${v.tag}> without integrity attribute: "${String(v.src).slice(0, 200)}" — add integrity="sha384-..." to prevent supply-chain attacks`,
+        severity: 'warning',
+        url,
+      });
+    }
+  }
+
   return bugs;
 }
 
@@ -299,4 +334,100 @@ export function analyzeSecurityNetwork(networkReqs, url) {
     });
   }
   return bugs;
+}
+
+/**
+ * Detect source map files being served in production.
+ * Source maps expose original unminified source code to anyone with DevTools open.
+ *
+ * @param {object[]} networkReqs - Network request entries ({ url })
+ * @param {string}   url - Page URL for context
+ * @returns {object[]}
+ */
+export function checkSourceMapExposure(networkReqs, url) {
+  const bugs = [];
+  for (const req of (Array.isArray(networkReqs) ? networkReqs : [])) {
+    const reqUrl = req.url ?? req.requestUrl ?? '';
+    if (!reqUrl) continue;
+    if (/\.(js|css)\.map(\?|$)/i.test(reqUrl) || /\/[^/]+\.map(\?|$)/.test(reqUrl)) {
+      bugs.push({
+        type:       'security_sourcemap_exposed',
+        requestUrl: reqUrl,
+        message:    `Source map publicly accessible: "${reqUrl.slice(0, 200)}" — remove or restrict .map files in production to protect original source code`,
+        severity:   'warning',
+        url,
+      });
+    }
+  }
+  return bugs;
+}
+
+/**
+ * Detect open redirect parameters in network request URLs.
+ * Open redirects allow attackers to craft phishing URLs that appear to come from
+ * the legitimate domain.
+ *
+ * @param {object[]} networkReqs - Network request entries ({ url })
+ * @param {string}   url - Page URL for context
+ * @returns {object[]}
+ */
+export function checkOpenRedirects(networkReqs, url) {
+  // 'to', 'target', 'url' excluded — too common in non-redirect contexts (CDN proxies, nav params).
+  const redirectParams = /[?&](redirect|return|next|dest|destination|goto|redir|forward)=/i;
+  const bugs = [];
+  for (const req of (Array.isArray(networkReqs) ? networkReqs : [])) {
+    const reqUrl = req.url ?? req.requestUrl ?? '';
+    if (!reqUrl || !redirectParams.test(reqUrl)) continue;
+    bugs.push({
+      type:       'security_open_redirect',
+      requestUrl: reqUrl,
+      message:    `Potential open redirect parameter in URL: "${reqUrl.slice(0, 200)}" — validate redirect targets server-side against an allowlist`,
+      severity:   'warning',
+      url,
+    });
+  }
+  return bugs;
+}
+
+/**
+ * Run `npm audit --json` in the given project directory and convert CVEs to findings.
+ * Skips silently if projectDir is falsy, npm is not available, or the project has
+ * no package.json (not a Node project).
+ *
+ * @param {string|null} projectDir - Absolute path to the project root
+ * @returns {Promise<object[]>}
+ */
+export async function auditNpmDependencies(projectDir) {
+  if (!projectDir) return [];
+
+  return new Promise(resolve => {
+    // shell: true resolves npm.cmd on Windows; harmless on macOS/Linux.
+    execFile('npm', ['audit', '--json'], { cwd: projectDir, maxBuffer: 4 * 1024 * 1024, shell: true }, (err, stdout) => {
+      // npm audit exits non-zero when vulnerabilities exist — we still want stdout.
+      if (!stdout) return resolve([]);
+      let report;
+      try { report = JSON.parse(stdout); } catch { return resolve([]); }
+
+      const bugs = [];
+      const vulns = report?.vulnerabilities ?? report?.advisories ?? {};
+
+      for (const [name, info] of Object.entries(vulns)) {
+        const sev = String(info.severity ?? 'moderate').toLowerCase();
+        const via = Array.isArray(info.via)
+          ? info.via.filter(v => typeof v === 'string').join(', ')
+          : '';
+        bugs.push({
+          type:     'security_npm_vulnerability',
+          package:  name,
+          severity: sev === 'critical' || sev === 'high' ? 'critical' : 'warning',
+          message:  `npm vulnerability in "${name}"${via ? ` via ${via}` : ''} (${sev}) — run \`npm audit fix\` to resolve`,
+          via,
+        });
+      }
+
+      // Deduplicate by package name (advisories-style reports can have duplicates).
+      const seen = new Set();
+      resolve(bugs.filter(b => { if (seen.has(b.package)) return false; seen.add(b.package); return true; }));
+    });
+  });
 }

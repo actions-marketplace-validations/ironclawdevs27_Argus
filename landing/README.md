@@ -234,6 +234,22 @@ Sprints 5/5b/5c/5d — N1 HAR Network Baseline, A9 Motion & Animation, A10 Font 
 | Feature table detection count | `59` | `63` |
 | "How we built it" caption | `131 test blocks` | `135 test blocks` |
 
+---
+
+## Stats Update (2026-06-07 — Sprint 6 v9.5.9)
+
+Sprint 6 — GitHub Check Runs: `github-reporter.js` extended with `createCheckRun`/`completeCheckRun` (GitHub Checks API), `generateReleaseNotes()`, `ARGUS_CRITICAL_THRESHOLD` gate, `ARGUS_DIFF_IMAGE_URL`, `GITHUB_CHECK_NAME`; block [136] (10 assertions). No new detection categories or fixture pages. Hero and docs updated:
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `135` | `136` |
+| `stats[2].num` (ASSERTIONS RUN) | `616` | `626` |
+| Docs § "Test Coverage" tagline | `135 blocks, 616 hard assertions` | `136 blocks, 626 hard assertions` |
+| Docs § "Running" code | `616 hard assertions`, `613/616` | `626 hard assertions`, `623/626` |
+| "How we built it" caption | `135 test blocks` | `136 test blocks` |
+
+---
+
 ## Stats Update (2026-06-08 — Sprint 7 v9.6.0)
 
 Sprint 7 — PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th MCP tool + `action.yml` GitHub Action wrapper (block [137], 8 assertions). No new detection categories or fixture pages. Hero and docs updated:
@@ -265,14 +281,28 @@ Sprint 7 — PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th M
 
 ---
 
-## Stats Update (2026-06-07 — Sprint 6 v9.5.9)
+## Stats Update (2026-06-09 — Sprint 7 hardening v9.6.6)
 
-Sprint 6 — GitHub Check Runs: `github-reporter.js` extended with `createCheckRun`/`completeCheckRun` (GitHub Checks API), `generateReleaseNotes()`, `ARGUS_CRITICAL_THRESHOLD` gate, `ARGUS_DIFF_IMAGE_URL`, `GITHUB_CHECK_NAME`; block [136] (10 assertions). No new detection categories or fixture pages. Hero and docs updated:
+PR Validator hardening: `checkTargetReachable()`, `normalizeRoutePaths()`, all-routes-failed guard, `EXCLUDED_PATTERNS`; blocks [137i–k]+[138k–p] (9 new assertions to existing blocks). No new detection categories or fixture pages.
 
 | Field | Old | New |
 |---|---|---|
-| `stats[1].num` (TEST BLOCKS) | `135` | `136` |
-| `stats[2].num` (ASSERTIONS RUN) | `616` | `626` |
-| Docs § "Test Coverage" tagline | `135 blocks, 616 hard assertions` | `136 blocks, 626 hard assertions` |
-| Docs § "Running" code | `616 hard assertions`, `613/616` | `626 hard assertions`, `623/626` |
-| "How we built it" caption | `135 test blocks` | `136 test blocks` |
+| `stats[2].num` (ASSERTIONS RUN) | `644` | `653` |
+| Docs § "Test Coverage" tagline | `138 blocks, 644 hard assertions` | `138 blocks, 653 hard assertions` |
+| Docs § "Running" code | `644 hard assertions`, `641/644` | `653 hard assertions`, `650/653` |
+
+---
+
+## Stats Update (2026-06-10 — Sprint 8 v9.7.0)
+
+Chrome launcher + doctor pre-flight + advanced security (SRI, source maps, open redirects, npm audit) + PDF export + screen recorder; block [139] (11 assertions); 4 new detection categories.
+
+| Field | Old | New |
+|---|---|---|
+| `stats[0].num` (ISSUE TYPES) | `63` | `67` |
+| `stats[1].num` (TEST BLOCKS) | `138` | `139` |
+| `stats[2].num` (ASSERTIONS RUN) | `653` | `664` |
+| Docs § "Test Coverage" tagline | `138 blocks, 653 hard assertions` | `139 blocks, 664 hard assertions` |
+| Docs § "Running" code | `653 hard assertions`, `650/653` | `664 hard assertions`, `661/664` |
+| "How we built it" caption | `138 test blocks` | `139 test blocks` |
+| Block [139] bullet | — | Added to Breakdown section |

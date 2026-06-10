@@ -88,6 +88,9 @@ import { withRetry } from '../src/utils/retry.js';
 import { diffNetworkRequests, diffConsoleMessages } from '../src/utils/diff.js';
 import { parsePrUrl, mapFilesToRoutes } from '../src/utils/pr-diff-analyzer.js';
 import { buildStepSummary, writeGithubOutputs, writeStepSummary, checkTargetReachable, normalizeRoutePaths } from '../src/cli/pr-validate.js';
+import { findChrome } from '../src/cli/chrome-launcher.js';
+import { checkChrome, checkMcpConfig, checkEnvKeys } from '../src/cli/doctor.js';
+import { checkSourceMapExposure, checkOpenRedirects } from '../src/utils/security-analyzer.js';
 
 // ── Section 1 gap-closer imports (blocks [94]–[107]) ──────────────────────────
 import { parseConsoleMsgResponse, parseNetworkReqResponse } from '../src/utils/mcp-parsers.js';
@@ -5903,6 +5906,118 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       failCount138 > 0 && failCount138 === failedPerRoute138.length,
       `[138p] all-routes-failed guard condition correctly identifies all-failed perRoute array (failCount=${failCount138}, total=${failedPerRoute138.length})`
+    );
+  }
+
+  // ── Block [139]: Sprint 8 — Chrome Launcher, Doctor, Security Extensions ────
+  {
+    console.log('\n[139] Sprint 8 — Chrome launcher, doctor, security extensions');
+
+    // [139a] checkSourceMapExposure fires for .js.map URL
+    const mapReqs139 = [{ url: 'https://example.com/bundle.js.map' }];
+    const mapFindings139 = checkSourceMapExposure(mapReqs139, 'https://example.com/');
+    assert(
+      mapFindings139.length === 1 && mapFindings139[0].type === 'security_sourcemap_exposed',
+      `[139a] checkSourceMapExposure returns security_sourcemap_exposed for .js.map URL (got: ${mapFindings139.length} findings)`
+    );
+
+    // [139b] checkSourceMapExposure skips non-map URLs
+    const safeReqs139 = [{ url: 'https://example.com/bundle.js' }, { url: 'https://example.com/style.css' }];
+    const safeMapFindings139 = checkSourceMapExposure(safeReqs139, 'https://example.com/');
+    assert(
+      safeMapFindings139.length === 0,
+      `[139b] checkSourceMapExposure returns no findings for non-map URLs (got: ${safeMapFindings139.length})`
+    );
+
+    // [139c] checkOpenRedirects fires for ?redirect= parameter
+    const redirectReqs139 = [{ url: 'https://example.com/auth?redirect=https://evil.com' }];
+    const redirectFindings139 = checkOpenRedirects(redirectReqs139, 'https://example.com/auth');
+    assert(
+      redirectFindings139.length === 1 && redirectFindings139[0].type === 'security_open_redirect',
+      `[139c] checkOpenRedirects returns security_open_redirect for ?redirect= URL (got: ${redirectFindings139.length} findings)`
+    );
+
+    // [139d] checkOpenRedirects skips safe URLs
+    const safeRedirectReqs139 = [{ url: 'https://example.com/api/data' }, { url: 'https://example.com/page?id=5' }];
+    const safeRedirectFindings139 = checkOpenRedirects(safeRedirectReqs139, 'https://example.com/');
+    assert(
+      safeRedirectFindings139.length === 0,
+      `[139d] checkOpenRedirects returns no findings for safe URLs (got: ${safeRedirectFindings139.length})`
+    );
+
+    // [139e] parseSecurityAnalysisResult emits security_missing_sri for external script without integrity
+    const sriData139 = JSON.stringify({
+      storageTokenKeys: [], evalUsage: false, jsCookies: [], hasCSP: null, hasXFrame: null,
+      unsandboxedIframes: [], unsafeBlankLinks: [],
+      sriViolations: [{ tag: 'script', src: 'https://cdn.example.com/lib.js' }],
+    });
+    const sriFindings139 = parseSecurityAnalysisResult(sriData139, 'https://example.com/');
+    assert(
+      sriFindings139.some(f => f.type === 'security_missing_sri'),
+      `[139e] parseSecurityAnalysisResult emits security_missing_sri for external script without integrity (got types: ${sriFindings139.map(f => f.type).join(', ') || 'none'})`
+    );
+
+    // [139f] parseSecurityAnalysisResult emits no SRI finding when sriViolations is empty
+    const noSriData139 = JSON.stringify({
+      storageTokenKeys: [], evalUsage: false, jsCookies: [], hasCSP: null, hasXFrame: null,
+      unsandboxedIframes: [], unsafeBlankLinks: [], sriViolations: [],
+    });
+    const noSriFindings139 = parseSecurityAnalysisResult(noSriData139, 'https://example.com/').filter(f => f.type === 'security_missing_sri');
+    assert(
+      noSriFindings139.length === 0,
+      `[139f] parseSecurityAnalysisResult emits no security_missing_sri when sriViolations is empty`
+    );
+
+    // [139g] checkChrome returns { ok, detail } shape (may be ok=false in harness — Chrome may not be on 9222 this moment)
+    const chromeResult139 = await checkChrome(9222);
+    assert(
+      typeof chromeResult139 === 'object' && chromeResult139 !== null &&
+      typeof chromeResult139.ok === 'boolean' && typeof chromeResult139.detail === 'string',
+      `[139g] checkChrome returns { ok: boolean, detail: string } shape (got: ${JSON.stringify(chromeResult139)})`
+    );
+
+    // [139h] checkMcpConfig returns ok=false for a missing file path
+    const mcpMissing139 = checkMcpConfig('/nonexistent/path/.mcp.json');
+    assert(
+      mcpMissing139.ok === false && typeof mcpMissing139.detail === 'string',
+      `[139h] checkMcpConfig returns ok=false for missing file (got: ${JSON.stringify(mcpMissing139)})`
+    );
+
+    // [139i] checkMcpConfig returns ok=true for valid config with chrome-devtools entry
+    const tmpMcp139 = path.join(os.tmpdir(), 'argus-test-mcp-139.json');
+    fs.writeFileSync(tmpMcp139, JSON.stringify({
+      mcpServers: {
+        'chrome-devtools': { command: 'npx', args: ['-y', 'chrome-devtools-mcp@1.1.1'] },
+      },
+    }));
+    const mcpValid139 = checkMcpConfig(tmpMcp139);
+    fs.unlinkSync(tmpMcp139);
+    assert(
+      mcpValid139.ok === true,
+      `[139i] checkMcpConfig returns ok=true for valid chrome-devtools config (got: ${JSON.stringify(mcpValid139)})`
+    );
+
+    // [139j] checkEnvKeys returns ok=true when TARGET_DEV_URL is present in .env content
+    const tmpEnv139 = path.join(os.tmpdir(), 'argus-test-env-139');
+    fs.writeFileSync(tmpEnv139, 'TARGET_DEV_URL=http://localhost:3000\n');
+    // Temporarily unset env var so checkEnvKeys reads from file
+    const savedUrl139 = process.env.TARGET_DEV_URL;
+    delete process.env.TARGET_DEV_URL;
+    const envResult139 = checkEnvKeys(tmpEnv139);
+    if (savedUrl139 !== undefined) process.env.TARGET_DEV_URL = savedUrl139;
+    fs.unlinkSync(tmpEnv139);
+    assert(
+      envResult139.ok === true && envResult139.detail.includes('localhost:3000'),
+      `[139j] checkEnvKeys returns ok=true when TARGET_DEV_URL in .env file (got: ${JSON.stringify(envResult139)})`
+    );
+
+    // [139k] findChrome() returns string or null without throwing (pure path resolution, no side effects)
+    let chromePathResult139;
+    let chromeThrew139 = false;
+    try { chromePathResult139 = findChrome(); } catch { chromeThrew139 = true; }
+    assert(
+      !chromeThrew139 && (chromePathResult139 === null || typeof chromePathResult139 === 'string'),
+      `[139k] findChrome() returns string or null without throwing (got: ${chromeThrew139 ? 'threw' : JSON.stringify(chromePathResult139)})`
     );
   }
 }

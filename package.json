@@ -1,6 +1,6 @@
 {
   "name": "argusqa-os",
-  "version": "9.6.6",
+  "version": "9.7.0",
   "mcpName": "io.github.ironclawdevs27/argus",
   "description": "Argus — AI-powered automated dev-testing platform using Chrome DevTools MCP and Claude Code",
   "keywords": [
@@ -34,11 +34,15 @@
     "argus": "src/cli/init.js",
     "argus-mcp": "src/mcp-server.js",
     "argusqa-os": "src/mcp-server.js",
-    "argus-pr-validate": "src/cli/pr-validate.js"
+    "argus-pr-validate": "src/cli/pr-validate.js",
+    "argus-chrome": "src/cli/chrome-launcher.js",
+    "argus-doctor": "src/cli/doctor.js"
   },
   "scripts": {
     "setup": "node -e \"import('fs').then(fs => fs.default.mkdirSync('./reports', { recursive: true }))\"",
     "init": "node src/cli/init.js",
+    "chrome": "node src/cli/chrome-launcher.js",
+    "doctor": "node src/cli/doctor.js",
     "crawl": "node src/orchestration/crawl-and-report.js",
     "compare": "node src/orchestration/env-comparison.js",
     "watch": "node src/orchestration/watch-mode.js",
@@ -49,6 +53,7 @@
     "test:unit": "vitest run test/unit",
     "test": "npm run test:unit && npm run test:harness",
     "report:html": "node src/utils/html-reporter.js",
+    "report:pdf": "node src/utils/pdf-exporter.js",
     "mcp-server": "node src/mcp-server.js"
   },
   "dependencies": {

@@ -7,7 +7,7 @@ description: Argus AI-powered QA harness — Chrome DevTools MCP reference for b
 
 ## 1. What Argus Is
 
-Argus is an AI-driven automated QA harness that audits web pages against 63 detection categories (60 positively verified by the correctness harness) using Chrome DevTools Protocol (CDP) via the `chrome-devtools` MCP server. It drives a real Chromium browser, executes multi-step user flows, and emits structured JSON findings.
+Argus is an AI-driven automated QA harness that audits web pages against 67 detection categories (64 positively verified by the correctness harness) using Chrome DevTools Protocol (CDP) via the `chrome-devtools` MCP server. It drives a real Chromium browser, executes multi-step user flows, and emits structured JSON findings.
 
 ### Entry points
 
@@ -1673,14 +1673,14 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.6.6` |
-| **Test blocks** | 138 |
-| **Hard assertions** | 653 |
-| **Soft assertions** | ~12 (Lighthouse / perf traces — headless-unavailable) |
-| **Detection categories** | 63 in production code; **60 positively verified** by harness fixtures |
+| **Version** | `9.7.0` |
+| **Test blocks** | 139 |
+| **Hard assertions** | 664 |
+| **Soft assertions** | ~23 (Lighthouse / perf traces / memory — headless-unavailable) |
+| **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
-| **Analysis engines** | 31 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **650/653** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
+| **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
+| **Harness gate** | **661/664** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (always 3)
@@ -1724,6 +1724,7 @@ See `OSS-PR-STRATEGY.md` for the chrome-devtools-mcp contribution plan to fix al
 | v9.6.0 | Sprint 7 — PR Diff Analyzer | `pr-diff-analyzer.js` — `parsePrUrl` / `fetchPrFiles` / `mapFilesToRoutes`; `argus_pr_validate` 9th MCP tool; `action.yml` composite GA wrapper; `ARGUS_BLOCK_ON`; block [137] (8 assertions) | 631/634 |
 | v9.6.1 | Sprint 7 — GitHub Action CLI | `src/cli/pr-validate.js` — full headless CI entry point; `buildStepSummary` + `writeGithubOutputs` + `writeStepSummary`; inline `::error::`/`::warning::` annotations; `GITHUB_STEP_SUMMARY` + `GITHUB_OUTPUT`; `action.yml` fully fixed (Chrome binary detection, env-var injection safety, `routes-file`/`node-version` inputs, `setup-node@v4`); block [138] (10 assertions) | 641/644 |
 | v9.6.6 | PR Validator hardening | `checkTargetReachable()` preflight (network-error-only, HTTP 4xx pass), `normalizeRoutePaths()` (prepends `/` to bare paths), all-routes-failed guard, `EXCLUDED_PATTERNS` in `mapFilesToRoutes` (CI-only/doc-only PR → `[]`), `notifications/initialized` MCP handshake, `baseUrl = targetUrl.replace(/\/$/, '')` path-prefix preservation, block-on=warning annotation fix; `action.yml` description ≤125 chars + `argusqa-os@9.6.6` + `chrome-devtools-mcp@1.1.1` version-pinned; [137i–k] + [138k–p] 9 new assertions | 650/653 |
+| v9.7.0 | Sprint 8 — Security + PDF/Video + Chrome Launcher | `security-analyzer.js` + 4 new types: `security_missing_sri` (DOM SRI check), `security_sourcemap_exposed` (network), `security_open_redirect` (network), `security_npm_vulnerability` (`npm audit --json`); `pdf-exporter.js` (puppeteer A4 PDF, optional dep); `screen-recorder.js` (`PollingRecorder` + `CdpScreenRecorder`); `src/cli/chrome-launcher.js` (`findChrome`/`launchChrome`, Windows/Mac/Linux); `src/cli/doctor.js` (`checkChrome`/`checkMcpConfig`/`checkEnvKeys`); `npm run chrome` + `npm run doctor` + `npm run report:pdf` scripts; `argus-chrome` + `argus-doctor` bin entries; block [139] 11 assertions [139a–k] | 661/664 |
 
 ---
 

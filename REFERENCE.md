@@ -58,7 +58,7 @@ This document contains the complete technical reference for Argus: all detection
 
 ## Detection Reference
 
-Argus runs **31 analysis engines** per run and detects **136 distinct issue types**. Every finding carries a `severity` (`critical` / `warning` / `info`), the affected `url`, and a human-readable `message`.
+Argus runs **32 analysis engines** per run and detects **140 distinct issue types**. Every finding carries a `severity` (`critical` / `warning` / `info`), the affected `url`, and a human-readable `message`.
 
 ### JavaScript Runtime
 
@@ -197,6 +197,10 @@ Deduplicates with `snapshot-analyzer` to avoid double-reporting the same element
 | 🟡 Warning | Page served over plain HTTP with no HTTPS upgrade | URL protocol check (`http://` + non-localhost) |
 | 🔵 Info | Cookie without `HttpOnly` flag (JS-visible cookies only) | `document.cookie` inspection |
 | 🔵 Info | Deprecated browser API usage | Chrome DevTools Issues panel |
+| 🟡 Warning | External `<script>` or `<link rel=stylesheet>` missing `integrity` attribute (SRI) | DOM scan for cross-origin tags without `integrity`; capped at 20 per page |
+| 🟡 Warning | Source map exposed in production — `.js.map` / `.css.map` file publicly accessible | Network request URL scan for `*.map` extensions |
+| 🟡 Warning | Open redirect parameter in URL — `?redirect=`, `?return=`, `?goto=`, etc. | Network request URL parameter scan (regex: `redirect|return|next|dest|destination|goto|redir|forward`) |
+| 🟡 Warning | npm dependency with known CVE (high or critical severity) | `npm audit --json` subprocess; `{ shell: true }` for Windows `npm.cmd` compatibility |
 
 ---
 

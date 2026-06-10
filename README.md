@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-650%2F653-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-661%2F664-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**
@@ -62,7 +62,7 @@ Argus scans your app and either posts findings to Slack or opens a local `report
 
 ## What Argus Catches
 
-31 analysis engines, 138 distinct issue types, zero test-file maintenance:
+32 analysis engines, 140 distinct issue types, zero test-file maintenance:
 
 | Category | What it detects |
 |---|---|
@@ -71,7 +71,7 @@ Argus scans your app and either posts findings to Slack or opens a local `report
 | **Performance** | LCP > 2500ms, CLS > 0.1, TTFB > 800ms, slow APIs > 1s/3s, payloads > 500KB/2MB, JS bundles > 500KB |
 | **Accessibility** | axe-core (80+ WCAG rules), color-blind simulation, missing ARIA, keyboard focus, heading hierarchy |
 | **SEO** | Missing meta description, OG tags, canonical, viewport, h1 |
-| **Security** | Auth tokens in localStorage/URL, `eval()`, missing CSP/X-Frame-Options, CSP violations |
+| **Security** | Auth tokens in localStorage/URL, `eval()`, missing CSP/X-Frame-Options, CSP violations, missing SRI on external scripts, source map exposure, open redirects, npm CVEs |
 | **CSS** | Cascade overrides, component style leaks, unused rules, React inline style conflicts |
 | **Content** | `null`/`undefined` as visible text, lorem ipsum, broken images, empty data lists |
 | **Responsive** | Horizontal overflow at 375px/768px, touch targets < 44×44px |
@@ -201,14 +201,17 @@ export const routes = [
 ## CLI Commands
 
 ```bash
+npm run chrome         # Launch Chrome with --remote-debugging-port=9222 (auto-detects binary)
+npm run doctor         # Pre-flight check: Chrome reachable, .mcp.json valid, .env has TARGET_DEV_URL
 npm run crawl          # Batch audit of all configured routes
 npm run compare        # Dev vs staging diff (CSS-only if no staging URL)
 npm run watch          # Passive monitor — polls open Chrome tab every 1s
 npm run report:html    # Generate reports/report.html from last JSON audit
+npm run report:pdf     # Export HTML report to A4 PDF (requires: npm install puppeteer)
 npm run server         # Start Slack slash-command server (port 3001)
 npm run init           # Interactive setup wizard
 npm run test:unit      # 61 unit tests — no Chrome required
-npm run test:harness   # 138-block correctness harness — requires Chrome
+npm run test:harness   # 139-block correctness harness — requires Chrome
 ```
 
 **Watch mode** — live monitoring as you develop:
@@ -331,7 +334,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-3 permanent test failures (`650/653`) are MCP-layer restrictions — not fixable in Argus code:
+3 permanent test failures (`661/664`) are MCP-layer restrictions — not fixable in Argus code:
 
 | Tool | Constraint |
 |---|---|
@@ -347,11 +350,15 @@ src/
   argus.js              — single-page audit entry point
   mcp-server.js         — 9 MCP tools exposed to Claude / any MCP client
   orchestration/        — crawl loop, Slack/GitHub dispatch, env comparison, watch mode
-  utils/                — 30+ analysis engines (accessibility, security, performance, etc.)
+  utils/                — 32 analysis engines (accessibility, security, performance, PDF, recording, etc.)
   adapters/browser.js   — CdpBrowserAdapter — wraps all chrome-devtools-mcp calls
   config/targets.js     — routes, thresholds, auth steps
-  cli/init.js           — argus init interactive setup wizard
-test-harness/           — 138-block correctness harness, 653 hard assertions, 62 fixture pages
+  cli/
+    init.js             — argus init interactive setup wizard
+    chrome-launcher.js  — npm run chrome / argus-chrome — launches Chrome with correct flags
+    doctor.js           — npm run doctor / argus-doctor — pre-flight checks
+    pr-validate.js      — headless CI entry point for GitHub Actions
+test-harness/           — 139-block correctness harness, 664 hard assertions, 62 fixture pages
 test/unit/              — 61 Vitest unit tests (no Chrome required)
 landing/                — Product landing page (React 19 + Vite + Tailwind)
 ```

@@ -17,6 +17,7 @@ RELEASE_NOTES.md
 # Internal planning docs — keep local only
 session.md
 solution.md
+Sessions/
 *-strategy.md
 FINALIZE.md
 argus-vX1-roadmap.md
@@ -45,3 +46,7 @@ Argus_bg.png
 
 # OSS upstream fix patches (local only — raise as PRs when maintainers acknowledge issues)
 oss-fixes/
+
+# Obsidian vault config and dashboard (local only)
+.obsidian/
+Home.md
