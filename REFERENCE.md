@@ -793,7 +793,7 @@ argus/
 │       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
 │       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
 ├── test-harness/
-│   ├── validate.js                   — 139-block correctness harness (661/664 gate)
+│   ├── validate.js                   — 139-block correctness harness (662/664 gate)
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
 │   ├── .env.harness                  — ARGUS_LOG_LEVEL=warn — suppresses INFO flood during harness runs
@@ -858,13 +858,12 @@ argus/
 
 ## Known MCP Tool Limitations
 
-**3 permanent test failures** in the harness (`661/664`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 3 failures remain.
+**2 permanent test failures** in the harness (`662/664`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 2 failures remain.
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 
 | Tool | Constraint | Impact |
 |---|---|---|
-| `drag` | Uses mouse simulation, **not** HTML5 DnD API | `dragstart` / `dragover` / `drop` events never fire |
 | `list_console_messages({ types: ['issue'] })` | Issues panel returns empty even when violations exist | CSP and deprecated-API detection is unreliable |
 
 Workarounds and additional constraints are documented in [SKILL.md §10](SKILL.md).

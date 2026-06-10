@@ -798,7 +798,6 @@ const docChapters = [
       {
         title: 'Known Limits',
         bullets: [
-          'Drag-and-drop: CDP mouse simulation does not trigger the HTML5 DnD drop event',
           'Chrome DevTools Issues: CSP violations not returned via list_console_messages',
           'These are constraints in the MCP layer — not Argus bugs — and are expected failures',
         ],
@@ -807,7 +806,7 @@ const docChapters = [
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
 npm run test:harness  # 664 hard assertions — Chrome required (headless)
-# Expected: 661/664 (3 permanent MCP-limited failures: drag, Issues panel)
+# Expected: 662/664 (2 permanent MCP-limited failures: Issues panel [67b, 68b])
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
     ],

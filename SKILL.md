@@ -338,7 +338,7 @@ const browser = new CdpBrowserAdapter(mcp);
 | `browser.fill(uid, value)` | `fill` | Consolidated single input event |
 | `browser.typeText(text)` | `type_text` | Per-keystroke; requires focus first |
 | `browser.hover(uid)` | `hover` | |
-| `browser.drag(fromUid, toUid)` | `drag` | Headless: drop may not fire (permanent [49b]) |
+| `browser.drag(fromUid, toUid)` | `drag` | |
 | `browser.uploadFile(uid, filePath)` | `upload_file` | |
 | `browser.pressKey(key)` | `press_key` | `'Enter'`, `'Tab'`, `'Control+A'` etc. |
 | `browser.handleDialog(action)` | `handle_dialog` | `'accept'` or `'dismiss'` |
@@ -1518,7 +1518,7 @@ Always walk at least 3 levels back — the proximate cause is almost never the r
 
 ### Known MCP Behavioral Limitations
 
-These are chrome-devtools-mcp restrictions that **cannot be worked around in Argus code**. They cause 3 permanent failures in the correctness harness (661/664 pass).
+These are chrome-devtools-mcp restrictions that **cannot be worked around in Argus code**. They cause 2 permanent failures in the correctness harness (662/664 pass).
 
 > **Note on `fill` vs `type_text` and DOM events**: Both tools fire DOM `input` events, but differently:
 >
@@ -1534,14 +1534,12 @@ These are chrome-devtools-mcp restrictions that **cannot be worked around in Arg
 
 | # | Tool | Limitation | Harness block |
 | --- | --- | --- | --- |
-| 1 | `drag` | Uses mouse-event simulation (`mousedown → mousemove → mouseup`), **not** the HTML5 DnD API. Native `dragstart`, `dragover`, `drop`, and `dragend` events never fire. Drop-zone handlers listening for the `drop` event will never trigger. | [49b] |
-| 2 | `list_console_messages({ types: ['issue'] })` | The Chrome DevTools **Issues panel** returns an empty array in practice, even when real CSP violations and deprecated-API use are visible in Chrome. Detection via the Issues panel namespace is unreliable. | [67b, 68b] |
+| 1 | `list_console_messages({ types: ['issue'] })` | The Chrome DevTools **Issues panel** returns an empty array in practice, even when real CSP violations and deprecated-API use are visible in Chrome. Detection via the Issues panel namespace is unreliable. | [67b, 68b] |
 
 **Workaround strategies:**
 
 | Limitation | Workaround |
 | --- | --- |
-| `drag` / no `drop` event | Assert that the drag step runs without error (`flow_step_failed` absent). Do not assert post-drop DOM state unless the drop zone uses `mouseup`-based detection. |
 | Issues panel empty | Detect CSP violations via `list_console_messages({ types: ['error'] })` text-matching for "Content-Security-Policy". Deprecated API use requires a headful Chrome session or manual review. |
 
 ---
@@ -1680,18 +1678,15 @@ for (const bp of breakpoints) {
 | **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
 | **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **661/664** (3 permanent MCP-limited failures: [49b], [67b], [68b] — exits 0) |
+| **Harness gate** | **662/664** (2 permanent MCP-limited failures: [67b], [68b] — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
-### Permanent MCP-Limited Failures (always 3)
+### Permanent MCP-Limited Failures (always 2)
 
 | Block | Assertion | Root cause |
 |-------|-----------|-----------|
-| `[49b]` | drag → drop event fires | `Input.dispatchDragEvent` doesn't synthesise DOM `drop` in `--headless=new` |
 | `[67b]` | CSP fixture → `csp_violation` | `Audits.enable()` not called when MCP attaches to externally-launched Chrome |
 | `[68b]` | Deprecated API → `deprecated_api_use` | Same root cause as [67b] |
-
-See `OSS-PR-STRATEGY.md` for the chrome-devtools-mcp contribution plan to fix all three.
 
 ### Phases Complete (scannable)
 

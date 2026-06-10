@@ -335,11 +335,10 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-3 permanent test failures (`661/664`) are MCP-layer restrictions — not fixable in Argus code:
+2 permanent test failures (`662/664`) are MCP-layer restrictions — not fixable in Argus code:
 
 | Tool | Constraint |
 |---|---|
-| `drag` | Uses mouse simulation, not HTML5 DnD — `dragstart`/`dragover`/`drop` events never fire |
 | `list_console_messages({ types: ['issue'] })` | Issues panel returns empty even when violations exist |
 
 ---

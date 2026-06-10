@@ -312,7 +312,7 @@ The validator will:
 5. Print pass / fail for each assertion
 6. Shut down both fixture servers and exit
 
-**Expected output (661/664 — 3 permanent MCP-limited failures, exit code 0):**
+**Expected output (662/664 — 2 permanent MCP-limited failures, exit code 0):**
 
 ```
 ╔══════════════════════════════════════════════════════╗
@@ -366,13 +366,12 @@ The validator will:
   ✓ Flaky count: 2 (expected 2)
 
 ────────────────────────────────────────────────────────
-Results: 661/664 hard assertions passed, 3 failed
+Results: 662/664 hard assertions passed, 2 failed
 
-✗ [49b] drag uses mouse simulation — HTML5 drop event never fires (MCP behavioral limit)
 ✗ [67b] Chrome DevTools Issues panel not returned by list_console_messages (MCP behavioral limit)
 ✗ [68b] Chrome DevTools Issues panel not returned by list_console_messages (MCP behavioral limit)
 
-⚠ 3 permanent MCP-limited failures — these cannot be fixed in Argus code.
+⚠ 2 permanent MCP-limited failures — these cannot be fixed in Argus code.
 ```
 
 ---

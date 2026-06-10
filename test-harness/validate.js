@@ -6074,9 +6074,10 @@ async function main() {
       console.log('\nFailed assertions:');
       failLog.forEach(f => console.log(`  \u2717 ${f}`));
     }
-    // [49b], [67b], [68b] are permanent MCP-level limits \u2014 they can never be fixed
-    // in Argus code. Treat them as expected so CI exits 0 when only these fail.
-    const KNOWN_PERMANENT = ['[49b]', '[67b]', '[68b]'];
+    // [67b], [68b] are permanent MCP-level limits \u2014 Chrome DevTools Issues panel
+    // returns empty even when violations exist; cannot be fixed in Argus code.
+    // Treat them as expected so CI exits 0 when only these fail.
+    const KNOWN_PERMANENT = ['[67b]', '[68b]'];
     const unexpected = failLog.filter(f => !KNOWN_PERMANENT.some(p => f.startsWith(p)));
     if (unexpected.length > 0) {
       console.log('\n\u274c Unexpected failures \u2014 fix before merging:');
