@@ -26,9 +26,9 @@ const navHrefs = {
 }
 
 const stats = [
-  { num: '63', label: 'DETECTION\nTYPES' },
-  { num: '138', label: 'TEST\nBLOCKS' },
-  { num: '653', label: 'ASSERTIONS\nRUN' },
+  { num: '67', label: 'DETECTION\nTYPES' },
+  { num: '139', label: 'TEST\nBLOCKS' },
+  { num: '664', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']
@@ -209,8 +209,8 @@ const detections = [
   {
     icon: Shield,
     title: 'Security',
-    desc: 'Missing headers, exposed tokens, insecure cookies',
-    count: 6,
+    desc: 'Missing headers, exposed tokens, insecure cookies, vulnerable dependencies',
+    count: 10,
     details: [
       'Missing Content-Security-Policy header',
       'Missing HSTS and X-Frame-Options',
@@ -218,6 +218,10 @@ const detections = [
       'Mixed content (HTTP resources on HTTPS pages)',
       'Cross-origin iframe without sandbox attribute',
       'Exposed environment variables in client bundles',
+      'SRI validation — external scripts and stylesheets missing integrity attribute',
+      'Source map exposure — .js.map / .css.map files accessible in production',
+      'Open redirect detection — URL parameter heuristic (?redirect=, ?return=, etc.)',
+      'npm audit — known CVEs in production dependencies',
     ],
   },
   {
@@ -369,7 +373,7 @@ SLACK_CHANNEL_DIGEST=C0000000002     # #bugs-digest`,
       {
         num: '05',
         title: 'Audit via Claude',
-        desc: 'Ask Claude directly. Eight tools available — from fast audits to visual regression and Figma design fidelity.',
+        desc: 'Ask Claude directly. Nine tools available — from fast audits to PR diff analysis, visual regression, and Figma design fidelity.',
         code: `# Fast audit — JS errors, network, a11y, SEO, security, CSS, content:
 "Run argus_audit on http://localhost:3000/checkout"
 
@@ -393,7 +397,10 @@ SLACK_CHANNEL_DIGEST=C0000000002     # #bugs-digest`,
 
 # Visual regression — pixel-level screenshot diff against saved baseline:
 "Run argus_visual_diff on http://localhost:3000"
-# Pass updateBaseline: true after intentional UI changes to reset the baseline`,
+# Pass updateBaseline: true after intentional UI changes to reset the baseline
+
+# PR diff → auto-detect affected routes → targeted audit → block on new criticals:
+"Run argus_pr_validate with prUrl: https://github.com/owner/repo/pull/123"`,
       },
     ],
   },
@@ -499,7 +506,7 @@ const pricingPlans = [
     dark: false,
     description: 'The complete QA harness, self-hosted. Full source on GitHub. No restrictions.',
     benefits: [
-      'All 63 detection categories',
+      'All 67 detection categories',
       'MCP server — callable from Claude',
       'CLI for CI/CD pipelines',
       'Slack & GitHub PR integration',
@@ -579,7 +586,7 @@ const pricingPlans = [
 
 // ── Pricing comparison rows ────────────────────────────────────────────────────
 const COMPARISON_ROWS = [
-  { feature: 'All 63 detection categories',         open: true,  pro: true,  team: true,  enterprise: true  },
+  { feature: 'All 67 detection categories',         open: true,  pro: true,  team: true,  enterprise: true  },
   { feature: 'MCP server & CLI tools',              open: true,  pro: true,  team: true,  enterprise: true  },
   { feature: 'Slack & GitHub PR integration',       open: true,  pro: true,  team: true,  enterprise: true  },
   { feature: 'Baseline & trend tracking',           open: true,  pro: true,  team: true,  enterprise: true  },
@@ -612,7 +619,7 @@ const docChapters = [
       {
         title: 'Key Capabilities',
         bullets: [
-          'Crawls every route and detects 63+ classes of bugs automatically',
+          'Crawls every route and detects 67+ classes of bugs automatically',
           'Executes DSL-defined multi-step user flows with inline assertions',
           'Compares dev vs staging environments and diffs the findings set',
           'Tracks per-run baselines — only new issues trigger alerts',
@@ -655,13 +662,13 @@ const docChapters = [
   },
   {
     num: '03',
-    title: '63 Detection Categories',
+    title: '67 Detection Categories',
     tagline: 'Every surface a browser exposes — console, network, DOM, accessibility, performance, and design fidelity',
     sections: [
       {
         title: 'Core Browser Audits',
         bullets: [
-          'Crawls every route and detects 63+ classes of bugs automatically',
+          'Crawls every route and detects 67+ classes of bugs automatically',
           'Console errors and unhandled rejections',
           'Network failures: 4xx, 5xx, CORS, redirect chains',
           'SEO: title, meta description, Open Graph, sitemap, canonical',
@@ -708,6 +715,7 @@ const docChapters = [
           'N1 — HAR Network Baseline: new requests, missing requests, status-code regressions vs saved baseline',
           'D9 — Figma Design Fidelity: 13 properties vs Figma REST API (color, typography, spacing, shadow, position drift, and more)',
           'GitHub Check Runs: createCheckRun/completeCheckRun, selector-linked findings, release notes generator',
+          'Sprint 8 — Security Extensions: SRI validation on external resources, source map exposure, open redirect detection, npm vulnerability audit (npm audit --json)',
         ],
       },
     ],
@@ -742,7 +750,7 @@ const docChapters = [
   {
     num: '05',
     title: 'Test Coverage',
-    tagline: '138 blocks, 653 hard assertions, fixture-driven with zero ambiguity',
+    tagline: '139 blocks, 664 hard assertions, fixture-driven with zero ambiguity',
     sections: [
       {
         body: 'Every detection category has a corresponding fixture HTML page that reliably triggers exactly that bug. Fixtures are served via HTTP — never file:// — so CORS, ES modules, and fetch APIs work correctly. Each block has at minimum 3 hard assertions and passes consistently across environments without flakiness.',
@@ -767,6 +775,7 @@ const docChapters = [
           'Block 136: Sprint 6 GitHub Check Runs — createCheckRun/completeCheckRun, 10 assertions',
           'Block 137: Sprint 7 PR Diff Analyzer — parsePrUrl / mapFilesToRoutes / argus_pr_validate MCP tool, 8 assertions',
           'Block 138: Sprint 7 GitHub Action CLI — buildStepSummary / writeGithubOutputs / pr-validate.js, 10 assertions',
+          'Block 139: Sprint 8 Chrome launcher + doctor pre-flight + security extensions (SRI, source maps, open redirects, npm audit) + PDF export + screen recorder, 11 assertions',
           '61 Vitest unit tests covering core logic — zero Chrome dependency',
           '3 assertions permanently fail due to MCP-level constraints (documented as expected)',
         ],
@@ -782,8 +791,8 @@ const docChapters = [
       {
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
-npm run test:harness  # 653 hard assertions — Chrome required (headless)
-# Expected: 650/653 (3 permanent MCP-limited failures: drag, Issues panel)
+npm run test:harness  # 664 hard assertions — Chrome required (headless)
+# Expected: 661/664 (3 permanent MCP-limited failures: drag, Issues panel)
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
     ],
@@ -829,7 +838,7 @@ npm run test:harness  # 653 hard assertions — Chrome required (headless)
         body: 'The MCP server turns Argus into a first-class tool that Claude (or any MCP client) can invoke directly from a conversation. No terminal, no config file editing — Claude calls argus_audit the same way it calls any tool. The audit runs, the findings come back structured, and Claude can summarise, filter, or suggest fixes inline.',
       },
       {
-        title: 'Eight Exposed Tools',
+        title: 'Nine Exposed Tools',
         bullets: [
           'argus_audit(url) — cheap QA pass: console errors, network failures, SEO, security headers, content issues',
           'argus_audit_full(url) — all analyzers including memory, responsive, hover-state, accessibility tree, keyboard walk',
@@ -839,6 +848,7 @@ npm run test:harness  # 653 hard assertions — Chrome required (headless)
           'argus_get_context() — LLM-optimized diagnostic context with fix-loop: pass snapshot_id back to get resolved/new_issues/persisting diff',
           'argus_design_audit(url, figmaFrameUrl) — compares live DOM against Figma frame via REST API; 13 mismatch finding types with selector fallback; requires FIGMA_API_TOKEN',
           'argus_visual_diff(url) — pixel-level screenshot baseline comparison via pixelmatch; first call saves baseline, subsequent calls emit visual_regression findings; pass updateBaseline: true to reset after intentional UI changes',
+          'argus_pr_validate(prUrl) — fetches PR diff, maps changed files to affected routes, runs targeted argus_audit per route, returns { findings, affectedRoutes, blocked, blockOn }; blocks merge on new criticals',
         ],
       },
       {
@@ -1115,7 +1125,7 @@ function DetectionSection() {
                 lineHeight: 1.1, letterSpacing: '-0.02em', whiteSpace: 'pre-line', margin: 0,
               }}
             >
-              {'63 types.\nZero blind spots.'}
+              {'67 types.\nZero blind spots.'}
             </h2>
             <p style={{ margin: '1rem 0 0', fontSize: '0.85rem', color: 'rgba(10,10,10,0.45)', lineHeight: 1.6 }}>
               Click any category to see every detection it covers.
@@ -2310,7 +2320,7 @@ function DocsSection() {
             How we built it.
           </h2>
           <p style={{ margin: 0, maxWidth: 520, fontSize: 'clamp(0.9rem, 1.3vw, 1.05rem)', color: 'rgba(255,255,255,0.38)', lineHeight: 1.7 }}>
-            From a single file to 138 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
+            From a single file to 139 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
           </p>
         </motion.div>
 
