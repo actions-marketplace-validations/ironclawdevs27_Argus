@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-661%2F664-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-662%2F664-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**

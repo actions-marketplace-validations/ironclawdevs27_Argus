@@ -303,6 +303,6 @@ Chrome launcher + doctor pre-flight + advanced security (SRI, source maps, open 
 | `stats[1].num` (TEST BLOCKS) | `138` | `139` |
 | `stats[2].num` (ASSERTIONS RUN) | `653` | `664` |
 | Docs § "Test Coverage" tagline | `138 blocks, 653 hard assertions` | `139 blocks, 664 hard assertions` |
-| Docs § "Running" code | `653 hard assertions`, `650/653` | `664 hard assertions`, `661/664` |
+| Docs § "Running" code | `653 hard assertions`, `650/653` | `664 hard assertions`, `662/664` |
 | "How we built it" caption | `138 test blocks` | `139 test blocks` |
 | Block [139] bullet | — | Added to Breakdown section |
