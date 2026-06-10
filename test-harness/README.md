@@ -165,6 +165,8 @@ test-harness/
 ├── server.js               ← Express fixture server (port 3100 dev / 3101 staging)
 ├── harness-config.js       ← route definitions + expected findings
 ├── validate.js             ← test runner — starts servers, connects Chrome, asserts
+├── .env.harness            ← ARGUS_LOG_LEVEL=warn — auto-loaded by npm run test:harness to suppress INFO flood
+├── run-with-log.mjs        ← tee wrapper used by npm run test:harness:log — streams live + saves to harness-results.txt
 ├── pages/
 │   ├── clean.html                  test 1  — zero-error baseline
 │   ├── js-errors.html              test 2  — console + thrown exceptions
@@ -294,6 +296,12 @@ curl http://127.0.0.1:9222/json/version
 
 ```bash
 npm run test:harness
+```
+
+INFO-level Pino logs are automatically suppressed via `test-harness/.env.harness` (`ARGUS_LOG_LEVEL=warn`) to prevent terminal scrollback overflow. To save the full output to `harness-results.txt` at the repo root, use the tee wrapper instead:
+
+```bash
+npm run test:harness:log
 ```
 
 The validator will:

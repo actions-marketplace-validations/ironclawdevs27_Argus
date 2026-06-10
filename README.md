@@ -210,8 +210,9 @@ npm run report:html    # Generate reports/report.html from last JSON audit
 npm run report:pdf     # Export HTML report to A4 PDF (requires: npm install puppeteer)
 npm run server         # Start Slack slash-command server (port 3001)
 npm run init           # Interactive setup wizard
-npm run test:unit      # 61 unit tests — no Chrome required
-npm run test:harness   # 139-block correctness harness — requires Chrome
+npm run test:unit          # 61 unit tests — no Chrome required
+npm run test:harness       # 139-block correctness harness — requires Chrome
+npm run test:harness:log   # same, but tees full output to harness-results.txt
 ```
 
 **Watch mode** — live monitoring as you develop:

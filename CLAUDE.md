@@ -20,7 +20,7 @@ Argus is an AI-driven automated QA harness that audits web pages using Chrome De
 src/
   argus.js                    — single-page audit entry point
   batch-runner.js             — multi-page batch audit
-  mcp-server.js               — Argus MCP server; exposes argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff
+  mcp-server.js               — Argus MCP server; exposes argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate
   adapters/
     browser.js                — CdpBrowserAdapter — wraps all mcp.* calls
     figma.js                  — Figma REST adapter — getFigmaFrame() + parseFigmaUrl()
@@ -41,6 +41,8 @@ src/
     interaction-handler.js    — Acknowledge + Retest button handler
   cli/
     init.js                   — C4: argus init interactive setup wizard
+    chrome-launcher.js        — findChrome()/launchChrome() cross-platform binary detection; npm run chrome / argus-chrome bin
+    doctor.js                 — checkChrome/checkMcpConfig/checkEnvKeys pre-flight checks; npm run doctor / argus-doctor bin
     pr-validate.js            — headless CI entry point for GitHub Actions; exports buildStepSummary / writeGithubOutputs / writeStepSummary / checkTargetReachable / normalizeRoutePaths
   utils/
     logger.js                 — Pino structured logger; childLogger(module)
@@ -87,6 +89,8 @@ src/
     pr-diff-analyzer.js       — parsePrUrl() / fetchPrFiles() / mapFilesToRoutes() — PR diff → affected routes
     diff.js                   — finding diff utilities
     slug.js                   — URL slug helpers
+    pdf-exporter.js           — exportReportToPdf / exportPageToPdf via puppeteer (optional peer dep); npm run report:pdf
+    screen-recorder.js        — PollingRecorder (zero-dep screenshot intervals) + CdpScreenRecorder (ws dep, Page.startScreencast, auto-ffmpeg)
   config/
     targets.js                — URL targets + auth steps + centralized thresholds
     schema.js                 — Zod validation schema for targets.js; validateConfig() called inside runCrawl()
@@ -109,6 +113,8 @@ landing/
 test-harness/
   validate.js                 — 139-block correctness harness (blocks [80]–[84] MCP/createFinding/withRetry/watch/init; [85]–[93] Sprint 0.5 Tier 3; [94]–[126] gap-close; [127] Sprint 1 A7 theme; [128] Sprint 2 D9 design fidelity; [129] Sprint 9 Web Vitals; [130] Sprint 3 A8 Visual Regression; [131] Sprint 4 A12 Axe-core; [132] Sprint 5 N1 HAR; [133] Sprint 5b A9 Motion; [134] Sprint 5c A10 Font; [135] Sprint 5d A11 Form; [136] Sprint 6 GitHub Check Runs; [137] Sprint 7 PR Diff Analyzer + EXCLUDED_PATTERNS [137i–k]; [138] Sprint 7 GitHub Action CLI + preflight/normalize/guard [138k–p]; [139] Sprint 8 Chrome launcher + doctor + security extensions [139a–k])
   harness-config.js           — fixture page routing table
+  .env.harness                — ARGUS_LOG_LEVEL=warn — suppresses Pino INFO flood during harness runs (auto-loaded by test:harness)
+  run-with-log.mjs            — tee wrapper: streams output live to terminal AND saves full output to harness-results.txt
   pages/                      — 62 fixture HTML pages
   server.js                   — fixture HTTP server
   nextjs-fixture/             — Next.js pages/+app/ structure for C3 route discovery tests
@@ -130,8 +136,9 @@ Chrome must be running with remote debugging before starting the harness:
 & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --headless=new --no-sandbox --disable-gpu --user-data-dir="$env:TEMP\chrome-argus"
 
 # Then run the harness:
-npm run test:unit     # 61 Vitest unit tests — no Chrome required
-npm run test:harness  # Expected: 661/664 (3 permanent MCP-limited failures)
+npm run test:unit          # 61 Vitest unit tests — no Chrome required
+npm run test:harness       # Expected: 661/664 (3 permanent MCP-limited failures); INFO logs suppressed via .env.harness
+npm run test:harness:log   # Same as above, but tees full output to harness-results.txt at repo root
 ```
 
 Soft assertions (Lighthouse, perf traces) require non-headless Chrome — they are expected to be skipped in headless CI.

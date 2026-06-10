@@ -776,9 +776,14 @@ argus/
 │   │   ├── diff.js                   — pixelmatch + DOM/network diff utilities
 │   │   ├── mcp-parsers.js            — Text-format parsers for MCP console/network responses
 │   │   ├── mcp-client.js             — Headless JSON-RPC MCP client for CI mode
-│   │   └── slug.js                   — URL slug helpers
+│   │   ├── slug.js                   — URL slug helpers
+│   │   ├── pdf-exporter.js           — exportReportToPdf/exportPageToPdf via puppeteer (optional peer dep)
+│   │   └── screen-recorder.js        — PollingRecorder (zero-dep screenshots) + CdpScreenRecorder (CDP Page.startScreencast)
 │   └── cli/
-│       └── init.js                   — argus init interactive setup wizard (C4)
+│       ├── init.js                   — argus init interactive setup wizard (C4)
+│       ├── chrome-launcher.js        — findChrome()/launchChrome() cross-platform binary detection; argus-chrome bin
+│       ├── doctor.js                 — checkChrome/checkMcpConfig/checkEnvKeys pre-flight checks; argus-doctor bin
+│       └── pr-validate.js            — headless CI entry point for GitHub Actions; exports buildStepSummary/writeGithubOutputs
 ├── test/
 │   └── unit/                         — Vitest unit tests — no Chrome required
 │       ├── finding.test.js           — createFinding() — 8 tests
@@ -788,9 +793,11 @@ argus/
 │       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
 │       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
 ├── test-harness/
-│   ├── validate.js                   — 138-block correctness harness (650/653 gate)
+│   ├── validate.js                   — 139-block correctness harness (661/664 gate)
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
+│   ├── .env.harness                  — ARGUS_LOG_LEVEL=warn — suppresses INFO flood during harness runs
+│   ├── run-with-log.mjs              — Tee wrapper: streams output live + saves to harness-results.txt
 │   ├── pages/                        — 62 fixture HTML pages (one per detection category)
 │   ├── nextjs-fixture/               — Next.js pages/+app/ structure for C3 tests
 │   ├── source-fixture/               — Minimal app.js for C1 codebase-analyzer tests
@@ -851,7 +858,7 @@ argus/
 
 ## Known MCP Tool Limitations
 
-**3 permanent test failures** in the harness (`650/653`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 3 failures remain.
+**3 permanent test failures** in the harness (`661/664`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 3 failures remain.
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 

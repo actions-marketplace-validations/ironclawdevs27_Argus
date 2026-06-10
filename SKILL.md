@@ -14,7 +14,7 @@ Argus is an AI-driven automated QA harness that audits web pages against 67 dete
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
 - `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate)
-- `test-harness/validate.js` — 138-block correctness harness (653 hard assertions)
+- `test-harness/validate.js` — 139-block correctness harness (664 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -1518,7 +1518,7 @@ Always walk at least 3 levels back — the proximate cause is almost never the r
 
 ### Known MCP Behavioral Limitations
 
-These are chrome-devtools-mcp restrictions that **cannot be worked around in Argus code**. They cause 3 permanent failures in the correctness harness (650/653 pass).
+These are chrome-devtools-mcp restrictions that **cannot be worked around in Argus code**. They cause 3 permanent failures in the correctness harness (661/664 pass).
 
 > **Note on `fill` vs `type_text` and DOM events**: Both tools fire DOM `input` events, but differently:
 >
