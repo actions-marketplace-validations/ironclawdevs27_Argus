@@ -25,6 +25,9 @@ argus-vX1-gaps.md
 business-analysis.md
 test-harness-gaps.md
 
+# Harness output log — written by npm run test:harness:log
+harness-results.txt
+
 # Argus auth session files — contain live cookies/localStorage tokens, never commit
 .argus-*.json
 
