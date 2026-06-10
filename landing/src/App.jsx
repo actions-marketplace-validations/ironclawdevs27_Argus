@@ -151,7 +151,7 @@ const features = [
   {
     icon: BarChart3,
     title: 'HTML Dashboard',
-    desc: 'Every audit generates a self-contained HTML report with charts, screenshots per route, and full finding tables.',
+    desc: 'Every audit generates a self-contained HTML report with charts, screenshots per route, and full finding tables — exportable to PDF.',
     tag: 'REPORTS',
   },
 ]
@@ -162,7 +162,7 @@ const detections = [
     icon: Terminal,
     title: 'Console & Errors',
     desc: 'Unhandled exceptions, JS errors, warning storms',
-    count: 12,
+    count: 9,
     details: [
       'Unhandled promise rejections',
       'JavaScript TypeError / ReferenceError',
@@ -228,9 +228,10 @@ const detections = [
     icon: Zap,
     title: 'Performance',
     desc: 'LCP regressions, CLS shifts, long blocking tasks',
-    count: 6,
+    count: 7,
     details: [
-      'Core Web Vitals (LCP, FID, CLS) via Performance API',
+      'Core Web Vitals: LCP, CLS, FCP, TTFB, TTI via Performance API (headless-compatible)',
+      'Bundle size regression: JS ≥ 500 KB / ≥ 2 MB, CSS ≥ 150 KB',
       'Slow or blocking third-party scripts',
       'Font loading issues (FOUT, FOIT)',
       'Missing resource hints (preload, prefetch, preconnect)',
@@ -346,8 +347,12 @@ TARGET_STAGING_URL=https://staging.yourapp.com   # optional — enables argus_co
       {
         num: '03',
         title: 'Start Chrome',
-        desc: 'Launch Chrome with remote debugging on port 9222. Argus drives this instance via CDP — no navigation needed for snapshot tools.',
-        code: `# macOS
+        desc: 'Launch Chrome with remote debugging on port 9222. Use argus-chrome for cross-platform auto-detection, or launch manually.',
+        code: `# Cross-platform — auto-detects Chrome binary (Windows / macOS / Linux):
+npx argus-chrome
+
+# Or launch manually:
+# macOS
 open -a "Google Chrome" --args --remote-debugging-port=9222 --headless=new
 
 # Windows (PowerShell)
@@ -425,8 +430,11 @@ npx argus   # wizard: URLs, framework detection, route discovery, Slack/GitHub c
       {
         num: '02',
         title: 'Start Chrome',
-        desc: 'Launch Chrome in headless mode. On CI, use the Chrome pre-installed on the runner.',
-        code: `# Local (macOS / Linux):
+        desc: 'Launch Chrome in headless mode. Use argus-chrome for cross-platform auto-detection, or use the runner pre-installed binary in CI.',
+        code: `# Cross-platform local (auto-detects Chrome binary):
+npx argus-chrome
+
+# Or manually (macOS / Linux):
 google-chrome --remote-debugging-port=9222 --headless=new --no-sandbox &
 
 # GitHub Actions (Chrome is pre-installed on ubuntu-latest):
@@ -437,7 +445,10 @@ google-chrome --remote-debugging-port=9222 --headless=new --no-sandbox &
         num: '03',
         title: 'Run Argus',
         desc: 'All commands available via npx or npm scripts. Results saved as JSON in reports/.',
-        code: `# Full audit of all configured routes:
+        code: `# Pre-flight check (Chrome reachable, .mcp.json valid, .env has TARGET_DEV_URL):
+npx argus-doctor
+
+# Full audit of all configured routes:
 node node_modules/argusqa-os/src/orchestration/crawl-and-report.js
 
 # Dev vs staging diff (or CSS analysis if no TARGET_STAGING_URL):
@@ -445,6 +456,9 @@ node node_modules/argusqa-os/src/orchestration/env-comparison.js
 
 # Passive watch — polls open Chrome tab every 1s, no navigation:
 node node_modules/argusqa-os/src/orchestration/watch-mode.js
+
+# Export HTML report to A4 PDF (requires: npm install puppeteer):
+node node_modules/argusqa-os/src/cli/pdf-exporter.js
 
 # Generate HTML report from last audit:
 node node_modules/argusqa-os/src/utils/html-reporter.js`,
@@ -645,7 +659,7 @@ const docChapters = [
         bullets: [
           'Entry Points — single-page audit, batch runner, MCP server',
           'Orchestration Layer — crawl loop, report processing, Slack/GitHub/HTML dispatch, env comparison',
-          'Analyzer Plugins — 15 specialized analyzers, each self-registering via registerExpensive() at module load',
+          'Analyzer Plugins — 20+ specialized analyzers, each self-registering via registerExpensive() at module load',
         ],
       },
       {
@@ -716,6 +730,7 @@ const docChapters = [
           'D9 — Figma Design Fidelity: 13 properties vs Figma REST API (color, typography, spacing, shadow, position drift, and more)',
           'GitHub Check Runs: createCheckRun/completeCheckRun, selector-linked findings, release notes generator',
           'Sprint 8 — Security Extensions: SRI validation on external resources, source map exposure, open redirect detection, npm vulnerability audit (npm audit --json)',
+          'Sprint 8 — CLI Utilities: argus-chrome cross-platform Chrome launcher, argus-doctor pre-flight checker (Chrome + MCP config + env vars), PDF export via puppeteer, zero-dep screenshot interval recorder',
         ],
       },
     ],
