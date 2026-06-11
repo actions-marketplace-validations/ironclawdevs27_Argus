@@ -82,7 +82,8 @@ export class CdpBrowserAdapter {
   /**
    * Raw pass-through to list_console_messages with custom args.
    * Used by issues-analyzer.js for the DevTools Issues panel
-   * (types: ['issue']) which returns structured data, not text.
+   * (types: ['issue']). Like all MCP responses, the result is markdown
+   * text ("msgid=N [issue] text") — parse with parseConsoleMsgResponse.
    */
   listConsoleRaw(args = {}) { return this._mcp.list_console_messages(args); }
 }

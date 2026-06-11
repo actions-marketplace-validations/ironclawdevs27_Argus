@@ -23,7 +23,7 @@
  *   analyzeIssues(browser, url, isCritical) — standalone navigator for direct harness use.
  */
 
-import { normalizeArray } from './flow-runner.js';
+import { parseConsoleMsgResponse } from './mcp-parsers.js';
 
 // ── Issue classifiers ─────────────────────────────────────────────────────────
 
@@ -112,7 +112,8 @@ function classifyIssue(issue, url, isCritical) {
  * Parse a pre-fetched, already-baseline-sliced issues array into findings.
  * Pure function — used by crawlRouteCheap after the D5 baseline-slice.
  *
- * @param {object[]} issues    - Issues from list_console_messages({ types: ['issue'] })
+ * @param {object[]} issues    - Parsed issue objects ({ level, text }) from
+ *                               parseConsoleMsgResponse(list_console_messages({ types: ['issue'] }))
  * @param {string}   url       - Page URL (used as finding context)
  * @param {boolean}  isCritical
  * @returns {object[]}
@@ -127,11 +128,12 @@ export function parseIssues(issues, url, isCritical = false) {
 }
 
 /**
- * Standalone issues analyzer — navigates to a URL, baselines the current
- * Issues count, queries the panel after load, and returns findings.
+ * Standalone issues analyzer — navigates to a URL, queries the Issues
+ * panel after load, and returns findings.
  *
- * Used by the test harness and any standalone caller. Baselines before
- * navigation (D5 pattern) so pre-existing issues from prior pages are excluded.
+ * Used by the test harness and any standalone caller. No baseline slice is
+ * needed: list_console_messages resets per navigation, so the post-navigation
+ * response contains only the current page's issues.
  *
  * @param {object}  browser
  * @param {string}  url
@@ -141,14 +143,6 @@ export function parseIssues(issues, url, isCritical = false) {
 export async function analyzeIssues(browser, url, isCritical = false) {
   const findings = [];
 
-  let baseline = 0;
-  try {
-    const priorRaw = await browser.listConsoleRaw({ types: ['issue'], includePreservedMessages: true });
-    baseline = normalizeArray(priorRaw).length;
-  } catch {
-    // Issues API may not be available — baseline stays 0
-  }
-
   try {
     await browser.navigate(url);
     await new Promise(r => setTimeout(r, 1000));
@@ -157,11 +151,10 @@ export async function analyzeIssues(browser, url, isCritical = false) {
   }
 
   try {
-    const raw    = await browser.listConsoleRaw({
-      types: ['issue'],
-      includePreservedMessages: true,
-    });
-    const issues = normalizeArray(raw).slice(baseline);
+    // Response is markdown text ("msgid=N [issue] text") — same format as
+    // console messages. parseConsoleMsgResponse extracts { level, text }.
+    const raw    = await browser.listConsoleRaw({ types: ['issue'] });
+    const issues = parseConsoleMsgResponse(raw);
     findings.push(...parseIssues(issues, url, isCritical));
   } catch {
     // Issues API not available in this chrome-devtools-mcp build — silent skip

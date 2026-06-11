@@ -792,21 +792,21 @@ const docChapters = [
           'Block 138: Sprint 7 GitHub Action CLI — buildStepSummary / writeGithubOutputs / pr-validate.js, 10 assertions',
           'Block 139: Sprint 8 Chrome launcher + doctor pre-flight + security extensions (SRI, source maps, open redirects, npm audit) + PDF export + screen recorder, 11 assertions',
           '61 Vitest unit tests covering core logic — zero Chrome dependency',
-          '2 assertions permanently fail due to MCP-level constraints (documented as expected)',
+          'All 664 hard assertions pass — zero permanent failures',
         ],
       },
       {
         title: 'Known Limits',
         bullets: [
-          'Chrome DevTools Issues: CSP violations not returned via list_console_messages',
-          'These are constraints in the MCP layer — not Argus bugs — and are expected failures',
+          'No known MCP- or Chrome-layer restrictions — every previously documented limit was root-caused and fixed in Argus',
+          'Soft assertions (Lighthouse, perf traces) require non-headless Chrome and are skipped in headless CI',
         ],
       },
       {
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
 npm run test:harness  # 664 hard assertions — Chrome required (headless)
-# Expected: 662/664 (2 permanent MCP-limited failures: Issues panel [67b, 68b])
+# Expected: 664/664 — no permanent failures
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
     ],

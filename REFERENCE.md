@@ -793,7 +793,7 @@ argus/
 │       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
 │       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
 ├── test-harness/
-│   ├── validate.js                   — 139-block correctness harness (662/664 gate)
+│   ├── validate.js                   — 139-block correctness harness (664/664 gate)
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
 │   ├── .env.harness                  — ARGUS_LOG_LEVEL=warn — suppresses INFO flood during harness runs
@@ -858,14 +858,12 @@ argus/
 
 ## Known MCP Tool Limitations
 
-**2 permanent test failures** in the harness (`662/664`). These are MCP-layer restrictions — they cannot be fixed in Argus code. `validate.js` exits 0 when only these 2 failures remain.
+**None** — the harness passes `664/664` and `KNOWN_PERMANENT` in `validate.js` is empty (v9.7.2). All three historical "permanent failures" were Argus bugs:
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 
 > **`drag` clarification (v9.7.1):** the MCP `drag` tool works correctly in `--headless=new` Chrome, including attach mode (`--browserUrl`). Harness failure [49b] was an Argus bug — `resolveUidForSelector()` substring matching picked the fixture's explanatory paragraph text instead of the draggable div. Fixed with exact-accessible-name-first matching in `flow-runner.js`.
 
-| Tool | Constraint | Impact |
-|---|---|---|
-| `list_console_messages({ types: ['issue'] })` | Issues panel returns empty even when violations exist | CSP and deprecated-API detection is unreliable |
+> **Issues panel clarification (v9.7.2):** `list_console_messages({ types: ['issue'] })` works correctly, including in attach mode — Puppeteer enables the Audits domain by default on both launch and connect. Harness failures [67b]/[68b] were an Argus bug: issues come back as markdown text (`msgid=N [issue] text`) and `normalizeArray()` returns `[]` for strings, so every issue was silently discarded. Fixed with `parseConsoleMsgResponse()` in `issues-analyzer.js` and `orchestrator.js`. The deprecated-API fixture also needed updating (Mutation Events were removed in Chrome 127; it now uses an `unload` listener).
 
-Workarounds and additional constraints are documented in [SKILL.md §10](SKILL.md).
+Additional API contract notes are documented in [SKILL.md §10](SKILL.md).

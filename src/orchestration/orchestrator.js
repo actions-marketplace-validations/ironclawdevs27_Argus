@@ -20,10 +20,11 @@ import { SECURITY_ANALYSIS_SCRIPT, parseSecurityAnalysisResult, analyzeSecurityC
 import { CONTENT_ANALYSIS_SCRIPT, parseContentAnalysisResult }          from '../utils/content-analyzer.js';
 import { runLoginFlow, saveSession, restoreSession, hasSession, refreshSession } from '../utils/session-manager.js';
 import { mergeRunResults }                                               from '../utils/flakiness-detector.js';
-import { runAllFlows, normalizeArray, waitForSelector }                  from '../utils/flow-runner.js';
+import { runAllFlows, waitForSelector }                                  from '../utils/flow-runner.js';
 import { analyzeApiFrequency }                                           from '../utils/api-frequency.js';
 import { slugify }                                                       from '../utils/slug.js';
 import { unwrapEval, createMcpClient }                                   from '../utils/mcp-client.js';
+import { parseConsoleMsgResponse }                                       from '../utils/mcp-parsers.js';
 import { CdpBrowserAdapter }                                             from '../adapters/browser.js';
 import { getFigmaFrame }                                                 from '../adapters/figma.js';
 import { chunkArray }                                                    from '../utils/parallel-crawler.js';
@@ -435,9 +436,9 @@ export async function crawlRouteCheap(route, baseUrl, mcp) {
   const consoleBaseline = (await browser.listConsole().catch(() => [])).length;
   const baselineNetList = await browser.listNetwork().catch(() => []);
   const networkMaxReqId = baselineNetList.reduce((max, r) => Math.max(max, r._reqid ?? 0), 0);
-  // listConsoleRaw returns raw MCP response — normalizeArray required before .length
+  // listConsoleRaw returns markdown text ("msgid=N [issue] text") — parse like console messages
   const issuesBaselineRaw = await browser.listConsoleRaw({ types: ['issue'] }).catch(() => null);
-  const issuesBaseline    = normalizeArray(issuesBaselineRaw).length;
+  const issuesBaseline    = parseConsoleMsgResponse(issuesBaselineRaw).length;
 
   // 1. Navigate
   await browser.navigate(url);
@@ -710,11 +711,12 @@ export async function crawlRouteCheap(route, baseUrl, mcp) {
     logger.warn(`[ARGUS] Content analysis skipped for ${url}: ${err.message}`);
   }
 
-  // 9e. Chrome DevTools Issues panel
+  // 9e. Chrome DevTools Issues panel — same reset-per-navigation guard as console (D5)
   try {
-    const issueRaw = await browser.listConsoleRaw({ types: ['issue'] });
-    const issues   = normalizeArray(issueRaw).slice(issuesBaseline);
-    result.errors.push(...parseIssues(issues, url, route.critical));
+    const issueRaw  = await browser.listConsoleRaw({ types: ['issue'] });
+    const allIssues = parseConsoleMsgResponse(issueRaw);
+    const issuesSliceAt = allIssues.length > issuesBaseline ? issuesBaseline : 0;
+    result.errors.push(...parseIssues(allIssues.slice(issuesSliceAt), url, route.critical));
   } catch (err) {
     logger.warn(`[ARGUS] Issues analysis skipped for ${url}: ${err.message}`);
   }

@@ -6074,15 +6074,19 @@ async function main() {
       console.log('\nFailed assertions:');
       failLog.forEach(f => console.log(`  \u2717 ${f}`));
     }
-    // [67b], [68b] \u2014 Chrome DevTools Issues panel returns empty even when violations exist;
-    //   Audits.enable() not called when MCP attaches to externally-launched Chrome.
-    // These 2 are permanent MCP-level limits; cannot be fixed in Argus code.
-    // ([49b] was here until v9.7.1 \u2014 root cause was a flow-runner uid-resolution bug,
-    //   not a Chrome/MCP limit: substring matching resolved "#drag-source" to the
-    //   fixture's explanatory paragraph text instead of the draggable div. Fixed by
-    //   exact-accessible-name-first matching in resolveUidForSelector.)
-    // CI exits 0 when only these fail.
-    const KNOWN_PERMANENT = ['[67b]', '[68b]'];
+    // Empty since v9.7.2 \u2014 every previously "permanent" failure turned out to be an
+    // Argus bug, not a Chrome/MCP limit:
+    //   [49b] (removed v9.7.1) \u2014 resolveUidForSelector() substring matching resolved
+    //     "#drag-source" to the fixture's explanatory paragraph text instead of the
+    //     draggable div. Fixed with exact-accessible-name-first matching.
+    //   [67b]/[68b] (removed v9.7.2) \u2014 issues WERE returned by the MCP as markdown
+    //     text ("msgid=N [issue] text"), but normalizeArray() returns [] for strings,
+    //     so they were always discarded. Fixed with parseConsoleMsgResponse(). The
+    //     deprecated-API fixture also used APIs that no longer emit DeprecationIssues
+    //     (Mutation Events removed in Chrome 127) \u2014 now uses an unload listener.
+    // If a genuine upstream limit appears, add its block ID here; CI exits 0 when
+    // only KNOWN_PERMANENT entries fail.
+    const KNOWN_PERMANENT = [];
     const unexpected = failLog.filter(f => !KNOWN_PERMANENT.some(p => f.startsWith(p)));
     if (unexpected.length > 0) {
       console.log('\n\u274c Unexpected failures \u2014 fix before merging:');

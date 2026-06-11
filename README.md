@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-662%2F664-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-664%2F664-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**
@@ -335,11 +335,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-2 permanent test failures (`662/664`) are MCP-layer restrictions — not fixable in Argus code:
-
-| Tool | Constraint |
-|---|---|
-| `list_console_messages({ types: ['issue'] })` | Issues panel returns empty even when violations exist |
+All 664 harness assertions pass (`664/664`) — there are currently no known MCP- or Chrome-layer restrictions. Soft assertions (Lighthouse, performance traces) still require non-headless Chrome and are skipped in headless CI.
 
 ---
 

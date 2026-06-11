@@ -59,10 +59,9 @@ jobs:
 
       - name: Run test harness
         run: npm run test:harness
-        # KNOWN_PERMANENT failures (exit 0): [67b] DevTools Issues CSP, [68b] DevTools
-        # Issues CORS (Audits.enable() not called when MCP attaches to externally-launched
-        # Chrome). Any other failure exits 1.
-        # To add a new permanent: update KNOWN_PERMANENT array in test-harness/validate.js.
+        # KNOWN_PERMANENT is empty (v9.7.2) — all 664 assertions pass; any failure exits 1.
+        # If a genuine upstream limit appears, add its block ID to the KNOWN_PERMANENT
+        # array in test-harness/validate.js (exit 0 when only those fail).
 
       - name: Run unit tests (no Chrome required)
         run: npm run test:unit

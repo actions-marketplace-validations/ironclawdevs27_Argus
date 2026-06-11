@@ -18,14 +18,13 @@
   <div id="mutation-target">Mutation target element</div>
 
   <script>
-    // Deprecated: document.domain assignment.
-    // Chrome 106+ emits a DeprecationIssue: "The use of document.domain is deprecated"
-    try { document.domain = document.domain; } catch (e) { /* cross-origin safety */ }
-
-    // Deprecated: Mutation Events (replaced by MutationObserver since Chrome 18).
-    // Chrome emits a DeprecationIssue for DOMSubtreeModified, DOMNodeInserted, etc.
-    document.getElementById('mutation-target')
-      .addEventListener('DOMSubtreeModified', function () {}, false);
+    // Deprecated: unload event listeners. Chrome emits a DeprecationIssue
+    // ("Deprecated feature used" / unload handler deprecation) on registration.
+    // NOTE: earlier versions of this fixture used Mutation Events (REMOVED in
+    // Chrome 127 — registering a listener no longer emits anything) and a
+    // same-value document.domain assignment (no-op, no issue). Both stopped
+    // producing DeprecationIssues in current Chrome; unload still does.
+    window.addEventListener('unload', function () {});
 
     document.body.dataset.deprecatedReady = 'true';
   </script>

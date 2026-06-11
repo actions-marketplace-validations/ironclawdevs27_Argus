@@ -1518,7 +1518,7 @@ Always walk at least 3 levels back — the proximate cause is almost never the r
 
 ### Known MCP Behavioral Limitations
 
-These are chrome-devtools-mcp restrictions that **cannot be worked around in Argus code**. They cause 2 permanent failures in the correctness harness (662/664 pass).
+**There are currently none** — the harness passes 664/664. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again.
 
 > **Note on `fill` vs `type_text` and DOM events**: Both tools fire DOM `input` events, but differently:
 >
@@ -1534,15 +1534,15 @@ These are chrome-devtools-mcp restrictions that **cannot be worked around in Arg
 
 > **Note on `drag` (harness block [49b], resolved v9.7.1)**: [49b] sat in `KNOWN_PERMANENT` blamed on headless Chrome until v9.7.1, when the real root cause turned out to be an Argus bug: `resolveUidForSelector()` substring matching resolved `#drag-source` to the fixture's explanatory paragraph StaticText (which mentions "#drag-source" literally) instead of the draggable div — so the drag happened between two paragraph text nodes and no DnD events fired at all. Fixed with exact-accessible-name-first matching (two-pass). The MCP `drag` tool (`drag()` → 50 ms → `drop()`) works correctly in `--headless=new`, including via `--browserUrl` attach; upstream issue #2182 was correctly closed.
 
-| # | Tool | Limitation | Harness block |
-| --- | --- | --- | --- |
-| 1 | `list_console_messages({ types: ['issue'] })` | The Chrome DevTools **Issues panel** returns an empty array in practice, even when real CSP violations and deprecated-API use are visible in Chrome. Detection via the Issues panel namespace is unreliable. | [67b, 68b] |
+> **Note on the Issues panel (harness blocks [67b]/[68b], resolved v9.7.2)**: blamed for years of "permanent failures" on `Audits.enable()` not being called in attach mode — wrong on every count. The bundled Puppeteer defaults `issuesEnabled: true` in BOTH launch and connect paths, so `Audits.enable` IS sent, and `list_console_messages({ types: ['issue'] })` DOES return issues — as markdown text lines (`msgid=N [issue] text`), exactly like console messages. The Argus bug: `analyzeIssues` and the orchestrator passed that text to `normalizeArray()`, which returns `[]` for any string, silently discarding every issue (production Issues detection was dead, not just the harness blocks). Fixed with `parseConsoleMsgResponse()`. Separately, the deprecated-API fixture used Mutation Events (REMOVED in Chrome 127 — no listener, no issue) and a same-value `document.domain` assignment (no-op); it now registers an `unload` listener, which still emits a DeprecationIssue.
 
-**Workaround strategies:**
+**API contract reminders (the bugs above all came from violating these):**
 
-| Limitation | Workaround |
+| Contract | Detail |
 | --- | --- |
-| Issues panel empty | Detect CSP violations via `list_console_messages({ types: ['error'] })` text-matching for "Content-Security-Policy". Deprecated API use requires a headful Chrome session or manual review. |
+| ALL MCP responses are markdown text | `list_console_messages` (including `types: ['issue']`), `list_network_requests`, `evaluate_script` — never structured JSON. Always parse with `mcp-parsers.js` / `unwrapEval`. |
+| `list_console_messages` resets per navigation | Issues included. Post-navigation responses contain only the current page's messages. |
+| Snapshot uid resolution must prefer exact accessible names | Substring matching against snapshot text can hit unrelated nodes whose text merely mentions the identifier. |
 
 ---
 
@@ -1673,22 +1673,19 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.7.1` |
+| **Version** | `9.7.2` |
 | **Test blocks** | 139 |
 | **Hard assertions** | 664 |
 | **Soft assertions** | ~23 (Lighthouse / perf traces / memory — headless-unavailable) |
 | **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
 | **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **662/664** (2 permanent MCP-limited failures: [67b], [68b] — exits 0) |
+| **Harness gate** | **664/664** (no permanent failures — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
-### Permanent MCP-Limited Failures (always 2)
+### Permanent MCP-Limited Failures (none)
 
-| Block | Assertion | Root cause |
-|-------|-----------|-----------|
-| `[67b]` | CSP fixture → `csp_violation` | `Audits.enable()` not called when MCP attaches to externally-launched Chrome |
-| `[68b]` | Deprecated API → `deprecated_api_use` | Same root cause as [67b] |
+`KNOWN_PERMANENT` in `validate.js` is empty as of v9.7.2. All three historical entries ([49b] drag/drop, [67b] CSP issues, [68b] deprecated-API issues) were Argus bugs — see the resolution notes in §10.
 
 ### Phases Complete (scannable)
 
@@ -1723,6 +1720,7 @@ for (const bp of breakpoints) {
 | v9.6.6 | PR Validator hardening | `checkTargetReachable()` preflight (network-error-only, HTTP 4xx pass), `normalizeRoutePaths()` (prepends `/` to bare paths), all-routes-failed guard, `EXCLUDED_PATTERNS` in `mapFilesToRoutes` (CI-only/doc-only PR → `[]`), `notifications/initialized` MCP handshake, `baseUrl = targetUrl.replace(/\/$/, '')` path-prefix preservation, block-on=warning annotation fix; `action.yml` description ≤125 chars + `argusqa-os@9.6.6` + `chrome-devtools-mcp@1.1.1` version-pinned; [137i–k] + [138k–p] 9 new assertions | 650/653 |
 | v9.7.0 | Sprint 8 — Security + PDF/Video + Chrome Launcher | `security-analyzer.js` + 4 new types: `security_missing_sri` (DOM SRI check), `security_sourcemap_exposed` (network), `security_open_redirect` (network), `security_npm_vulnerability` (`npm audit --json`); `pdf-exporter.js` (puppeteer A4 PDF, optional dep); `screen-recorder.js` (`PollingRecorder` + `CdpScreenRecorder`); `src/cli/chrome-launcher.js` (`findChrome`/`launchChrome`, Windows/Mac/Linux); `src/cli/doctor.js` (`checkChrome`/`checkMcpConfig`/`checkEnvKeys`); `npm run chrome` + `npm run doctor` + `npm run report:pdf` scripts; `argus-chrome` + `argus-doctor` bin entries; block [139] 11 assertions [139a–k] | 661/664 |
 | v9.7.1 | [49b] drag/drop root-cause fix | `resolveUidForSelector()` exact-accessible-name-first matching (two-pass) in `flow-runner.js` — substring matching had resolved `#drag-source` to the fixture's explanatory paragraph text instead of the draggable div; [49b] removed from `KNOWN_PERMANENT`; upstream chrome-devtools-mcp #2182 closure confirmed correct | 662/664 |
+| v9.7.2 | [67b]/[68b] Issues panel root-cause fix | MCP returns issues as markdown text; `normalizeArray()` returned `[]` for strings so all issues were discarded (production Issues detection was dead) — `parseConsoleMsgResponse()` now used in `issues-analyzer.js` + `orchestrator.js`; `issues-deprecated.html` fixture updated to `unload` listener (Mutation Events removed in Chrome 127); `KNOWN_PERMANENT` now empty | **664/664** |
 
 ---
 

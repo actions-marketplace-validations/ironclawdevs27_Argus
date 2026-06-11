@@ -317,3 +317,16 @@ Chrome launcher + doctor pre-flight + advanced security (SRI, source maps, open 
 |---|---|---|
 | Docs § "Running" code gate | `661/664` | `662/664` |
 | Permanent failures | 3 ([49b]/[67b]/[68b]) | 2 ([67b]/[68b]) |
+
+---
+
+## Stats Update (2026-06-11 — v9.7.2)
+
+[67b]/[68b] Issues panel root-cause fix: MCP returns issues as markdown text but `normalizeArray()` discarded strings — `parseConsoleMsgResponse()` now used; deprecated fixture switched to `unload` listener. `KNOWN_PERMANENT` is empty. No new blocks, assertions, or detection categories.
+
+| Field | Old | New |
+|---|---|---|
+| Docs § "Running" code gate | `662/664` | `664/664` |
+| Docs § "Test Coverage" permanent-failure bullet | `2 assertions permanently fail` | `All 664 hard assertions pass` |
+| Known Limits section | Issues panel constraint | No known MCP/Chrome restrictions |
+| Permanent failures | 2 ([67b]/[68b]) | **0** |
