@@ -91,6 +91,8 @@ import { buildStepSummary, writeGithubOutputs, writeStepSummary, checkTargetReac
 import { findChrome } from '../src/cli/chrome-launcher.js';
 import { checkChrome, checkMcpConfig, checkEnvKeys } from '../src/cli/doctor.js';
 import { checkSourceMapExposure, checkOpenRedirects } from '../src/utils/security-analyzer.js';
+import { loadRunHistory, recordRunHistory, computeNoiseScores, applyNoiseFilter, NOISE_MIN_RUNS } from '../src/utils/noise-filter.js';
+import { getRecentChanges, matchFilesToRoutePath, linkRootCauses } from '../src/utils/root-cause-linker.js';
 
 // ── Section 1 gap-closer imports (blocks [94]–[107]) ──────────────────────────
 import { parseConsoleMsgResponse, parseNetworkReqResponse } from '../src/utils/mcp-parsers.js';
@@ -3504,7 +3506,7 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       '[80l] handleGetContext emits resolved / new_issues / persisting diff fields',
     );
 
-    // [80m] argus_visual_diff tool registered (Sprint 3 Extension)
+    // [80m] argus_visual_diff tool registered (Extension)
     assert(
       serverContent !== null && serverContent.includes('argus_visual_diff'),
       '[80m] src/mcp-server.js registers the argus_visual_diff tool',
@@ -3545,7 +3547,7 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
 
   // ── Block [82] withRetry() exponential backoff ─────────────────────────────
   {
-    console.log('\n[82] withRetry() exponential backoff (Sprint 4)');
+    console.log('\n[82] withRetry() exponential backoff');
 
     // [82a] successful function called exactly once
     let calls82a = 0;
@@ -5268,9 +5270,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[128ad] at least 1 design_position_drift finding — drift-box has margin-left:80px but Figma bounds x:0, drift > 20px threshold (got ${positionDrifts128.length})`);
   }
 
-  // ── Block [129] Sprint 9 — Web Vitals + Bundle Size ──────────────────────────
+  // ── Block [129] Web Vitals + Bundle Size ──────────────────────────
   {
-    console.log('\n[129] web-vitals-analyzer — Sprint 9 LCP/CLS/FCP/TTI + perf_bundle_large');
+    console.log('\n[129] web-vitals-analyzer — LCP/CLS/FCP/TTI + perf_bundle_large');
 
     const browser129 = new CdpBrowserAdapter(mcp);
     const url129     = `${B}/perf-vitals.html`;
@@ -5320,9 +5322,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     );
   }
 
-  // ── Block [130] Sprint 3 — Visual Regression (A8) ─────────────────────────
+  // ── Block [130] Visual Regression (A8) ─────────────────────────
   {
-    console.log('\n[130] visual-diff-analyzer — Sprint 3 A8 baseline comparison');
+    console.log('\n[130] visual-diff-analyzer — A8 baseline comparison');
 
     const tmpDir130  = fs.mkdtempSync(path.join(os.tmpdir(), 'argus-harness-130-'));
     const browser130 = new CdpBrowserAdapter(mcp);
@@ -5381,9 +5383,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     try { fs.rmSync(tmpDir130, { recursive: true, force: true }); } catch {}
   }
 
-  // ── Block [131] Sprint 4 — Axe-core + Color Blind Simulation (A12) ────────
+  // ── Block [131] Axe-core + Color Blind Simulation (A12) ────────
   {
-    console.log('\n[131] a11y-deep-analyzer — Sprint 4 axe-core + color blind simulation');
+    console.log('\n[131] a11y-deep-analyzer — A12 axe-core + color blind simulation');
 
     const browser131 = new CdpBrowserAdapter(mcp);
     const url131     = `${B}/a11y-deep-issues.html`;
@@ -5429,9 +5431,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[131i] a11y_colorblind_risk has contrastRatio field (number) (got ${typeof colorblind131[0]?.contrastRatio})`);
   }
 
-  // ── Block [132] Sprint 5 — HAR Network Baseline (N1) ─────────────────────
+  // ── Block [132] HAR Network Baseline (N1) ─────────────────────
   {
-    console.log('\n[132] har-recorder — Sprint 5 HAR network baseline');
+    console.log('\n[132] har-recorder — HAR network baseline');
     const tmpDir132 = fs.mkdtempSync(path.join(os.tmpdir(), 'argus-harness-132-'));
     const browser132 = new CdpBrowserAdapter(mcp);
     const url132     = `${B}/har-baseline.html`;
@@ -5466,9 +5468,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     try { fs.rmSync(tmpDir132, { recursive: true, force: true }); } catch {}
   }
 
-  // ── Block [133] Sprint 5b — Motion & Animation Accessibility (A9) ────────
+  // ── Block [133] Motion & Animation Accessibility (A9) ────────
   {
-    console.log('\n[133] motion-analyzer — Sprint 5b motion & animation accessibility');
+    console.log('\n[133] motion-analyzer — A9 motion & animation accessibility');
     const browser133 = new CdpBrowserAdapter(mcp);
     const url133     = `${B}/motion-issues.html`;
 
@@ -5497,9 +5499,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[133f] motion_summary has animationCount field (number) (got ${typeof summary133?.animationCount})`);
   }
 
-  // ── Block [134] Sprint 5c — Font Loading (A10) ───────────────────────────
+  // ── Block [134] Font Loading (A10) ───────────────────────────
   {
-    console.log('\n[134] font-analyzer — Sprint 5c font loading');
+    console.log('\n[134] font-analyzer — A10 font loading');
     const browser134 = new CdpBrowserAdapter(mcp);
     const url134     = `${B}/font-issues.html`;
 
@@ -5527,9 +5529,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[134f] font_summary has foitRisks count (number) (got ${typeof summary134?.foitRisks})`);
   }
 
-  // ── Block [135] Sprint 5d — Form Validation (A11) ────────────────────────
+  // ── Block [135] Form Validation (A11) ────────────────────────
   {
-    console.log('\n[135] form-analyzer — Sprint 5d form validation');
+    console.log('\n[135] form-analyzer — A11 form validation');
     const browser135 = new CdpBrowserAdapter(mcp);
     const url135     = `${B}/form-issues.html`;
 
@@ -5558,9 +5560,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[135f] form_summary has missingRequired count (number) (got ${typeof summary135?.missingRequired})`);
   }
 
-  // ── Block [136] Sprint 6 — Rich GitHub PR Comments (Check Runs + Release Notes) ──
+  // ── Block [136] Rich GitHub PR Comments (Check Runs + Release Notes) ──
   {
-    console.log('\n[136] github-reporter — Sprint 6 rich PR comments + check runs + release notes');
+    console.log('\n[136] github-reporter — rich PR comments + check runs + release notes');
 
     // Synthetic report with selector-bearing findings and visual_regression
     const report136 = {
@@ -5655,7 +5657,7 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[136i] createCheckRun and completeCheckRun are exported functions`
     );
 
-    // [136j] buildStatusPayload includes newCriticalCount and threshold fields (Sprint 6 enrichment)
+    // [136j] buildStatusPayload includes newCriticalCount and threshold fields (check-run enrichment)
     const statusShape136 = buildStatusPayload(report136, diff136);
     assert(
       typeof statusShape136.newCriticalCount === 'number' && typeof statusShape136.threshold === 'number',
@@ -5663,7 +5665,7 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     );
   }
 
-  // ── Block [137] Sprint 7 — PR Diff Analyzer (pure function unit tests) ───────
+  // ── Block [137] PR Diff Analyzer (pure function unit tests) ───────
   {
     console.log('\n[137] pr-diff-analyzer — parsePrUrl + mapFilesToRoutes pure functions');
 
@@ -5756,7 +5758,7 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     );
   }
 
-  // ── Block [138] Sprint 7 — PR Validate CLI helpers (no Chrome required) ──────
+  // ── Block [138] PR Validate CLI helpers (no Chrome required) ──────
   {
     console.log('\n[138] pr-validate.js CLI — buildStepSummary + writeGithubOutputs unit tests');
 
@@ -5909,9 +5911,9 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     );
   }
 
-  // ── Block [139]: Sprint 8 — Chrome Launcher, Doctor, Security Extensions ────
+  // ── Block [139]: Chrome Launcher, Doctor, Security Extensions ────
   {
-    console.log('\n[139] Sprint 8 — Chrome launcher, doctor, security extensions');
+    console.log('\n[139] Chrome launcher, doctor, security extensions');
 
     // [139a] checkSourceMapExposure fires for .js.map URL
     const mapReqs139 = [{ url: 'https://example.com/bundle.js.map' }];
@@ -6018,6 +6020,160 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       !chromeThrew139 && (chromePathResult139 === null || typeof chromePathResult139 === 'string'),
       `[139k] findChrome() returns string or null without throwing (got: ${chromeThrew139 ? 'threw' : JSON.stringify(chromePathResult139)})`
+    );
+  }
+
+  // ── Block [140]: Noise Filter — intelligent baseline filtering (pure unit) ──
+  {
+    console.log('\n[140] Noise filter — cross-run flip-flop classifier (intelligent baseline filtering)');
+
+    const url140 = 'http://localhost:3000/dash';
+    const flipKey140   = 'console::boom';      // present in runs 1,3,5 — absent 2,4
+    const stableKey140 = 'network::dead';      // present in every run
+    const mkHistory140 = (runs) => runs.map(keys => ({ runAt: 'x', routes: { [url140]: keys } }));
+    const history140 = mkHistory140([
+      [flipKey140, stableKey140],
+      [stableKey140],
+      [flipKey140, stableKey140],
+      [stableKey140],
+      [flipKey140, stableKey140],
+    ]);
+
+    // [140a] flip-flopping key scores 1.0 (flips on every consecutive run pair)
+    const scores140 = computeNoiseScores(history140);
+    const flipScore140 = scores140.get(`${url140}::${flipKey140}`);
+    assert(
+      flipScore140 && flipScore140.score === 1 && flipScore140.runs === 5,
+      `[140a] flip-flopping finding scores 1.0 over 5 runs (got: ${JSON.stringify(flipScore140)})`
+    );
+
+    // [140b] stable always-present key scores 0
+    const stableScore140 = scores140.get(`${url140}::${stableKey140}`);
+    assert(
+      stableScore140 && stableScore140.score === 0,
+      `[140b] stable always-present finding scores 0 (got: ${JSON.stringify(stableScore140)})`
+    );
+
+    // [140c] applyNoiseFilter downgrades the noisy finding to info + annotates
+    const report140 = { routes: [{ url: url140, errors: [
+      { type: 'console', message: 'boom', severity: 'warning' },
+      { type: 'network', message: 'dead', severity: 'critical' },
+    ] }] };
+    const { noisyCount: noisy140 } = applyNoiseFilter(report140, history140);
+    const flipFinding140 = report140.routes[0].errors[0];
+    assert(
+      noisy140 === 1 && flipFinding140.noisy === true && flipFinding140.severity === 'info' &&
+      flipFinding140.originalSeverity === 'warning' && typeof flipFinding140.noiseScore === 'number',
+      `[140c] noisy finding downgraded to info with noisy:true + originalSeverity (got: noisy=${noisy140}, ${JSON.stringify(flipFinding140)})`
+    );
+
+    // [140d] stable critical finding untouched
+    const stableFinding140 = report140.routes[0].errors[1];
+    assert(
+      stableFinding140.severity === 'critical' && stableFinding140.noisy === undefined,
+      `[140d] stable finding keeps original severity (got: ${stableFinding140.severity}, noisy=${stableFinding140.noisy})`
+    );
+
+    // [140e] history shorter than NOISE_MIN_RUNS → no downgrade even when flip-flopping
+    const shortHistory140 = mkHistory140([[flipKey140], [], [flipKey140]]); // 3 runs < 4
+    const shortReport140 = { routes: [{ url: url140, errors: [{ type: 'console', message: 'boom', severity: 'warning' }] }] };
+    const { noisyCount: shortNoisy140 } = applyNoiseFilter(shortReport140, shortHistory140);
+    assert(
+      shortNoisy140 === 0 && shortReport140.routes[0].errors[0].severity === 'warning',
+      `[140e] ${NOISE_MIN_RUNS}-run minimum respected — 3-run history produces no downgrade (got noisy=${shortNoisy140})`
+    );
+
+    // [140f] recordRunHistory round-trip + caps at maxRuns
+    const tmpHistory140 = path.join(os.tmpdir(), `argus-history-140-${Date.now()}.json`);
+    const runReport140 = { generatedAt: 'now', routes: [{ url: url140, errors: [{ type: 'console', message: 'boom' }] }] };
+    for (let i = 0; i < 6; i++) recordRunHistory(tmpHistory140, runReport140, 5);
+    const loaded140 = loadRunHistory(tmpHistory140);
+    assert(
+      loaded140.length === 5 && loaded140[0].routes[url140]?.includes('console::boom'),
+      `[140f] recordRunHistory caps at maxRuns=5 and round-trips finding keys (got ${loaded140.length} runs)`
+    );
+
+    // [140g] corrupt history file → loadRunHistory returns []
+    fs.writeFileSync(tmpHistory140, 'not json {{');
+    const corrupt140 = loadRunHistory(tmpHistory140);
+    fs.unlinkSync(tmpHistory140);
+    assert(
+      Array.isArray(corrupt140) && corrupt140.length === 0,
+      `[140g] corrupt history file returns [] (got: ${JSON.stringify(corrupt140)})`
+    );
+  }
+
+  // ── Block [141]: Root Cause Linker — git diff → route heuristic (pure unit) ──
+  {
+    console.log('\n[141] Root cause linker — recent git changes mapped to new findings');
+
+    // [141a] getRecentChanges returns an array (this repo, or [] when git unavailable)
+    let changes141;
+    let changesThrew141 = false;
+    try { changes141 = getRecentChanges(); } catch { changesThrew141 = true; }
+    assert(
+      !changesThrew141 && Array.isArray(changes141),
+      `[141a] getRecentChanges returns an array without throwing (got ${changesThrew141 ? 'throw' : changes141.length + ' commit(s)'})`
+    );
+
+    // [141b] slug match: checkout page file matches /checkout route
+    const direct141 = matchFilesToRoutePath(['src/pages/checkout/Form.jsx'], '/checkout');
+    assert(
+      direct141.files.length === 1 && direct141.global === false,
+      `[141b] src/pages/checkout/Form.jsx matches route /checkout (got: ${JSON.stringify(direct141)})`
+    );
+
+    // [141c] unrelated file → no match, not global
+    const none141 = matchFilesToRoutePath(['src/utils/random-helper.js'], '/checkout');
+    assert(
+      none141.files.length === 0 && none141.global === false,
+      `[141c] unrelated file does not match /checkout (got: ${JSON.stringify(none141)})`
+    );
+
+    // [141d] infra file → global scope, not a direct match
+    const infra141 = matchFilesToRoutePath(['next.config.js'], '/checkout');
+    assert(
+      infra141.global === true && infra141.files.length === 0,
+      `[141d] next.config.js flagged global for any route (got: ${JSON.stringify(infra141)})`
+    );
+
+    // [141e] linkRootCauses annotates the NEW finding with rootCause.files
+    const report141 = { routes: [{ url: 'http://localhost:3000/checkout', errors: [
+      { type: 'console', message: 'boom', isNew: true },
+      { type: 'network', message: 'old issue', isNew: false },
+    ] }] };
+    const commits141 = [{ hash: 'abc1234', subject: 'fix checkout form', files: ['src/pages/checkout/Form.jsx'] }];
+    const { linkedCount: linked141 } = linkRootCauses(report141, commits141);
+    const newFinding141 = report141.routes[0].errors[0];
+    assert(
+      linked141 === 1 && newFinding141.rootCause?.files?.includes('src/pages/checkout/Form.jsx') &&
+      newFinding141.rootCause.commits[0].hash === 'abc1234' && newFinding141.rootCause.global === false,
+      `[141e] new finding annotated with rootCause files + commit (got: ${JSON.stringify(newFinding141.rootCause)})`
+    );
+
+    // [141f] pre-existing (isNew: false) finding NOT annotated
+    assert(
+      report141.routes[0].errors[1].rootCause === undefined,
+      `[141f] pre-existing finding has no rootCause annotation`
+    );
+
+    // [141g] empty changes → no annotation, no throw
+    const emptyReport141 = { routes: [{ url: 'http://localhost:3000/checkout', errors: [{ type: 'console', message: 'x', isNew: true }] }] };
+    const { linkedCount: emptyLinked141 } = linkRootCauses(emptyReport141, []);
+    assert(
+      emptyLinked141 === 0 && emptyReport141.routes[0].errors[0].rootCause === undefined,
+      `[141g] empty changes list links nothing (got linkedCount=${emptyLinked141})`
+    );
+
+    // [141h] infra-only commit → rootCause.global true with infra files as suspects
+    const globalReport141 = { routes: [{ url: 'http://localhost:3000/checkout', errors: [{ type: 'console', message: 'y', isNew: true }] }] };
+    const infraCommits141 = [{ hash: 'def5678', subject: 'bump deps', files: ['package.json'] }];
+    const { linkedCount: globalLinked141 } = linkRootCauses(globalReport141, infraCommits141);
+    const globalFinding141 = globalReport141.routes[0].errors[0];
+    assert(
+      globalLinked141 === 1 && globalFinding141.rootCause?.global === true &&
+      globalFinding141.rootCause.files.includes('package.json'),
+      `[141h] infra-only commit links with global:true (got: ${JSON.stringify(globalFinding141.rootCause)})`
     );
   }
 }

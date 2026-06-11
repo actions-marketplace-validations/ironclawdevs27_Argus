@@ -1,5 +1,5 @@
 /**
- * ARGUS Web Vitals Analyzer (Sprint 9 — Advanced Performance Metrics)
+ * ARGUS Web Vitals Analyzer (Advanced Performance Metrics)
  *
  * Captures Core Web Vitals and performance metrics directly via the browser
  * Performance API. Unlike Lighthouse, this works in headless Chrome — metrics

@@ -757,7 +757,7 @@ argus/
 │   │   ├── form-analyzer.js          — A11: Form validation accessibility + UX gaps
 │   │   ├── codebase-analyzer.js      — C1: Static source analysis (no browser)
 │   │   ├── github-reporter.js        — C2: PR comment + commit status + Check Runs
-│   │   ├── pr-diff-analyzer.js       — Sprint 7: parsePrUrl / fetchPrFiles / mapFilesToRoutes
+│   │   ├── pr-diff-analyzer.js       — parsePrUrl / fetchPrFiles / mapFilesToRoutes
 │   │   ├── route-discoverer.js       — C3: sitemap + Next.js + React Router discovery
 │   │   ├── logger.js                 — Pino structured logger; childLogger(module)
 │   │   ├── retry.js                  — withRetry() exponential backoff (navigate/fill only)
@@ -766,6 +766,8 @@ argus/
 │   │   ├── login-orchestrator.js     — Auth: runLoginFlow / refreshSession + lock file
 │   │   ├── baseline-manager.js       — Baselines: load/save/apply/trend
 │   │   ├── flakiness-detector.js     — Flakiness: mergeRunResults — confirmed vs flaky
+│   │   ├── noise-filter.js           — Cross-run noise classifier: applyNoiseFilter — flip-flopping findings → info
+│   │   ├── root-cause-linker.js      — Git diff heuristic: linkRootCauses — suspect files/commits on new findings
 │   │   ├── flow-runner.js            — User flow DSL: runFlow / runAllFlows
 │   │   ├── html-reporter.js          — HTML dashboard: generateHtmlReport()
 │   │   ├── parallel-crawler.js       — Concurrency sharding (ARGUS_CONCURRENCY=N)
@@ -793,7 +795,7 @@ argus/
 │       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
 │       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
 ├── test-harness/
-│   ├── validate.js                   — 139-block correctness harness (664/664 gate)
+│   ├── validate.js                   — 141-block correctness harness (679/679 gate)
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
 │   ├── .env.harness                  — ARGUS_LOG_LEVEL=warn — suppresses INFO flood during harness runs

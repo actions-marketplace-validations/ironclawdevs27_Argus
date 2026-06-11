@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-664%2F664-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-679%2F679-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**
@@ -83,6 +83,13 @@ Argus scans your app and either posts findings to Slack or opens a local `report
 | **Motion** | `prefers-reduced-motion` violations, `autoplay` without pause controls |
 | **Network baseline** | New requests, missing requests, status-code regressions vs saved HAR baseline |
 | **Environment diff** | Dev vs staging — screenshot diff, DOM changes, console/network regressions |
+
+And every finding is post-processed with:
+
+| Post-processor | What it adds |
+|---|---|
+| **Intelligent baseline filtering** | Findings that flip-flop across runs are tagged `noisy` and downgraded to info — pure cross-run heuristics, no API calls (`ARGUS_NOISE_FILTER=0` to disable) |
+| **Root cause linking** | New findings are annotated with the recent git commits and files most likely to have caused them (`ARGUS_ROOT_CAUSE=0` to disable) |
 
 > All findings are classified as `critical` / `warning` / `info` and routed to the right Slack channel — or surfaced in the local HTML report. For per-finding severity tables and detection methods, see [REFERENCE.md](REFERENCE.md).
 
@@ -335,7 +342,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-All 664 harness assertions pass (`664/664`) — there are currently no known MCP- or Chrome-layer restrictions. Soft assertions (Lighthouse, performance traces) still require non-headless Chrome and are skipped in headless CI.
+All 679 harness assertions pass (`679/679`) — there are currently no known MCP- or Chrome-layer restrictions. Soft assertions (Lighthouse, performance traces) still require non-headless Chrome and are skipped in headless CI.
 
 ---
 

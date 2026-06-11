@@ -27,8 +27,8 @@ const navHrefs = {
 
 const stats = [
   { num: '67', label: 'DETECTION\nTYPES' },
-  { num: '139', label: 'TEST\nBLOCKS' },
-  { num: '664', label: 'ASSERTIONS\nRUN' },
+  { num: '141', label: 'TEST\nBLOCKS' },
+  { num: '679', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']
@@ -729,8 +729,8 @@ const docChapters = [
           'N1 — HAR Network Baseline: new requests, missing requests, status-code regressions vs saved baseline',
           'D9 — Figma Design Fidelity: 13 properties vs Figma REST API (color, typography, spacing, shadow, position drift, and more)',
           'GitHub Check Runs: createCheckRun/completeCheckRun, selector-linked findings, release notes generator',
-          'Sprint 8 — Security Extensions: SRI validation on external resources, source map exposure, open redirect detection, npm vulnerability audit (npm audit --json)',
-          'Sprint 8 — CLI Utilities: argus-chrome cross-platform Chrome launcher, argus-doctor pre-flight checker (Chrome + MCP config + env vars), PDF export via puppeteer, zero-dep screenshot interval recorder',
+          'Security Extensions: SRI validation on external resources, source map exposure, open redirect detection, npm vulnerability audit (npm audit --json)',
+          'CLI Utilities: argus-chrome cross-platform Chrome launcher, argus-doctor pre-flight checker (Chrome + MCP config + env vars), PDF export via puppeteer, zero-dep screenshot interval recorder',
         ],
       },
     ],
@@ -765,7 +765,7 @@ const docChapters = [
   {
     num: '05',
     title: 'Test Coverage',
-    tagline: '139 blocks, 664 hard assertions, fixture-driven with zero ambiguity',
+    tagline: '141 blocks, 679 hard assertions, fixture-driven with zero ambiguity',
     sections: [
       {
         body: 'Every detection category has a corresponding fixture HTML page that reliably triggers exactly that bug. Fixtures are served via HTTP — never file:// — so CORS, ES modules, and fetch APIs work correctly. Each block has at minimum 3 hard assertions and passes consistently across environments without flakiness.',
@@ -778,21 +778,23 @@ const docChapters = [
           'Blocks 65–78: production crawl pipeline, watch mode, extended phases',
           'Blocks 79–93: config validation, MCP server registration, createFinding(), withRetry(), watch dashboard, cli/init.js, and crawlRouteCheap production path coverage',
           'Blocks 94–126: infrastructure contracts — module APIs, MCP stdio transport, unhappy-path crawl paths, 12k-message stress test, and CLI end-to-end file write',
-          'Block 127: Sprint 1 A7 Theme & Dark Mode — emulateColorScheme, 7 assertions',
-          'Block 128: Sprint 2 D9 Figma Design Fidelity — 30 assertions [128a–128ad]',
-          'Block 129: Sprint 9 Web Vitals — LCP/CLS/FCP/TTI/TTFB + bundle size, 7 hard + 2 soft',
-          'Block 130: Sprint 3 A8 Visual Regression — pixelmatch baseline comparison, 9 assertions',
-          'Block 131: Sprint 4 A12 Deep Accessibility — axe-core + CVD simulation, 9 assertions',
-          'Block 132: Sprint 5 N1 HAR Network Baseline — record + diff, 9 assertions',
-          'Block 133: Sprint 5b A9 Motion & Animation — prefers-reduced-motion, 9 assertions',
-          'Block 134: Sprint 5c A10 Font Loading — FOIT/FOUT/fallback/slow, 9 assertions',
-          'Block 135: Sprint 5d A11 Form Validation — required/autocomplete/aria, 9 assertions',
-          'Block 136: Sprint 6 GitHub Check Runs — createCheckRun/completeCheckRun, 10 assertions',
-          'Block 137: Sprint 7 PR Diff Analyzer — parsePrUrl / mapFilesToRoutes / argus_pr_validate MCP tool, 8 assertions',
-          'Block 138: Sprint 7 GitHub Action CLI — buildStepSummary / writeGithubOutputs / pr-validate.js, 10 assertions',
-          'Block 139: Sprint 8 Chrome launcher + doctor pre-flight + security extensions (SRI, source maps, open redirects, npm audit) + PDF export + screen recorder, 11 assertions',
+          'Block 127: A7 Theme & Dark Mode — emulateColorScheme, 7 assertions',
+          'Block 128: D9 Figma Design Fidelity — 30 assertions [128a–128ad]',
+          'Block 129: Web Vitals — LCP/CLS/FCP/TTI/TTFB + bundle size, 7 hard + 2 soft',
+          'Block 130: A8 Visual Regression — pixelmatch baseline comparison, 9 assertions',
+          'Block 131: A12 Deep Accessibility — axe-core + CVD simulation, 9 assertions',
+          'Block 132: N1 HAR Network Baseline — record + diff, 9 assertions',
+          'Block 133: A9 Motion & Animation — prefers-reduced-motion, 9 assertions',
+          'Block 134: A10 Font Loading — FOIT/FOUT/fallback/slow, 9 assertions',
+          'Block 135: A11 Form Validation — required/autocomplete/aria, 9 assertions',
+          'Block 136: GitHub Check Runs — createCheckRun/completeCheckRun, 10 assertions',
+          'Block 137: PR Diff Analyzer — parsePrUrl / mapFilesToRoutes / argus_pr_validate MCP tool, 8 assertions',
+          'Block 138: GitHub Action CLI — buildStepSummary / writeGithubOutputs / pr-validate.js, 10 assertions',
+          'Block 139: Chrome launcher + doctor pre-flight + security extensions (SRI, source maps, open redirects, npm audit) + PDF export + screen recorder, 11 assertions',
+          'Block 140: Intelligent baseline filtering — cross-run flip-flop noise classifier, 7 assertions',
+          'Block 141: Root cause linking — recent git commits mapped to new findings, 8 assertions',
           '61 Vitest unit tests covering core logic — zero Chrome dependency',
-          'All 664 hard assertions pass — zero permanent failures',
+          'All 679 hard assertions pass — zero permanent failures',
         ],
       },
       {
@@ -805,8 +807,8 @@ const docChapters = [
       {
         title: 'Running',
         code: `npm run test:unit     # 61 Vitest tests — no Chrome required
-npm run test:harness  # 664 hard assertions — Chrome required (headless)
-# Expected: 664/664 — no permanent failures
+npm run test:harness  # 679 hard assertions — Chrome required (headless)
+# Expected: 679/679 — no permanent failures
 # Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
       },
     ],
@@ -2334,7 +2336,7 @@ function DocsSection() {
             How we built it.
           </h2>
           <p style={{ margin: 0, maxWidth: 520, fontSize: 'clamp(0.9rem, 1.3vw, 1.05rem)', color: 'rgba(255,255,255,0.38)', lineHeight: 1.7 }}>
-            From a single file to 139 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
+            From a single file to 141 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
           </p>
         </motion.div>
 

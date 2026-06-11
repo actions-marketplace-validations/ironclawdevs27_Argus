@@ -1,5 +1,5 @@
 /**
- * ARGUS Motion & Animation Accessibility Analyzer (Sprint 5b — A9)
+ * ARGUS Motion & Animation Accessibility Analyzer (A9)
  *
  * Detects pages that trigger motion/animation without respecting the user's
  * `prefers-reduced-motion` OS preference — a WCAG 2.1 SC 2.3.3 (AAA) violation

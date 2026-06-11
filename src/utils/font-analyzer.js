@@ -1,5 +1,5 @@
 /**
- * ARGUS Font Loading Analyzer (Sprint 5c — A10)
+ * ARGUS Font Loading Analyzer (A10)
  *
  * Detects web font performance and reliability issues that cause invisible
  * text (FOIT), layout shifts (FOUT/CLS), or deliver fonts in suboptimal formats.

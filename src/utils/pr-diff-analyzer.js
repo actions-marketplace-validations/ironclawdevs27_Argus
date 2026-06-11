@@ -81,8 +81,9 @@ const EXCLUDED_PATTERNS = [
 /**
  * Patterns that indicate an infrastructure-level file whose change can affect
  * every route — framework configs, root layouts, global stylesheets, package.json.
+ * Exported for reuse by root-cause-linker.js (MIT).
  */
-const INFRA_PATTERNS = [
+export const INFRA_PATTERNS = [
   /next\.config\./i,
   /vite\.config\./i,
   /tailwind\.config\./i,

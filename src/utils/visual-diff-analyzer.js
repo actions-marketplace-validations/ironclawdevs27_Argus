@@ -1,5 +1,5 @@
 /**
- * ARGUS Visual Regression Analyzer (Sprint 3 — A8)
+ * ARGUS Visual Regression Analyzer (A8)
  *
  * Per-route visual regression detection via screenshot baseline comparison.
  * Takes a PNG screenshot, compares it pixel-by-pixel against a stored baseline,

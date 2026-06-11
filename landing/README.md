@@ -110,7 +110,7 @@ All UI lives in `src/App.jsx` as a single-file app. Hero section is built inline
 
 `src/supabase.js` exports the singleton Supabase client (or `null` if env vars are absent).
 
-## Sprint 0 Mobile & SEO Status (2026-05-26)
+## Mobile & SEO Status (2026-05-26)
 
 | Issue | Status | Notes |
 |---|---|---|
@@ -139,9 +139,9 @@ Hero stats and docs section updated to reflect gap-close completion (blocks [94]
 | Docs § "Running" code | `394 hard assertions`, `391/394` | `528 hard assertions`, `525/528` |
 | "How we built it" caption | `84 test blocks` | `126 test blocks` |
 
-## Stats Update (2026-06-02 — Sprint 2 v9.5.3)
+## Stats Update (2026-06-02 — Milestone 2 v9.5.3)
 
-Hero stats and docs section updated to reflect Sprint 2 (block [128] — D9 Design Fidelity):
+Hero stats and docs section updated to reflect Milestone 2 (block [128] — D9 Design Fidelity):
 
 | Field | Old | New |
 |---|---|---|
@@ -151,7 +151,7 @@ Hero stats and docs section updated to reflect Sprint 2 (block [128] — D9 Desi
 | Docs § "Running" code | `535 hard assertions`, `532/535` | `544 hard assertions`, `541/544` |
 | "How we built it" caption | `127 test blocks` | `128 test blocks` |
 
-## Stats Update (2026-06-04 — Sprint 2 maximum potential)
+## Stats Update (2026-06-04 — Milestone 2 maximum potential)
 
 Block [128] expanded from 9 → 24 assertions. D9 now has 12 finding types. Hero and docs updated:
 
@@ -171,9 +171,9 @@ Block [128] expanded to 30 assertions. D9 now has 13 mismatch finding types. Her
 | Docs § "Test Coverage" tagline | `128 blocks, 559 hard assertions` | `128 blocks, 565 hard assertions` |
 | Docs § "Running" code | `559 hard assertions`, `556/559` | `565 hard assertions`, `562/565` |
 
-## Stats Update (2026-06-05 — Sprint 9 v9.5.4)
+## Stats Update (2026-06-05 — Milestone 9 v9.5.4)
 
-Sprint 9 — Web Vitals & Bundle Size: `web-vitals-analyzer.js` (block [129], headless LCP/CLS/FCP/TTI/TTFB + bundle size regression). Hero and docs updated:
+Web Vitals & Bundle Size: `web-vitals-analyzer.js` (block [129], headless LCP/CLS/FCP/TTI/TTFB + bundle size regression). Hero and docs updated:
 
 | Field | Old | New |
 |---|---|---|
@@ -183,22 +183,22 @@ Sprint 9 — Web Vitals & Bundle Size: `web-vitals-analyzer.js` (block [129], he
 | Docs § "Running" code | `565 hard assertions`, `562/565` | `572 hard assertions`, `569/572` |
 | "How we built it" caption | `128 test blocks` | `129 test blocks` |
 
-## Stats Update (2026-06-06 — Sprint 3 v9.5.5)
+## Stats Update (2026-06-06 — Milestone 3 v9.5.5)
 
-Sprint 3 — A8 Visual Regression: `visual-diff-analyzer.js` (block [130], pixelmatch baseline comparison). Hero and docs updated:
+A8 Visual Regression: `visual-diff-analyzer.js` (block [130], pixelmatch baseline comparison). Hero and docs updated:
 
 | Field | Old | New |
 |---|---|---|
-| `stats[0].num` (DETECTION TYPES) | `58` | `58` (unchanged from Sprint 9 recount) |
+| `stats[0].num` (DETECTION TYPES) | `58` | `58` (unchanged from Milestone 9 recount) |
 | `stats[1].num` (TEST BLOCKS) | `129` | `130` |
 | `stats[2].num` (ASSERTIONS RUN) | `572` | `581` |
 | Docs § "Test Coverage" tagline | `129 blocks, 572 hard assertions` | `130 blocks, 581 hard assertions` |
 | Docs § "Running" code | `572 hard assertions`, `569/572` | `581 hard assertions`, `578/581` |
 | Feature table `All 56 detection categories` | `56` | `58` |
 
-## Stats Update (2026-06-06 — Sprint 4 v9.5.6)
+## Stats Update (2026-06-06 — Milestone 4 v9.5.6)
 
-Sprint 4 — A12 Deep Accessibility: `a11y-deep-analyzer.js` (block [131], axe-core 4.12 + CVD color blind simulation). Hero and docs updated:
+A12 Deep Accessibility: `a11y-deep-analyzer.js` (block [131], axe-core 4.12 + CVD color blind simulation). Hero and docs updated:
 
 | Field | Old | New |
 |---|---|---|
@@ -209,9 +209,9 @@ Sprint 4 — A12 Deep Accessibility: `a11y-deep-analyzer.js` (block [131], axe-c
 | Docs § "Running" code | `581 hard assertions`, `578/581` | `590 hard assertions`, `587/590` |
 | Feature table `All 58 detection categories` | `58` | `59` |
 
-## Stats Update (2026-06-06 — Sprint 3 Extension v9.5.7)
+## Stats Update (2026-06-06 — Extension v9.5.7)
 
-Sprint 3 Extension — argus_visual_diff MCP tool: wired existing visual-diff-analyzer as 8th MCP tool. No new detection categories or fixture pages.
+Extension — argus_visual_diff MCP tool: wired existing visual-diff-analyzer as 8th MCP tool. No new detection categories or fixture pages.
 
 | Field | Old | New |
 |---|---|---|
@@ -220,9 +220,9 @@ Sprint 3 Extension — argus_visual_diff MCP tool: wired existing visual-diff-an
 | Harness gate | 587/590 | **589/592** |
 | Version | 9.5.6 | **9.5.7** |
 
-## Stats Update (2026-06-07 — Sprints 5/5b/5c/5d v9.5.8)
+## Stats Update (2026-06-07 — Milestones 5/5b/5c/5d v9.5.8)
 
-Sprints 5/5b/5c/5d — N1 HAR Network Baseline, A9 Motion & Animation, A10 Font Loading, A11 Form Validation: `har-recorder.js`, `motion-analyzer.js`, `font-analyzer.js`, `form-analyzer.js` (blocks [132]–[135], 4 new fixture pages). Hero and docs updated:
+N1 HAR Network Baseline, A9 Motion & Animation, A10 Font Loading, A11 Form Validation: `har-recorder.js`, `motion-analyzer.js`, `font-analyzer.js`, `form-analyzer.js` (blocks [132]–[135], 4 new fixture pages). Hero and docs updated:
 
 | Field | Old | New |
 |---|---|---|
@@ -236,9 +236,9 @@ Sprints 5/5b/5c/5d — N1 HAR Network Baseline, A9 Motion & Animation, A10 Font 
 
 ---
 
-## Stats Update (2026-06-07 — Sprint 6 v9.5.9)
+## Stats Update (2026-06-07 — Milestone 6 v9.5.9)
 
-Sprint 6 — GitHub Check Runs: `github-reporter.js` extended with `createCheckRun`/`completeCheckRun` (GitHub Checks API), `generateReleaseNotes()`, `ARGUS_CRITICAL_THRESHOLD` gate, `ARGUS_DIFF_IMAGE_URL`, `GITHUB_CHECK_NAME`; block [136] (10 assertions). No new detection categories or fixture pages. Hero and docs updated:
+GitHub Check Runs: `github-reporter.js` extended with `createCheckRun`/`completeCheckRun` (GitHub Checks API), `generateReleaseNotes()`, `ARGUS_CRITICAL_THRESHOLD` gate, `ARGUS_DIFF_IMAGE_URL`, `GITHUB_CHECK_NAME`; block [136] (10 assertions). No new detection categories or fixture pages. Hero and docs updated:
 
 | Field | Old | New |
 |---|---|---|
@@ -250,9 +250,9 @@ Sprint 6 — GitHub Check Runs: `github-reporter.js` extended with `createCheckR
 
 ---
 
-## Stats Update (2026-06-08 — Sprint 7 v9.6.0)
+## Stats Update (2026-06-08 — Milestone 7 v9.6.0)
 
-Sprint 7 — PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th MCP tool + `action.yml` GitHub Action wrapper (block [137], 8 assertions). No new detection categories or fixture pages. Hero and docs updated:
+PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th MCP tool + `action.yml` GitHub Action wrapper (block [137], 8 assertions). No new detection categories or fixture pages. Hero and docs updated:
 
 | Field | Old | New |
 |---|---|---|
@@ -266,7 +266,7 @@ Sprint 7 — PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th M
 
 ---
 
-## Stats Update (2026-06-08 — Sprint 7 v9.6.1)
+## Stats Update (2026-06-08 — Milestone 7 v9.6.1)
 
 `src/cli/pr-validate.js` headless CI entry point + `action.yml` rewrite + block [138] (10 assertions, CLI helper unit tests — no Chrome required). No new detection categories or fixture pages.
 
@@ -281,7 +281,7 @@ Sprint 7 — PR Diff Analyzer: `pr-diff-analyzer.js` + `argus_pr_validate` 9th M
 
 ---
 
-## Stats Update (2026-06-09 — Sprint 7 hardening v9.6.6)
+## Stats Update (2026-06-09 — Milestone 7 hardening v9.6.6)
 
 PR Validator hardening: `checkTargetReachable()`, `normalizeRoutePaths()`, all-routes-failed guard, `EXCLUDED_PATTERNS`; blocks [137i–k]+[138k–p] (9 new assertions to existing blocks). No new detection categories or fixture pages.
 
@@ -293,7 +293,7 @@ PR Validator hardening: `checkTargetReachable()`, `normalizeRoutePaths()`, all-r
 
 ---
 
-## Stats Update (2026-06-10 — Sprint 8 v9.7.0)
+## Stats Update (2026-06-10 — Milestone 8 v9.7.0)
 
 Chrome launcher + doctor pre-flight + advanced security (SRI, source maps, open redirects, npm audit) + PDF export + screen recorder; block [139] (11 assertions); 4 new detection categories.
 
@@ -330,3 +330,18 @@ Chrome launcher + doctor pre-flight + advanced security (SRI, source maps, open 
 | Docs § "Test Coverage" permanent-failure bullet | `2 assertions permanently fail` | `All 664 hard assertions pass` |
 | Known Limits section | Issues panel constraint | No known MCP/Chrome restrictions |
 | Permanent failures | 2 ([67b]/[68b]) | **0** |
+
+---
+
+## Stats Update (2026-06-11 — v9.7.3)
+
+MIT items: `noise-filter.js` (intelligent baseline filtering) + `root-cause-linker.js` (git-diff root cause linking); blocks [140] (7) + [141] (8). No new detection categories.
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `139` | `141` |
+| `stats[2].num` (ASSERTIONS RUN) | `664` | `679` |
+| Docs § "Test Coverage" tagline | `139 blocks, 664 hard assertions` | `141 blocks, 679 hard assertions` |
+| Docs § "Running" code | `664 hard assertions`, `664/664` | `679 hard assertions`, `679/679` |
+| Docs § Breakdown | — | Block [140] + [141] bullets added |
+| "How we built it" caption | `139 test blocks` | `141 test blocks` |

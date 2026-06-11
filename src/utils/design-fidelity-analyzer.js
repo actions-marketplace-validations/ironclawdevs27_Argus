@@ -1,5 +1,5 @@
 /**
- * ARGUS Design Fidelity Analyzer (Sprint 2 — D9: Design Fidelity)
+ * ARGUS Design Fidelity Analyzer (D9: Design Fidelity)
  *
  * Compares a live page's computed CSS against every property extracted by
  * src/adapters/figma.js. Requires pre-fetched figmaData — analysis is skipped

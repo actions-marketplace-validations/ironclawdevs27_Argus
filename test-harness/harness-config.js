@@ -420,7 +420,7 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'theme_no_dark_mode info (no @media (prefers-color-scheme: dark) rule detected)',
   },
-  // Sprint 9 — Web Vitals + bundle size regression
+  // Web Vitals + bundle size regression
   {
     path: '/perf-vitals.html',
     name: 'Perf Vitals',
@@ -444,7 +444,7 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'visual_baseline_created info (first run) · visual_regression warning (after change) · visual_diff_summary info (always)',
   },
-  // Sprint 4 — A12 Deep Accessibility: axe-core violations + color blind simulation
+  // A12 Deep Accessibility: axe-core violations + color blind simulation
   {
     path: '/a11y-deep-issues.html',
     name: 'A11y Deep',
@@ -452,7 +452,7 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'a11y_axe_violation (image-alt, link-name) · a11y_colorblind_risk (red-on-gray) · a11y_deep_summary info',
   },
-  // Sprint 5 — N1 HAR Network Baseline
+  // N1 HAR Network Baseline
   {
     path: '/har-baseline.html',
     name: 'HAR Baseline',
@@ -460,7 +460,7 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'har_baseline_created info (first run) · har_comparison_summary info (subsequent runs)',
   },
-  // Sprint 5b — A9 Motion & Animation
+  // A9 Motion & Animation
   {
     path: '/motion-issues.html',
     name: 'Motion Issues',
@@ -468,7 +468,7 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'motion_no_reduced_motion_query warning · motion_autoplay_no_pause warning · motion_summary info',
   },
-  // Sprint 5c — A10 Font Loading
+  // A10 Font Loading
   {
     path: '/font-issues.html',
     name: 'Font Issues',
@@ -476,7 +476,7 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'font_foit_risk warning · font_fout_risk info · font_no_fallback warning · font_summary info',
   },
-  // Sprint 5d — A11 Form Validation
+  // A11 Form Validation
   {
     path: '/form-issues.html',
     name: 'Form Issues',

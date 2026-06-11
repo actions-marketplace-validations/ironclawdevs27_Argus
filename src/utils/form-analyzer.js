@@ -1,5 +1,5 @@
 /**
- * ARGUS Form Validation Analyzer (Sprint 5d — A11)
+ * ARGUS Form Validation Analyzer (A11)
  *
  * Detects accessibility and security gaps in HTML forms — one of the most
  * commonly broken areas in web apps.

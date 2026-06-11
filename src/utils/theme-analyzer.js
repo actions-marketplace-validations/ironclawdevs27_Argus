@@ -1,5 +1,5 @@
 /**
- * ARGUS Theme Analyzer (Sprint 1 — A7: Theme & Dark Mode)
+ * ARGUS Theme Analyzer (A7: Theme & Dark Mode)
  *
  * Detects dark mode support gaps and theme consistency issues by:
  *   1. Scanning all stylesheets for @media (prefers-color-scheme: dark) rules

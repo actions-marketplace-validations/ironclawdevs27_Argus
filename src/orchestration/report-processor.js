@@ -13,6 +13,8 @@ import path from 'path';
 import { childLogger } from '../utils/logger.js';
 import { applyOverrides }                                                  from '../utils/severity-overrides.js';
 import { loadBaseline, saveBaseline, applyBaseline, appendTrend, getCurrentBranch } from '../utils/baseline-manager.js';
+import { loadRunHistory, recordRunHistory, applyNoiseFilter }              from '../utils/noise-filter.js';
+import { getRecentChanges, linkRootCauses }                                from '../utils/root-cause-linker.js';
 
 const logger = childLogger('report-processor');
 
@@ -104,6 +106,29 @@ export async function processReport(report, { outputDir, severityOverrides }) {
     logger.info('[ARGUS] First run — no baseline to compare; all findings treated as new');
   }
 
+  // 3a. Intelligent baseline filtering — downgrade cross-run flip-flopping findings
+  //     to info. Best-effort; disable with ARGUS_NOISE_FILTER=0.
+  const historyPath = path.join(outputDir, 'baselines', `${safeBranch}-history.json`);
+  if (process.env.ARGUS_NOISE_FILTER !== '0') {
+    try {
+      const history = loadRunHistory(historyPath);
+      const { noisyCount } = applyNoiseFilter(report, history);
+      if (noisyCount > 0) rebuildSummary(report); // downgrades change severity counts
+    } catch (err) {
+      logger.warn(`[ARGUS] Noise filter skipped: ${err.message}`);
+    }
+  }
+
+  // 3b. Root cause linking — annotate new findings with recent git changes that
+  //     map to their route. Best-effort; disable with ARGUS_ROOT_CAUSE=0.
+  if (process.env.ARGUS_ROOT_CAUSE !== '0') {
+    try {
+      linkRootCauses(report, getRecentChanges());
+    } catch (err) {
+      logger.warn(`[ARGUS] Root cause linking skipped: ${err.message}`);
+    }
+  }
+
   // 4. Write JSON report
   const timestamp  = new Date().toISOString().replace(/[:.]/g, '-');
   const reportPath = path.join(outputDir, `error-report-${timestamp}.json`);
@@ -115,8 +140,15 @@ export async function processReport(report, { outputDir, severityOverrides }) {
   }
   logger.info(`[ARGUS] Report written: ${reportPath}`);
 
-  // 5. Persist baseline + append trend entry
+  // 5. Persist baseline + run history + append trend entry
   saveBaseline(baselinePath, report);
+  if (process.env.ARGUS_NOISE_FILTER !== '0') {
+    try {
+      recordRunHistory(historyPath, report);
+    } catch (err) {
+      logger.warn(`[ARGUS] Run history write skipped: ${err.message}`);
+    }
+  }
   appendTrend(trendsPath, {
     runAt:                report.generatedAt,
     baseUrl:              report.baseUrl,

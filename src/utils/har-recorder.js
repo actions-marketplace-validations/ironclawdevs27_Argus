@@ -1,5 +1,5 @@
 /**
- * ARGUS HAR Network Baseline Recorder (Sprint 5 — N1)
+ * ARGUS HAR Network Baseline Recorder (N1)
  *
  * Records all network requests made during a page load as a HAR-style
  * baseline. On first run, saves the baseline. On subsequent runs, diffs

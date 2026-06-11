@@ -1,5 +1,5 @@
 /**
- * ARGUS Deep Accessibility Analyzer (Sprint 4 — A12)
+ * ARGUS Deep Accessibility Analyzer (A12)
  *
  * Extends Argus accessibility coverage via two mechanisms:
  *

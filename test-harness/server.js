@@ -199,7 +199,7 @@ app.get('/api/large-critical', (_req, res) => {
   res.json({ items });
 });
 
-// ── Sprint 9: large JS bundle for perf_bundle_large detection ────────────────
+// ── large JS bundle for perf_bundle_large detection ────────────────
 // Serves ~600 KB of valid JS (above the 500 KB warning threshold).
 // perf-vitals.html loads this as a <script> so PerformanceResourceTiming captures it.
 app.get('/api/large.js', (_req, res) => {

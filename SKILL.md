@@ -1673,14 +1673,14 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.7.2` |
-| **Test blocks** | 139 |
-| **Hard assertions** | 664 |
+| **Version** | `9.7.3` |
+| **Test blocks** | 141 |
+| **Hard assertions** | 679 |
 | **Soft assertions** | ~23 (Lighthouse / perf traces / memory — headless-unavailable) |
 | **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
 | **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **664/664** (no permanent failures — exits 0) |
+| **Harness gate** | **679/679** (no permanent failures — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (none)
@@ -1707,20 +1707,21 @@ for (const bp of breakpoints) {
 | v9.5.0 | Harness regression coverage | 9 regression blocks [85]–[93]; diff.js utilities | 391/394 |
 | v9.5.1 | Harness gap-close | 33 new blocks [94]–[126]: zero-coverage modules + MCP stdio + CLI E2E | 541/544 |
 | v9.5.1 | Code-quality fixes | 14 code-quality gaps (GAP-014–040); CSS registerExpensive | 541/544 |
-| v9.5.2 | Sprint 1 — A7 Theme & Dark Mode | `theme-analyzer.js` + `emulateColorScheme`; block [127] | 548/551 |
-| v9.5.3 | Sprint 2 — D9 Design Fidelity | `design-fidelity-analyzer.js` 13 finding types; `figma.js` 4-selector inference; block [128] 30 assertions | 569/572 |
-| v9.5.4 | Sprint 9 — Web Vitals + bundle size | `web-vitals-analyzer.js` LCP/CLS/FCP/TTI/TTFB + bundle size; block [129] | 569/572 |
-| v9.5.5 | Sprint 3 — A8 Visual Regression | `visual-diff-analyzer.js` baseline screenshot comparison; block [130] 9 assertions | 578/581 |
-| v9.5.6 | Sprint 4 — A12 Deep Accessibility | `a11y-deep-analyzer.js` axe-core 4.12 + CVD color blind simulation; block [131] 9 assertions | 587/590 |
-| v9.5.7 | Sprint 3-ext — argus_visual_diff (8th MCP tool) | 8th MCP tool; blocks [80m]+[80n]+[117c/d] updated | 589/592 |
-| v9.5.8 | Sprint 5/5b/5c/5d — N1 / A9 / A10 / A11 | `har-recorder.js` + `motion-analyzer.js` + `font-analyzer.js` + `form-analyzer.js`; blocks [132]–[135] (24 assertions) | 613/616 |
-| v9.5.9 | Sprint 6 — GitHub Check Runs | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
-| v9.6.0 | Sprint 7 — PR Diff Analyzer | `pr-diff-analyzer.js` — `parsePrUrl` / `fetchPrFiles` / `mapFilesToRoutes`; `argus_pr_validate` 9th MCP tool; `action.yml` composite GA wrapper; `ARGUS_BLOCK_ON`; block [137] (8 assertions) | 631/634 |
-| v9.6.1 | Sprint 7 — GitHub Action CLI | `src/cli/pr-validate.js` — full headless CI entry point; `buildStepSummary` + `writeGithubOutputs` + `writeStepSummary`; inline `::error::`/`::warning::` annotations; `GITHUB_STEP_SUMMARY` + `GITHUB_OUTPUT`; `action.yml` fully fixed (Chrome binary detection, env-var injection safety, `routes-file`/`node-version` inputs, `setup-node@v4`); block [138] (10 assertions) | 641/644 |
+| v9.5.2 | A7 Theme & Dark Mode | `theme-analyzer.js` + `emulateColorScheme`; block [127] | 548/551 |
+| v9.5.3 | D9 Design Fidelity | `design-fidelity-analyzer.js` 13 finding types; `figma.js` 4-selector inference; block [128] 30 assertions | 569/572 |
+| v9.5.4 | Web Vitals + bundle size | `web-vitals-analyzer.js` LCP/CLS/FCP/TTI/TTFB + bundle size; block [129] | 569/572 |
+| v9.5.5 | A8 Visual Regression | `visual-diff-analyzer.js` baseline screenshot comparison; block [130] 9 assertions | 578/581 |
+| v9.5.6 | A12 Deep Accessibility | `a11y-deep-analyzer.js` axe-core 4.12 + CVD color blind simulation; block [131] 9 assertions | 587/590 |
+| v9.5.7 | argus_visual_diff (8th MCP tool) | 8th MCP tool; blocks [80m]+[80n]+[117c/d] updated | 589/592 |
+| v9.5.8 | N1 / A9 / A10 / A11 | `har-recorder.js` + `motion-analyzer.js` + `font-analyzer.js` + `form-analyzer.js`; blocks [132]–[135] (24 assertions) | 613/616 |
+| v9.5.9 | GitHub Check Runs | `github-reporter.js` — Check Runs API + selector columns + visual diff + `generateReleaseNotes` + `ARGUS_CRITICAL_THRESHOLD`; block [136] (10 assertions) | 623/626 |
+| v9.6.0 | PR Diff Analyzer | `pr-diff-analyzer.js` — `parsePrUrl` / `fetchPrFiles` / `mapFilesToRoutes`; `argus_pr_validate` 9th MCP tool; `action.yml` composite GA wrapper; `ARGUS_BLOCK_ON`; block [137] (8 assertions) | 631/634 |
+| v9.6.1 | GitHub Action CLI | `src/cli/pr-validate.js` — full headless CI entry point; `buildStepSummary` + `writeGithubOutputs` + `writeStepSummary`; inline `::error::`/`::warning::` annotations; `GITHUB_STEP_SUMMARY` + `GITHUB_OUTPUT`; `action.yml` fully fixed (Chrome binary detection, env-var injection safety, `routes-file`/`node-version` inputs, `setup-node@v4`); block [138] (10 assertions) | 641/644 |
 | v9.6.6 | PR Validator hardening | `checkTargetReachable()` preflight (network-error-only, HTTP 4xx pass), `normalizeRoutePaths()` (prepends `/` to bare paths), all-routes-failed guard, `EXCLUDED_PATTERNS` in `mapFilesToRoutes` (CI-only/doc-only PR → `[]`), `notifications/initialized` MCP handshake, `baseUrl = targetUrl.replace(/\/$/, '')` path-prefix preservation, block-on=warning annotation fix; `action.yml` description ≤125 chars + `argusqa-os@9.6.6` + `chrome-devtools-mcp@1.1.1` version-pinned; [137i–k] + [138k–p] 9 new assertions | 650/653 |
-| v9.7.0 | Sprint 8 — Security + PDF/Video + Chrome Launcher | `security-analyzer.js` + 4 new types: `security_missing_sri` (DOM SRI check), `security_sourcemap_exposed` (network), `security_open_redirect` (network), `security_npm_vulnerability` (`npm audit --json`); `pdf-exporter.js` (puppeteer A4 PDF, optional dep); `screen-recorder.js` (`PollingRecorder` + `CdpScreenRecorder`); `src/cli/chrome-launcher.js` (`findChrome`/`launchChrome`, Windows/Mac/Linux); `src/cli/doctor.js` (`checkChrome`/`checkMcpConfig`/`checkEnvKeys`); `npm run chrome` + `npm run doctor` + `npm run report:pdf` scripts; `argus-chrome` + `argus-doctor` bin entries; block [139] 11 assertions [139a–k] | 661/664 |
+| v9.7.0 | Security + PDF/Video + Chrome Launcher | `security-analyzer.js` + 4 new types: `security_missing_sri` (DOM SRI check), `security_sourcemap_exposed` (network), `security_open_redirect` (network), `security_npm_vulnerability` (`npm audit --json`); `pdf-exporter.js` (puppeteer A4 PDF, optional dep); `screen-recorder.js` (`PollingRecorder` + `CdpScreenRecorder`); `src/cli/chrome-launcher.js` (`findChrome`/`launchChrome`, Windows/Mac/Linux); `src/cli/doctor.js` (`checkChrome`/`checkMcpConfig`/`checkEnvKeys`); `npm run chrome` + `npm run doctor` + `npm run report:pdf` scripts; `argus-chrome` + `argus-doctor` bin entries; block [139] 11 assertions [139a–k] | 661/664 |
 | v9.7.1 | [49b] drag/drop root-cause fix | `resolveUidForSelector()` exact-accessible-name-first matching (two-pass) in `flow-runner.js` — substring matching had resolved `#drag-source` to the fixture's explanatory paragraph text instead of the draggable div; [49b] removed from `KNOWN_PERMANENT`; upstream chrome-devtools-mcp #2182 closure confirmed correct | 662/664 |
 | v9.7.2 | [67b]/[68b] Issues panel root-cause fix | MCP returns issues as markdown text; `normalizeArray()` returned `[]` for strings so all issues were discarded (production Issues detection was dead) — `parseConsoleMsgResponse()` now used in `issues-analyzer.js` + `orchestrator.js`; `issues-deprecated.html` fixture updated to `unload` listener (Mutation Events removed in Chrome 127); `KNOWN_PERMANENT` now empty | **664/664** |
+| v9.7.3 | Intelligent baseline filtering + root cause linking (MIT) | `noise-filter.js` — cross-run flip-flop classifier over `<branch>-history.json` (20 runs); presence-flip ratio ≥0.4 across ≥4 runs → `noisy: true` + downgrade to info (`ARGUS_NOISE_FILTER=0` disables); `root-cause-linker.js` — `getRecentChanges()` git log + `matchFilesToRoutePath()` slug heuristic + `linkRootCauses()` annotates new findings with `rootCause: { files, commits, global }` (`ARGUS_ROOT_CAUSE=0` disables); both wired into `report-processor.js`; blocks [140] (7) + [141] (8) | **679/679** |
 
 ---
 
