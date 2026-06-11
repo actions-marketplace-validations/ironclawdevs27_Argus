@@ -792,7 +792,7 @@ const docChapters = [
           'Block 138: Sprint 7 GitHub Action CLI — buildStepSummary / writeGithubOutputs / pr-validate.js, 10 assertions',
           'Block 139: Sprint 8 Chrome launcher + doctor pre-flight + security extensions (SRI, source maps, open redirects, npm audit) + PDF export + screen recorder, 11 assertions',
           '61 Vitest unit tests covering core logic — zero Chrome dependency',
-          '3 assertions permanently fail due to MCP-level constraints (documented as expected)',
+          '2 assertions permanently fail due to MCP-level constraints (documented as expected)',
         ],
       },
       {

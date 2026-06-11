@@ -102,12 +102,26 @@ export async function resolveUidForSelector(browser, selector) {
   const fence = text.match(/```(?:json|text)?\s*([\s\S]*?)\s*```/);
   if (fence) text = fence[1];
 
+  // Pass 1 — exact accessible-name match across ALL identifiers before any
+  // substring matching. Substring matches can hit unrelated nodes whose text
+  // merely mentions the identifier (e.g. a paragraph documenting "#drag-source"
+  // matches the id "drag-source" and wins over the real element's text node).
+  for (const identifier of identifiers) {
+    const esc = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Prefer interactive element lines (combobox, button, etc.) over StaticText label
+    // nodes — both may share the same accessible name (e.g. a <label> and its <select>).
+    const e1 = text.match(new RegExp(`uid=([^\\s]+)\\s+(?!StaticText)[^\\n]*"${esc}"`, 'm'));
+    if (e1) return e1[1];
+    const e1b = text.match(new RegExp(`uid=([^\\s]+)[^\\n]*"${esc}"`, 'm'));
+    if (e1b) return e1b[1];
+  }
+
+  // Pass 2 — substring fallback (accessible names that embed the identifier,
+  // e.g. truncated textContent or label text with surrounding punctuation).
   for (const identifier of identifiers) {
     const esc = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Current snapshot format: "uid=N_M role "accessible name" [attrs]"
     // uid precedes the role and accessible name; MCP tools expect just the N_M part (no "uid=" prefix).
-    // Prefer interactive element lines (combobox, button, etc.) over StaticText label
-    // nodes — both may share the same accessible name (e.g. a <label> and its <select>).
     const m1 = text.match(new RegExp(`uid=([^\\s]+)\\s+(?!StaticText)[^\\n]*"[^"]*${esc}`, 'm'));
     if (m1) return m1[1];
     // Fallback: accept StaticText nodes (e.g. draggable divs whose only a11y node is text)

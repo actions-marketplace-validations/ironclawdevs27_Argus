@@ -862,6 +862,8 @@ argus/
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 
+> **`drag` clarification (v9.7.1):** the MCP `drag` tool works correctly in `--headless=new` Chrome, including attach mode (`--browserUrl`). Harness failure [49b] was an Argus bug — `resolveUidForSelector()` substring matching picked the fixture's explanatory paragraph text instead of the draggable div. Fixed with exact-accessible-name-first matching in `flow-runner.js`.
+
 | Tool | Constraint | Impact |
 |---|---|---|
 | `list_console_messages({ types: ['issue'] })` | Issues panel returns empty even when violations exist | CSP and deprecated-API detection is unreliable |

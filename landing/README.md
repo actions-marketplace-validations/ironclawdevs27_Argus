@@ -303,6 +303,17 @@ Chrome launcher + doctor pre-flight + advanced security (SRI, source maps, open 
 | `stats[1].num` (TEST BLOCKS) | `138` | `139` |
 | `stats[2].num` (ASSERTIONS RUN) | `653` | `664` |
 | Docs § "Test Coverage" tagline | `138 blocks, 653 hard assertions` | `139 blocks, 664 hard assertions` |
-| Docs § "Running" code | `653 hard assertions`, `650/653` | `664 hard assertions`, `662/664` |
+| Docs § "Running" code | `653 hard assertions`, `650/653` | `664 hard assertions`, `661/664` |
 | "How we built it" caption | `138 test blocks` | `139 test blocks` |
 | Block [139] bullet | — | Added to Breakdown section |
+
+---
+
+## Stats Update (2026-06-11 — v9.7.1)
+
+[49b] drag/drop root-cause fix: `resolveUidForSelector()` exact-accessible-name-first matching in `flow-runner.js` — the failure was an Argus uid-resolution bug, not a Chrome/MCP limit. [49b] removed from `KNOWN_PERMANENT`. No new blocks, assertions, or detection categories.
+
+| Field | Old | New |
+|---|---|---|
+| Docs § "Running" code gate | `661/664` | `662/664` |
+| Permanent failures | 3 ([49b]/[67b]/[68b]) | 2 ([67b]/[68b]) |

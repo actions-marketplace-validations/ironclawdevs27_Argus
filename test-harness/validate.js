@@ -6074,9 +6074,14 @@ async function main() {
       console.log('\nFailed assertions:');
       failLog.forEach(f => console.log(`  \u2717 ${f}`));
     }
-    // [67b], [68b] are permanent MCP-level limits \u2014 Chrome DevTools Issues panel
-    // returns empty even when violations exist; cannot be fixed in Argus code.
-    // Treat them as expected so CI exits 0 when only these fail.
+    // [67b], [68b] \u2014 Chrome DevTools Issues panel returns empty even when violations exist;
+    //   Audits.enable() not called when MCP attaches to externally-launched Chrome.
+    // These 2 are permanent MCP-level limits; cannot be fixed in Argus code.
+    // ([49b] was here until v9.7.1 \u2014 root cause was a flow-runner uid-resolution bug,
+    //   not a Chrome/MCP limit: substring matching resolved "#drag-source" to the
+    //   fixture's explanatory paragraph text instead of the draggable div. Fixed by
+    //   exact-accessible-name-first matching in resolveUidForSelector.)
+    // CI exits 0 when only these fail.
     const KNOWN_PERMANENT = ['[67b]', '[68b]'];
     const unexpected = failLog.filter(f => !KNOWN_PERMANENT.some(p => f.startsWith(p)));
     if (unexpected.length > 0) {

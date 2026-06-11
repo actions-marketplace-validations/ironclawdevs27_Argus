@@ -1532,6 +1532,8 @@ These are chrome-devtools-mcp restrictions that **cannot be worked around in Arg
 >
 > Correct fix: `evaluate_script(() => el.focus())` before `type_text` in direct test code (see "Focus before `type_text`" in §3). The `fill` step with `typing: true` via `runFlow` uses `mcp.click({ uid })` and works correctly in that context.
 
+> **Note on `drag` (harness block [49b], resolved v9.7.1)**: [49b] sat in `KNOWN_PERMANENT` blamed on headless Chrome until v9.7.1, when the real root cause turned out to be an Argus bug: `resolveUidForSelector()` substring matching resolved `#drag-source` to the fixture's explanatory paragraph StaticText (which mentions "#drag-source" literally) instead of the draggable div — so the drag happened between two paragraph text nodes and no DnD events fired at all. Fixed with exact-accessible-name-first matching (two-pass). The MCP `drag` tool (`drag()` → 50 ms → `drop()`) works correctly in `--headless=new`, including via `--browserUrl` attach; upstream issue #2182 was correctly closed.
+
 | # | Tool | Limitation | Harness block |
 | --- | --- | --- | --- |
 | 1 | `list_console_messages({ types: ['issue'] })` | The Chrome DevTools **Issues panel** returns an empty array in practice, even when real CSP violations and deprecated-API use are visible in Chrome. Detection via the Issues panel namespace is unreliable. | [67b, 68b] |
@@ -1671,7 +1673,7 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.7.0` |
+| **Version** | `9.7.1` |
 | **Test blocks** | 139 |
 | **Hard assertions** | 664 |
 | **Soft assertions** | ~23 (Lighthouse / perf traces / memory — headless-unavailable) |
@@ -1719,7 +1721,8 @@ for (const bp of breakpoints) {
 | v9.6.0 | Sprint 7 — PR Diff Analyzer | `pr-diff-analyzer.js` — `parsePrUrl` / `fetchPrFiles` / `mapFilesToRoutes`; `argus_pr_validate` 9th MCP tool; `action.yml` composite GA wrapper; `ARGUS_BLOCK_ON`; block [137] (8 assertions) | 631/634 |
 | v9.6.1 | Sprint 7 — GitHub Action CLI | `src/cli/pr-validate.js` — full headless CI entry point; `buildStepSummary` + `writeGithubOutputs` + `writeStepSummary`; inline `::error::`/`::warning::` annotations; `GITHUB_STEP_SUMMARY` + `GITHUB_OUTPUT`; `action.yml` fully fixed (Chrome binary detection, env-var injection safety, `routes-file`/`node-version` inputs, `setup-node@v4`); block [138] (10 assertions) | 641/644 |
 | v9.6.6 | PR Validator hardening | `checkTargetReachable()` preflight (network-error-only, HTTP 4xx pass), `normalizeRoutePaths()` (prepends `/` to bare paths), all-routes-failed guard, `EXCLUDED_PATTERNS` in `mapFilesToRoutes` (CI-only/doc-only PR → `[]`), `notifications/initialized` MCP handshake, `baseUrl = targetUrl.replace(/\/$/, '')` path-prefix preservation, block-on=warning annotation fix; `action.yml` description ≤125 chars + `argusqa-os@9.6.6` + `chrome-devtools-mcp@1.1.1` version-pinned; [137i–k] + [138k–p] 9 new assertions | 650/653 |
-| v9.7.0 | Sprint 8 — Security + PDF/Video + Chrome Launcher | `security-analyzer.js` + 4 new types: `security_missing_sri` (DOM SRI check), `security_sourcemap_exposed` (network), `security_open_redirect` (network), `security_npm_vulnerability` (`npm audit --json`); `pdf-exporter.js` (puppeteer A4 PDF, optional dep); `screen-recorder.js` (`PollingRecorder` + `CdpScreenRecorder`); `src/cli/chrome-launcher.js` (`findChrome`/`launchChrome`, Windows/Mac/Linux); `src/cli/doctor.js` (`checkChrome`/`checkMcpConfig`/`checkEnvKeys`); `npm run chrome` + `npm run doctor` + `npm run report:pdf` scripts; `argus-chrome` + `argus-doctor` bin entries; block [139] 11 assertions [139a–k]; [49b] drag/drop removed from KNOWN_PERMANENT (MCP issue #2182 closed — confirmed working) | 662/664 |
+| v9.7.0 | Sprint 8 — Security + PDF/Video + Chrome Launcher | `security-analyzer.js` + 4 new types: `security_missing_sri` (DOM SRI check), `security_sourcemap_exposed` (network), `security_open_redirect` (network), `security_npm_vulnerability` (`npm audit --json`); `pdf-exporter.js` (puppeteer A4 PDF, optional dep); `screen-recorder.js` (`PollingRecorder` + `CdpScreenRecorder`); `src/cli/chrome-launcher.js` (`findChrome`/`launchChrome`, Windows/Mac/Linux); `src/cli/doctor.js` (`checkChrome`/`checkMcpConfig`/`checkEnvKeys`); `npm run chrome` + `npm run doctor` + `npm run report:pdf` scripts; `argus-chrome` + `argus-doctor` bin entries; block [139] 11 assertions [139a–k] | 661/664 |
+| v9.7.1 | [49b] drag/drop root-cause fix | `resolveUidForSelector()` exact-accessible-name-first matching (two-pass) in `flow-runner.js` — substring matching had resolved `#drag-source` to the fixture's explanatory paragraph text instead of the draggable div; [49b] removed from `KNOWN_PERMANENT`; upstream chrome-devtools-mcp #2182 closure confirmed correct | 662/664 |
 
 ---
 
