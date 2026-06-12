@@ -181,11 +181,14 @@ export async function createMcpClient() {
         // MCP returns { content: [{ type, text|data }] } — extract the value
         const content = result?.content;
         if (Array.isArray(content) && content.length > 0) {
-          const item = content[0];
-          if (item.type === 'image') {
-            // take_screenshot returns base64 image data — return in a shape callers expect
-            return { data: item.data, mimeType: item.mimeType ?? 'image/png' };
+          // take_screenshot returns [text caption, image] — the image is NOT content[0],
+          // so scan the whole array for it. Reading only content[0] returned the caption
+          // string and starved every screenshot consumer of image data.
+          const img = content.find(c => c.type === 'image');
+          if (img) {
+            return { data: img.data, mimeType: img.mimeType ?? 'image/png' };
           }
+          const item = content[0];
           if (item.type === 'text') {
             const text = item.text;
             // chrome-devtools-mcp wraps evaluate_script results in a markdown code block:

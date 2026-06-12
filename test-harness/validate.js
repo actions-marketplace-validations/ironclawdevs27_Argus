@@ -6250,6 +6250,361 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[142i] pr-diff-analyzer.js has no console.log (stdout reserved for JSON-RPC)`
     );
   }
+
+  // ── [143] CdpBrowserAdapter wire-contract conformance ───────────────────────
+  // One content-level assertion per adapter method against live Chrome. Motivated by
+  // the 2026-06-12 audit: three adapter/client wire bugs (reqid, markdown parsing,
+  // logger) shipped silently because no test exercised the real wire. The meta-
+  // assertion at the end enumerates CdpBrowserAdapter.prototype so a new adapter
+  // method CANNOT ship without a conformance entry here.
+  // NOTE: chrome-devtools-mcp returns tool input-validation failures as RESOLVED
+  // error-text responses (not thrown errors), so every assertion here checks content;
+  // "it didn't throw" proves nothing.
+  {
+    console.log('\n[143] CdpBrowserAdapter wire-contract conformance — content assertion per adapter method');
+
+    const covered = new Set(); // methods with a conformance entry in this block
+    const C = `${B}/adapter-conformance.html`;
+    const ZOD_ERR = 'Input validation error';
+
+    try {
+      // ── navigate + waitFor (text appears 600 ms post-load, so wait_for must wait) ──
+      covered.add('navigate');
+      const navResp143 = await browser.navigate(C);
+      const navText143 = String(navResp143);
+      assert(
+        navText143.includes('Successfully navigated') && navText143.includes('/adapter-conformance.html'),
+        `[143a] navigate() response confirms navigation to the fixture URL (got: ${navText143.slice(0, 120)})`
+      );
+
+      covered.add('waitFor');
+      const wfStart143 = Date.now();
+      const wfResp143 = String(await browser.waitFor({ text: 'late-probe-ready' }));
+      const wfMs143 = Date.now() - wfStart143;
+      assert(
+        wfResp143.includes('late-probe-ready') && wfResp143.includes('found') && !wfResp143.includes(ZOD_ERR),
+        `[143b] waitFor({ text: string }) normalises to the array wire shape and finds the late text (got: ${wfResp143.slice(0, 120)})`
+      );
+      // The text appears 600 ms after load; sub-100 ms resolution would mean wait_for
+      // never actually waited (e.g. silently matched nothing).
+      assert(
+        wfMs143 >= 100,
+        `[143c] waitFor() actually waited for the 600 ms-late text (resolved in ${wfMs143} ms)`
+      );
+
+      const wfIdle143 = String(await browser.waitFor({ state: 'networkidle' }) ?? '');
+      assert(
+        !wfIdle143.includes(ZOD_ERR),
+        `[143d] waitFor({ state: 'networkidle' }) is translated by the adapter, not rejected by wait_for input validation (got: ${wfIdle143.slice(0, 120) || '<empty — resolved>'})`
+      );
+
+      // ── evaluate / snapshot / screenshot ──
+      covered.add('evaluate');
+      const evalVal143 = unwrapEval(await browser.evaluate('() => 6 * 7'));
+      assert(
+        Number(evalVal143) === 42,
+        `[143e] evaluate('() => 6 * 7') unwraps to 42 (got: ${JSON.stringify(evalVal143)})`
+      );
+
+      covered.add('snapshot');
+      const snapText143 = String(await browser.snapshot());
+      assert(
+        snapText143.includes('uid=') && snapText143.includes('Conformance Click Probe'),
+        `[143f] snapshot() returns uid= tokens with the fixture's accessible names (got: ${snapText143.slice(0, 120)})`
+      );
+
+      covered.add('screenshot');
+      const shot143 = await browser.screenshot({ format: 'png' });
+      const shotMagic143 = shot143?.data
+        ? Buffer.from(String(shot143.data).slice(0, 16), 'base64').toString('hex')
+        : '(no data)';
+      assert(
+        typeof shot143?.data === 'string' && shot143.data.length > 1000 && shotMagic143.startsWith('89504e47'),
+        `[143g] screenshot({ format: 'png' }) returns base64 image data with PNG magic bytes — the image content item, not the text caption (magic: ${shotMagic143}, len: ${shot143?.data?.length ?? typeof shot143})`
+      );
+
+      // ── interactions: click / fill / type / pressKey / hover / drag / uploadFile ──
+      covered.add('click');
+      const clickUid143 = await resolveUidForSelector(browser, '#click-btn');
+      if (clickUid143) await browser.click(clickUid143);
+      const clicked143 = unwrapEval(await browser.evaluate(`() => document.getElementById('click-btn').getAttribute('data-clicked')`));
+      assert(
+        clickUid143 != null && String(clicked143) === 'true',
+        `[143h] click(uid) fires the click handler — data-clicked="true" (uid: ${clickUid143}, got: ${JSON.stringify(clicked143)})`
+      );
+
+      covered.add('fill');
+      const fillUid143 = await resolveUidForSelector(browser, '#fill-input');
+      if (fillUid143) await browser.fill(fillUid143, 'wire-fill-143');
+      const fillVal143 = unwrapEval(await browser.evaluate(`() => document.getElementById('fill-input').value`));
+      assert(
+        fillUid143 != null && String(fillVal143) === 'wire-fill-143',
+        `[143i] fill(uid, value) delivers the value to the input (uid: ${fillUid143}, got: ${JSON.stringify(fillVal143)})`
+      );
+
+      covered.add('type');
+      // click does not move document.activeElement for text inputs in headless —
+      // focus via evaluate, same as block [48b]
+      const typeFocused143 = !!unwrapEval(await browser.evaluate(`() => { const el = document.getElementById('type-input'); if (!el) return false; el.focus(); return true; }`));
+      const typeResp143 = String(await browser.type('wire-type-143'));
+      const typeVal143 = unwrapEval(await browser.evaluate(`() => document.getElementById('type-input').value`));
+      assert(
+        typeFocused143 && typeResp143.includes('Typed text') && String(typeVal143) === 'wire-type-143',
+        `[143j] type(text) types into the focused element (response: ${typeResp143.slice(0, 60)}, value: ${JSON.stringify(typeVal143)})`
+      );
+
+      covered.add('pressKey');
+      // #fill-input and #type-input are adjacent in tab order — Tab from fill lands on type
+      await browser.evaluate(`() => { document.getElementById('fill-input').focus(); return true; }`);
+      await browser.pressKey('Tab');
+      const activeId143 = unwrapEval(await browser.evaluate(`() => document.activeElement.id`));
+      assert(
+        String(activeId143) === 'type-input',
+        `[143k] pressKey('Tab') moves focus to the next focusable element (activeElement.id: ${JSON.stringify(activeId143)})`
+      );
+
+      covered.add('hover');
+      const hoverUid143 = await resolveUidForSelector(browser, '#hover-target');
+      if (hoverUid143) await browser.hover(hoverUid143);
+      const hovered143 = unwrapEval(await browser.evaluate(`() => document.getElementById('hover-target').getAttribute('data-hovered')`));
+      assert(
+        hoverUid143 != null && String(hovered143) === 'true',
+        `[143l] hover(uid) fires mouseenter — data-hovered="true" (uid: ${hoverUid143}, got: ${JSON.stringify(hovered143)})`
+      );
+
+      covered.add('drag');
+      const dragSrcUid143 = await resolveUidForSelector(browser, '#drag-source');
+      const dropUid143 = await resolveUidForSelector(browser, '#drop-zone');
+      if (dragSrcUid143 && dropUid143) await browser.drag(dragSrcUid143, dropUid143);
+      const dropped143 = unwrapEval(await browser.evaluate(`() => document.getElementById('drop-zone').getAttribute('data-dropped')`));
+      assert(
+        dragSrcUid143 != null && dropUid143 != null && String(dropped143) === 'true',
+        `[143m] drag(src, tgt) fires the drop handler — data-dropped="true" (uids: ${dragSrcUid143}/${dropUid143}, got: ${JSON.stringify(dropped143)})`
+      );
+
+      covered.add('uploadFile');
+      const uploadUid143 = await resolveUidForSelector(browser, 'input[type=file]');
+      if (uploadUid143) await browser.uploadFile(uploadUid143, path.resolve(__dirname, 'pages', 'test-upload.txt'));
+      const uploadName143 = unwrapEval(await browser.evaluate(`() => { const f = document.getElementById('file-input').files; return f.length ? f[0].name : null; }`));
+      assert(
+        uploadUid143 != null && String(uploadName143) === 'test-upload.txt',
+        `[143n] uploadFile(uid, path) delivers the file to the input (uid: ${uploadUid143}, files[0].name: ${JSON.stringify(uploadName143)})`
+      );
+
+      // ── viewport: emulate / emulateCpu / emulateColorScheme / emulateReducedMotion / resize ──
+      covered.add('emulate');
+      await browser.emulate('375x667x1,mobile,touch');
+      const emuWidth143 = Number(unwrapEval(await browser.evaluate('() => document.documentElement.clientWidth')));
+      assert(
+        emuWidth143 === 375,
+        `[143o] emulate('375x667x1,mobile,touch') sets the visual viewport — clientWidth 375 (got: ${emuWidth143})`
+      );
+      await browser.emulate('1280x900x1');
+
+      covered.add('emulateCpu');
+      const cpuResp143 = String(await browser.emulateCpu(2));
+      assert(
+        cpuResp143.includes('CPU throttling: 2x'),
+        `[143p] emulateCpu(2) response confirms the throttling rate (got: ${cpuResp143.slice(0, 120)})`
+      );
+      await browser.emulateCpu(1);
+
+      covered.add('emulateColorScheme');
+      await browser.emulateColorScheme('dark');
+      const darkMatch143 = unwrapEval(await browser.evaluate(`() => window.matchMedia('(prefers-color-scheme: dark)').matches`));
+      assert(
+        darkMatch143 === true || String(darkMatch143) === 'true',
+        `[143q] emulateColorScheme('dark') flips prefers-color-scheme (matches: ${JSON.stringify(darkMatch143)})`
+      );
+      await browser.emulateColorScheme('light');
+
+      covered.add('emulateReducedMotion');
+      // chrome-devtools-mcp@1.1.1 has no reduced-motion emulation (emulate tool rejects
+      // the argument as unknown) — the adapter must surface that as a thrown error,
+      // never a silent no-op. If a future upstream version adds support, the call must
+      // actually flip the media feature. Both outcomes pass; silence fails.
+      let rmOutcome143;
+      try {
+        await browser.emulateReducedMotion('reduce');
+        const motionMatch143 = unwrapEval(await browser.evaluate(`() => window.matchMedia('(prefers-reduced-motion: reduce)').matches`));
+        rmOutcome143 = (motionMatch143 === true || String(motionMatch143) === 'true')
+          ? 'emulated'
+          : `silent-noop (matches: ${JSON.stringify(motionMatch143)})`;
+        await browser.emulateReducedMotion('no-preference').catch(() => { });
+      } catch (e) {
+        rmOutcome143 = /reducedMotion/i.test(e.message)
+          ? 'unsupported-error'
+          : `wrong-error (${e.message.slice(0, 80)})`;
+      }
+      assert(
+        rmOutcome143 === 'emulated' || rmOutcome143 === 'unsupported-error',
+        `[143r] emulateReducedMotion('reduce') either emulates the media feature or throws an explicit unsupported error — never a silent no-op (outcome: ${rmOutcome143})`
+      );
+
+      covered.add('resize');
+      // An active viewport emulation pins innerWidth regardless of window size —
+      // clear the override (empty-string viewport) so resize_page's effect is visible
+      await browser.emulate('');
+      await browser.resize(1234, 777);
+      const resizeWidth143 = Number(unwrapEval(await browser.evaluate('() => window.innerWidth')));
+      assert(
+        resizeWidth143 === 1234,
+        `[143s] resize(1234, 777) resizes the window — innerWidth 1234 (got: ${resizeWidth143})`
+      );
+      await browser.emulate('1280x900x1');
+
+      // ── network & console lists (the v9.7.4 bug class lived here) ──
+      covered.add('listNetwork');
+      const net143 = await browser.listNetwork();
+      const apiReq143 = net143.find(r => r.url.includes('/api/data'));
+      assert(
+        apiReq143 != null && apiReq143.status === 200 && Number.isFinite(apiReq143.requestId),
+        `[143t] listNetwork() parses the fixture's /api/data request with numeric requestId and status 200 (got: ${JSON.stringify(apiReq143 ?? net143.slice(0, 2))})`
+      );
+
+      covered.add('getNetworkRequest');
+      const gnr143 = apiReq143 ? String(await browser.getNetworkRequest(apiReq143.requestId)) : '(skipped — no /api/data request)';
+      assert(
+        gnr143.includes('/api/data') && gnr143.includes('Status: 200') && gnr143.includes('### Response Headers'),
+        `[143u] getNetworkRequest(id) sends the reqid wire param and returns the request detail (got: ${gnr143.slice(0, 150)})`
+      );
+
+      covered.add('listConsole');
+      const console143 = await browser.listConsole();
+      const probeMsg143 = console143.find(m => (m.text ?? '').includes('argus-conformance-probe'));
+      assert(
+        probeMsg143 != null && probeMsg143.level === 'log',
+        `[143v] listConsole() parses the fixture's console.log probe with its level (got: ${JSON.stringify(probeMsg143 ?? console143.slice(0, 2))})`
+      );
+
+      covered.add('listConsoleRaw');
+      const rawConsole143 = await browser.listConsoleRaw({});
+      assert(
+        typeof rawConsole143 === 'string' && rawConsole143.includes('argus-conformance-probe') && rawConsole143.includes('msgid='),
+        `[143w] listConsoleRaw() passes through unparsed msgid= markdown containing the probe (got: ${String(rawConsole143).slice(0, 120)})`
+      );
+
+      // ── tab management: listPages / selectPage ──
+      covered.add('listPages');
+      const pages143 = parseListPagesResponse(await browser.listPages());
+      const selPage143 = pages143.find(p => p.selected);
+      assert(
+        pages143.length >= 1 && selPage143 != null && Number.isFinite(selPage143.id) && selPage143.url.includes('/adapter-conformance.html'),
+        `[143x] listPages() parses ≥1 page with numeric id and the fixture URL selected (got: ${JSON.stringify(pages143)})`
+      );
+
+      covered.add('selectPage');
+      // String input is the contract — MCP tool args arrive as strings; selectPage must
+      // coerce to the number select_page's input validation requires
+      const selResp143 = String(await browser.selectPage(String(selPage143?.id ?? 1)));
+      assert(
+        !selResp143.includes(ZOD_ERR) && selResp143.includes('[selected]'),
+        `[143y] selectPage('${selPage143?.id ?? 1}') coerces the string id and confirms selection (got: ${selResp143.slice(0, 120)})`
+      );
+
+      // ── handleDialog — LAST interaction: an open dialog blocks every other tool ──
+      covered.add('handleDialog');
+      await browser.evaluate(`() => { setTimeout(() => { window.__dialogResult = window.confirm('argus-143-dialog'); }, 150); return true; }`);
+      await sleep(500);
+      const dialogResp143 = String(await browser.handleDialog(true));
+      const dialogResult143 = unwrapEval(await browser.evaluate('() => String(window.__dialogResult)'));
+      assert(
+        dialogResp143.includes('Successfully accepted the dialog') && String(dialogResult143) === 'true',
+        `[143z] handleDialog(true) sends { action: 'accept' } and the page's confirm() returns true (response: ${dialogResp143.slice(0, 100)}, confirm: ${JSON.stringify(dialogResult143)})`
+      );
+
+      // ── soft: heapSnapshot / lighthouse / traces (headless-fragile, existing policy) ──
+      covered.add('heapSnapshot');
+      try {
+        const heapPath143 = path.join(os.tmpdir(), `argus-143-${Date.now()}.heapsnapshot`);
+        const heapResp143 = String(await browser.heapSnapshot({ filePath: heapPath143 }));
+        const heapSize143 = fs.existsSync(heapPath143) ? fs.statSync(heapPath143).size : 0;
+        soft(
+          heapResp143.includes('Heap snapshot saved') && heapSize143 > 100_000,
+          `[143aa] heapSnapshot({ filePath }) writes a heap snapshot file (response: ${heapResp143.slice(0, 60)}, bytes: ${heapSize143})`
+        );
+        fs.rmSync(heapPath143, { force: true });
+      } catch (e) {
+        soft(false, `[143aa] heapSnapshot({ filePath }) writes a heap snapshot file (threw: ${e.message})`);
+      }
+
+      covered.add('startTrace');
+      covered.add('stopTrace');
+      covered.add('analyzeInsight');
+      try {
+        // performance_start_trace defaults to reload + autoStop, so the summary
+        // arrives in the START response; stopTrace afterwards is a no-op
+        const traceResp143 = String(await browser.startTrace());
+        soft(
+          /trace|insight/i.test(traceResp143),
+          `[143ab] startTrace() returns a performance trace summary (got: ${traceResp143.slice(0, 80)})`
+        );
+        const stopResp143 = String(await browser.stopTrace() ?? '');
+        soft(
+          !stopResp143.includes(ZOD_ERR),
+          `[143ac] stopTrace() resolves without input-validation rejection (got: ${stopResp143.slice(0, 80) || '<empty>'})`
+        );
+        const insightResp143 = String(await browser.analyzeInsight({ insightName: 'DocumentLatency' }) ?? '');
+        soft(
+          insightResp143.length > 0,
+          `[143ad] analyzeInsight() reaches the tool — response or structured validation text (got: ${insightResp143.slice(0, 80)})`
+        );
+      } catch (e) {
+        soft(false, `[143ab] trace methods unavailable in this Chrome (threw: ${e.message})`);
+      }
+
+      covered.add('lighthouse');
+      try {
+        const lhResp143 = String(await browser.lighthouse(C) ?? '');
+        soft(
+          lhResp143.length > 0 && !lhResp143.includes(ZOD_ERR),
+          `[143ae] lighthouse(url) reaches lighthouse_audit (got: ${lhResp143.slice(0, 80)})`
+        );
+      } catch (e) {
+        soft(false, `[143ae] lighthouse(url) unavailable in headless (threw: ${e.message})`);
+      }
+
+      // ── close — proven on a dedicated client so the shared one survives ──
+      covered.add('close');
+      const mcp143 = await createMcpClient();
+      let closeErr143 = null;
+      try {
+        const probe143 = unwrapEval(await mcp143.evaluate_script({ function: '() => 1 + 1' }));
+        mcp143.close();
+        try {
+          await mcp143.evaluate_script({ function: '() => 2 + 2' });
+        } catch (e) {
+          closeErr143 = e.message;
+        }
+        // Post-close rejection surfaces via one of three paths: close() pending sweep
+        // ("MCP client closed"), the stdin error event ("MCP stdin error: ..."), or the
+        // raw write callback ("write after end" / EPIPE) — all prove termination.
+        assert(
+          Number(probe143) === 2 && closeErr143 != null && /closed|exited|stdin|write after end|EPIPE/i.test(closeErr143),
+          `[143af] close() terminates the client — follow-up calls reject with a closed-client error (probe: ${JSON.stringify(probe143)}, error: ${closeErr143})`
+        );
+      } finally {
+        try { mcp143.close(); } catch { }
+      }
+    } finally {
+      // Restore every emulation override and clear any dialog left open so later
+      // blocks (and reruns) start clean — an open dialog poisons all tool calls.
+      try { await mcp.handle_dialog({ action: 'dismiss' }); } catch { }
+      try { await browser.emulate('1280x900x1'); } catch { }
+      try { await browser.emulateCpu(1); } catch { }
+      try { await browser.emulateColorScheme('light'); } catch { }
+      try { await browser.emulateReducedMotion('no-preference'); } catch { }
+    }
+
+    // ── meta-assertion: the coverage ratchet ──
+    const protoMethods143 = Object.getOwnPropertyNames(CdpBrowserAdapter.prototype)
+      .filter(m => m !== 'constructor');
+    const uncovered143 = protoMethods143.filter(m => !covered.has(m));
+    assert(
+      protoMethods143.length >= 30 && uncovered143.length === 0,
+      `[143zz] every CdpBrowserAdapter method has a conformance entry in this block (${protoMethods143.length} methods; uncovered: ${uncovered143.join(', ') || 'none'})`
+    );
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

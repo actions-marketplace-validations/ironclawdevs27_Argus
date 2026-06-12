@@ -27,6 +27,8 @@ test-harness-gaps.md
 audit_prompt.md
 AUDIT_REPORT.md
 E2E_PLAN.md
+HARNESS_MAX_PLAN.md
+harness_max_prompt.md
 
 # Harness output log — written by npm run test:harness:log
 harness-results.txt

@@ -484,6 +484,14 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'form_missing_required warning · form_no_autocomplete warning · form_summary info',
   },
+  // Block [143] — CdpBrowserAdapter wire-contract conformance probes
+  {
+    path: '/adapter-conformance.html',
+    name: 'Adapter Conformance',
+    critical: false,
+    waitFor: null,
+    expected: 'one probe element per CdpBrowserAdapter method: click/hover/drag/upload side effects in data attributes, late-probe-ready text for waitFor, console + /api/data network probes',
+  },
 ];
 
 /** Routes used for env-comparison tests (same path served by both servers). */

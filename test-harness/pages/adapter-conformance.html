@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Fixture for block [143] — one probe element per CdpBrowserAdapter method.">
+  <title>Adapter Conformance — Argus Harness</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    button, input { display: block; margin: 8px 0; padding: 6px 12px; }
+    #drag-source, #drop-zone { padding: 16px; margin: 8px 0; border: 2px dashed #888; width: 220px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Adapter Conformance Page</h1>
+    <p>Probe elements for the [143] wire-contract conformance block. Each element
+       records the side effect of one CdpBrowserAdapter interaction in a data attribute.</p>
+
+    <button id="click-btn" type="button">Conformance Click Probe</button>
+    <input id="fill-input" type="text" aria-label="Conformance Fill Probe">
+    <input id="type-input" type="text" aria-label="Conformance Type Probe">
+    <button id="hover-target" type="button">Conformance Hover Probe</button>
+    <div id="drag-source" draggable="true">Conformance Drag Source</div>
+    <div id="drop-zone">Conformance Drop Zone</div>
+    <input id="file-input" type="file" aria-label="Conformance Upload Probe">
+
+    <div id="late-content" hidden></div>
+  </main>
+
+  <script>
+    document.getElementById('click-btn').addEventListener('click', function () {
+      this.setAttribute('data-clicked', 'true');
+    });
+    document.getElementById('hover-target').addEventListener('mouseenter', function () {
+      this.setAttribute('data-hovered', 'true');
+    });
+
+    var dragSource = document.getElementById('drag-source');
+    var dropZone = document.getElementById('drop-zone');
+    dragSource.addEventListener('dragstart', function (e) {
+      e.dataTransfer.setData('text/plain', 'conformance-probe');
+    });
+    dropZone.addEventListener('dragover', function (e) { e.preventDefault(); });
+    dropZone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      this.setAttribute('data-dropped', 'true');
+    });
+
+    // waitFor probe — text appears 600 ms after load so wait_for has to actually wait
+    setTimeout(function () {
+      var el = document.getElementById('late-content');
+      el.hidden = false;
+      el.textContent = 'late-probe-ready';
+    }, 600);
+
+    // listConsole / listConsoleRaw probe
+    console.log('argus-conformance-probe');
+
+    // listNetwork / getNetworkRequest probe — a same-origin JSON request beyond the
+    // document; no-store bypasses the HTTP cache so the status is always 200, never 304
+    fetch('/api/data', { cache: 'no-store' }).catch(function () {});
+  </script>
+</body>
+</html>

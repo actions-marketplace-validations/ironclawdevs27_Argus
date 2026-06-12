@@ -41,14 +41,52 @@ export class CdpBrowserAdapter {
   hover(uid)               { return this._mcp.hover({ uid }); }
   drag(src, tgt)           { return this._mcp.drag({ from_uid: src, to_uid: tgt }); }
   uploadFile(uid, filePath) { return this._mcp.upload_file({ uid, filePath }); }
-  handleDialog(accept, promptText = '') { return this._mcp.handle_dialog({ accept, promptText }); }
-  waitFor(opts)            { return this._mcp.wait_for(opts); }
+  // handle_dialog wire schema is { action: 'accept'|'dismiss', promptText? } — sending
+  // { accept: bool } is rejected by the tool's input validation (and the rejection comes
+  // back as a resolved error-text response, so the failure was silent in production).
+  handleDialog(accept, promptText = '') {
+    const args = { action: accept ? 'accept' : 'dismiss' };
+    if (promptText) args.promptText = promptText;
+    return this._mcp.handle_dialog(args);
+  }
+  // wait_for requires text as a non-empty string ARRAY. A bare string is rejected by
+  // input validation, and { state: 'networkidle' } is not part of the tool's schema at
+  // all — both shapes used to resolve to error text and silently wait for nothing.
+  waitFor(opts = {})       {
+    if (typeof opts.text === 'string') opts = { ...opts, text: [opts.text] };
+    if (opts.state === 'networkidle') return this.#waitForNetworkIdle();
+    return this._mcp.wait_for(opts);
+  }
+
+  // Bounded network-quiet poll: resolves once the page's resource-timing entry count
+  // is stable across two consecutive 250 ms polls, or after 3 s — whichever is first.
+  async #waitForNetworkIdle() {
+    let prev = -1;
+    for (let i = 0; i < 12; i++) {
+      const raw = await this.evaluate(`() => performance.getEntriesByType('resource').length`);
+      const count = Number(typeof raw === 'object' ? raw?.result ?? 0 : raw) || 0;
+      if (count === prev) return;
+      prev = count;
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
 
   // ── Viewport ────────────────────────────────────────────────────────────────
   emulate(viewport)              { return this._mcp.emulate({ viewport }); }
   emulateCpu(rate)               { return this._mcp.emulate({ cpuThrottlingRate: rate }); }
   emulateColorScheme(scheme)     { return this._mcp.emulate({ colorScheme: scheme }); }
-  emulateReducedMotion(pref)     { return this._mcp.emulate({ reducedMotion: pref }); }
+  // chrome-devtools-mcp@1.1.1's emulate tool has no reduced-motion capability — the
+  // unsupported argument comes back as RESOLVED error text ("Unknown argument"), not a
+  // thrown error, so callers' graceful-skip catch paths (motion-analyzer) never ran and
+  // analysis proceeded unemulated. Surface it as a real error; if a future upstream
+  // version adds the argument, the call succeeds and emulation lights up automatically.
+  async emulateReducedMotion(pref) {
+    const resp = await this._mcp.emulate({ reducedMotion: pref });
+    if (typeof resp === 'string' && resp.includes('Unknown argument')) {
+      throw new Error(`emulate does not support reducedMotion in this chrome-devtools-mcp version: ${resp.slice(0, 120)}`);
+    }
+    return resp;
+  }
   resize(w, h)                   { return this._mcp.resize_page({ width: w, height: h }); }
 
   // ── Network & performance ───────────────────────────────────────────────────
