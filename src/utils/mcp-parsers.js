@@ -55,3 +55,23 @@ export function parseNetworkReqResponse(raw) {
   }
   return reqs;
 }
+
+/**
+ * Parse the text response from list_pages.
+ * Format: "## Pages\n1: http://host/page.html [selected]\n2: about:blank"
+ * The numeric prefix is the pageId that select_page expects (as a number).
+ * @param {any} raw - Raw value returned by the MCP tool
+ * @returns {Array<{ id: number, url: string, selected: boolean }>}
+ */
+export function parseListPagesResponse(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== 'string') return [];
+  const pages = [];
+  const re = /^(\d+):\s+(\S+)(\s+\[selected\])?\s*$/gm;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    pages.push({ id: Number(m[1]), url: m[2], selected: Boolean(m[3]) });
+  }
+  return pages;
+}

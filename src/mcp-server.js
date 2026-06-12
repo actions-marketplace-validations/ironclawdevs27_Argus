@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Argus MCP Server (v9.6.6)
+ * Argus MCP Server
  *
  * Exposes Argus as an MCP server so Claude (or any MCP client) can call
  * argus_audit, argus_audit_full, argus_compare, argus_last_report, and
@@ -24,8 +24,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import fs   from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
 
 import { createMcpClient }                    from './utils/mcp-client.js';
+import { childLogger }                        from './utils/logger.js';
+import { parseListPagesResponse }             from './utils/mcp-parsers.js';
 import { crawlRouteCheap, runCrawl }          from './orchestration/crawl-and-report.js';
 import { runComparison }                      from './orchestration/env-comparison.js';
 import { WatchSession }                       from './orchestration/watch-mode.js';
@@ -34,6 +37,13 @@ import { getFigmaFrame }                      from './adapters/figma.js';
 import { analyzeDesignFidelity }             from './utils/design-fidelity-analyzer.js';
 import { analyzeVisualRegression }           from './utils/visual-diff-analyzer.js';
 import { fetchPrFiles, mapFilesToRoutes } from './utils/pr-diff-analyzer.js';
+
+const logger = childLogger('mcp-server');
+
+// Read version from package.json so the MCP server always self-reports the
+// published package version (a hardcoded string here drifted in the past).
+const require_ = createRequire(import.meta.url);
+const pkg = require_('../package.json');
 
 const REPORTS_DIR = path.resolve(process.cwd(), 'reports');
 
@@ -65,7 +75,7 @@ function cacheAudit(url, result) {
 const TOOLS = [
   {
     name: 'argus_audit',
-    description: 'Fast QA audit on a URL via Chrome DevTools Protocol. Runs 8 analyzers in one pass: JS errors, unhandled rejections, network failures (4xx/5xx), API frequency loops, CSS cascade issues, SEO violations, security header checks, and accessibility. Returns { findings: [{severity, type, message, url}], summary: {critical, warning, info} }. Use for CI smoke tests and pre-deploy gates. Pass cache: true to skip re-crawl on repeat calls to the same URL within a session — useful in tight fix loops. For Lighthouse scoring and memory leak detection, use argus_audit_full. Requires Chrome running with --remote-debugging-port=9222.',
+    description: 'Fast QA audit on a URL via Chrome DevTools Protocol. One-pass detection sweep: JS errors, unhandled rejections, network failures (4xx/5xx), CORS errors, API frequency loops, slow APIs and blocking third-party requests, API contract violations, sync XHR, document.write, long tasks, service worker failures, debugger statements, duplicate IDs, SEO violations, security header checks, content quality, Chrome DevTools Issues panel, and HTTPS enforcement. Returns { findings: [{severity, type, message, url}], summary: {critical, warning, info} }. Use for CI smoke tests and pre-deploy gates. Pass cache: true to skip re-crawl on repeat calls to the same URL within a session — useful in tight fix loops. For Lighthouse scoring, CSS analysis, responsive checks, and memory leak detection, use argus_audit_full. Requires Chrome running with --remote-debugging-port=9222.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -181,6 +191,9 @@ async function withMcp(fn) {
 async function handleAudit({ url, critical = false, cache = false }) {
   if (cache && auditCache.has(url)) {
     const { result, ts } = auditCache.get(url);
+    // Refresh recency on read so eviction is true LRU, not insertion-order FIFO.
+    auditCache.delete(url);
+    auditCache.set(url, { result, ts });
     return { content: [{ type: 'text', text: JSON.stringify({ ...result, _cached: true, _cachedAt: new Date(ts).toISOString() }, null, 2) }] };
   }
   return withMcp(async (mcp) => {
@@ -243,12 +256,13 @@ async function handleGetContext({ url, snapshot_id: prevId, tabId } = {}) {
     const { findings, newConsole, newNetwork } = await session.poll();
 
     // List all open tabs so the caller can target a specific tab on the next call.
+    // list_pages returns markdown text ("## Pages\n1: <url> [selected]") — parse
+    // it like every other MCP response; treating it as a structured array left
+    // open_tabs permanently empty.
     let open_tabs = [];
     try {
-      const pages = await browser.listPages();
-      if (Array.isArray(pages)) {
-        open_tabs = pages.map(p => ({ id: p.id ?? p.pageId, url: p.url, title: p.title }));
-      }
+      const pages = parseListPagesResponse(await browser.listPages());
+      open_tabs = pages.map(p => ({ id: p.id, url: p.url, selected: p.selected }));
     } catch { /* list_pages not available in all Chrome configs — degrade gracefully */ }
 
     const newId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -397,8 +411,12 @@ async function handlePrValidate({ prUrl, targetUrl, githubToken, blockOn } = {})
   const allFindings = [];
   const perRoute    = [];
 
+  // Preserve any path prefix in the target URL (e.g. http://host/app) — new URL()
+  // with a leading-slash path would drop it. Mirrors src/cli/pr-validate.js.
+  const baseUrl = String(base).replace(/\/$/, '');
   for (const route of affectedRoutes) {
-    const url = new URL(route.path, base).href;
+    const routePath = String(route.path ?? '/').startsWith('/') ? route.path : `/${route.path}`;
+    const url = `${baseUrl}${routePath}`;
     const res = await handleAudit({ url, critical: route.critical ?? false });
     const data = JSON.parse(res.content[0].text);
     allFindings.push(...(data.findings ?? []));
@@ -447,7 +465,7 @@ async function handleLastReport() {
 // ── Server bootstrap ──────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'argus', version: '9.6.6' },
+  { name: 'argus', version: pkg.version },
   { capabilities: { tools: {} } },
 );
 

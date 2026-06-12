@@ -47,7 +47,7 @@ export function checkMcpConfig(filePath = '.mcp.json') {
   if (!fs.existsSync(filePath)) {
     return {
       ok:     false,
-      detail: `${path.basename(filePath)} not found — run \`argus init\` or copy .mcp.json from the Argus repo`,
+      detail: `${path.basename(filePath)} not found — create it with: {"mcpServers":{"chrome-devtools":{"command":"npx","args":["-y","chrome-devtools-mcp@1.1.1"]}}}`,
     };
   }
   let parsed;
@@ -63,7 +63,7 @@ export function checkMcpConfig(filePath = '.mcp.json') {
     return cmd.includes('chrome-devtools') || args.some(a => a.includes('chrome-devtools'));
   });
   if (!hasCdp) {
-    return { ok: false, detail: 'No chrome-devtools MCP server entry found in mcpServers' };
+    return { ok: false, detail: 'No chrome-devtools entry in mcpServers — add: "chrome-devtools": {"command":"npx","args":["-y","chrome-devtools-mcp@1.1.1"]}' };
   }
   return { ok: true, detail: `${Object.keys(servers).length} server(s) configured` };
 }

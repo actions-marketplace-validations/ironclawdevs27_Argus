@@ -230,6 +230,11 @@ async function main() {
     const files = await fetchPrFiles(prUrl, token);
     changedFiles.push(...files);
     console.log(`[argus] ${files.length} changed file(s)`);
+    if (files.length >= 300) {
+      // CI annotation lives here (CLI owns stdout) — fetchPrFiles itself only
+      // logs to stderr so the MCP server's JSON-RPC stdout stays clean.
+      console.log('::warning::PR has 300+ changed files — Argus analyzed the first 300. Routes affected by later files may be missed.');
+    }
 
     // Step 2: Map changed files to affected routes
     const routes   = await loadRoutes();

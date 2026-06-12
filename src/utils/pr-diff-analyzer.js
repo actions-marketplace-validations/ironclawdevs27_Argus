@@ -7,7 +7,15 @@
  *
  * Pure functions + one async fetch — no Chrome, no MCP, no AI verdict.
  * AI verdict logic ships separately in the private argus-pro repo.
+ *
+ * This module is imported by the MCP server — nothing here may write to
+ * stdout (reserved for JSON-RPC). CI annotations are emitted by the CLI
+ * entry point (src/cli/pr-validate.js), which owns stdout.
  */
+
+import { childLogger } from './logger.js';
+
+const logger = childLogger('pr-diff-analyzer');
 
 /**
  * Parse a GitHub PR URL into its owner/repo/prNumber components.
@@ -59,7 +67,7 @@ export async function fetchPrFiles(prUrl, githubToken) {
   }
 
   if (allFiles.length >= 300) {
-    console.log('::warning::PR has 300+ changed files — Argus analyzed the first 300. Routes affected by later files may be missed.');
+    logger.warn('[ARGUS] PR has 300+ changed files — Argus analyzed the first 300. Routes affected by later files may be missed.');
   }
 
   return allFiles;

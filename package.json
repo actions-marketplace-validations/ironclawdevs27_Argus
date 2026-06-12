@@ -48,7 +48,7 @@
     "watch": "node src/orchestration/watch-mode.js",
     "server": "node src/server/index.js",
     "harness": "node test-harness/server.js",
-    "harness:staging": "PORT=3101 node test-harness/server.js",
+    "harness:staging": "node test-harness/server.js --port=3101 --staging",
     "test:harness": "node --env-file=test-harness/.env.harness test-harness/validate.js",
     "test:harness:log": "node test-harness/run-with-log.mjs",
     "test:unit": "vitest run test/unit",

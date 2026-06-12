@@ -14,7 +14,7 @@ Argus is an AI-driven automated QA harness that audits web pages against 67 dete
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
 - `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate)
-- `test-harness/validate.js` — 139-block correctness harness (664 hard assertions)
+- `test-harness/validate.js` — 142-block correctness harness (688 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -645,14 +645,19 @@ Five fallback strategies in order (v8 — new snapshot format `uid=N_M`):
 
 All findings share: `{ type, severity, url, message? }`
 
+Post-processing annotations (added after `applyBaseline` in `report-processor.js`):
+`isNew` (baseline diff), `noisy` / `noiseScore` / `originalSeverity` (noise filter —
+flip-flopping findings downgraded to info, never suppressed), and
+`rootCause: { files, commits, global }` (root-cause linker, NEW findings only).
+
 ```javascript
 // ── Core (A1–A2) ──────────────────────────────────────────────────────────
-{ type: 'broken_link',              url, status, sourceUrl }
-{ type: 'missing_alt',              src, context }
-{ type: 'console_error',            message, url }
-{ type: 'lcp_slow',                 lcp, threshold, url }
-{ type: 'seo_missing_og_image',     url }
-{ type: 'accessibility_violation',  rule, severity, selector }
+{ type: 'broken_link',          url, status, sourceUrl }
+{ type: 'console',              level, message, source, line, url }
+{ type: 'uncaught_exception',   message, source, line, url }
+{ type: 'unhandled_rejection',  message, url }
+{ type: 'seo_missing_og',       message, severity: 'warning', url }
+{ type: 'a11y_missing_name',    tag, role, snippet, message, severity: 'warning', url }
 
 // ── Flow execution ─────────────────────────────────────────────────────────
 { type: 'flow_step_failed',   flowName, action, selector, message, severity: 'critical', url }
@@ -687,10 +692,9 @@ All findings share: `{ type, severity, url, message? }`
 { type: 'security_iframe_no_sandbox', src, severity: 'warning', url }
 
 // ── A7 Theme & Dark Mode ─────────────────────────────────────────────────
-{ type: 'theme_prefers_color_scheme_ignored', selector, message, severity: 'warning', url }
-{ type: 'theme_forced_color_ignored',         selector, message, severity: 'warning', url }
-{ type: 'theme_os_dark_no_dark_mode',         message,  severity: 'warning', url }
-{ type: 'theme_summary',  lightFindings, darkFindings, message, severity: 'info', url }
+{ type: 'theme_no_dark_mode', message, severity: 'info', url }    // no prefers-color-scheme: dark rule
+{ type: 'theme_static_var',   vars, count, message, severity: 'warning', url }  // CSS vars identical light vs dark
+{ type: 'theme_summary',  hasDarkMode, rootVarCount, darkEmulated, message, severity: 'info', url }
 
 // ── D9 Design Fidelity — 13 mismatch types ────────────────────────────────
 { type: 'design_token_mismatch',     token, expected, actual,   message, severity: 'warning', url }
@@ -832,10 +836,12 @@ Flat alphabetical reference for writing assertions in `validate.js`. Every `type
 | `a11y_axe_violation` | `a11y-deep-analyzer` | `critical` / `warning` / `info` |
 | `a11y_colorblind_risk` | `a11y-deep-analyzer` | `warning` |
 | `a11y_deep_summary` | `a11y-deep-analyzer` | `info` (always emitted) |
-| `accessibility_violation` | `snapshot-analyzer` / Lighthouse | varies by rule |
+| `a11y_duplicate_landmark` | `snapshot-analyzer` | `warning` |
+| `a11y_missing_form_label` | `snapshot-analyzer` | `warning` |
+| `a11y_missing_name` | `snapshot-analyzer` | `warning` |
 | `aria_expanded_no_controls` | `snapshot-analyzer` | `warning` |
 | `broken_link` | orchestrator | `warning` / `critical` |
-| `console_error` | orchestrator | `warning` / `critical` |
+| `console` | orchestrator (D5) | `warning` / `critical` (route-critical escalation) |
 | `cookie_attribute_missing` | `issues-analyzer` | `warning` |
 | `cors_violation` | `issues-analyzer` | `critical` / `warning` |
 | `csp_violation` | `issues-analyzer` | `critical` |
@@ -876,9 +882,7 @@ Flat alphabetical reference for writing assertions in `validate.js`. Every `type
 | `har_new_request` | `har-recorder` | `warning` |
 | `har_status_changed` | `har-recorder` | `warning` / `critical` (≥400) |
 | `heading_level_skip` | `snapshot-analyzer` | `warning` |
-| `lcp_slow` | orchestrator / `web-vitals-analyzer` | `warning` / `critical` |
 | `low_contrast_native` | `issues-analyzer` | `warning` |
-| `missing_alt` | orchestrator | `warning` |
 | `mixed_content` | `issues-analyzer` | `warning` |
 | `motion_autoplay_no_pause` | `motion-analyzer` | `warning` / `info` |
 | `motion_interactive_animation` | `motion-analyzer` | `warning` |
@@ -894,11 +898,11 @@ Flat alphabetical reference for writing assertions in `validate.js`. Every `type
 | `permission_policy_violation` | `issues-analyzer` | `info` |
 | `security_iframe_no_sandbox` | `security-analyzer` | `warning` |
 | `security_no_https` | `security-analyzer` | `warning` |
-| `seo_missing_og_image` | `seo-analyzer` | `warning` |
+| `seo_missing_og` | `seo-analyzer` | `warning` |
+| `seo_og_image_relative_url` | `seo-analyzer` | `warning` |
 | `slow_third_party_blocking` | `network-timing-analyzer` | `warning` |
-| `theme_forced_color_ignored` | `theme-analyzer` | `warning` |
-| `theme_os_dark_no_dark_mode` | `theme-analyzer` | `warning` |
-| `theme_prefers_color_scheme_ignored` | `theme-analyzer` | `warning` |
+| `theme_no_dark_mode` | `theme-analyzer` | `info` |
+| `theme_static_var` | `theme-analyzer` | `warning` |
 | `theme_summary` | `theme-analyzer` | `info` (always emitted) |
 | `visual_baseline_created` | `visual-diff-analyzer` | `info` (first run) |
 | `visual_diff_summary` | `visual-diff-analyzer` | `info` (always emitted when baseline exists) |
@@ -1168,13 +1172,11 @@ Automated tools catch ~30% of a11y bugs. Use this matrix for manual SR decisions
 ### A11y Findings (Argus)
 
 ```javascript
-// Lighthouse-sourced (via axe-core)
-{ type: 'accessibility_violation', rule: 'color-contrast', severity: 'serious', selector }
-{ type: 'accessibility_violation', rule: 'button-name',    severity: 'critical', selector }
-{ type: 'accessibility_violation', rule: 'image-alt',      severity: 'critical', selector }
-{ type: 'accessibility_violation', rule: 'label',          severity: 'critical', selector }
-{ type: 'accessibility_violation', rule: 'heading-order',  severity: 'moderate', selector }
-{ type: 'accessibility_violation', rule: 'target-size',    severity: 'serious',  selector }
+// A12 axe-core injection (a11y-deep-analyzer) — severity mapped from axe impact:
+// critical→critical, serious/moderate→warning, minor→info
+{ type: 'a11y_axe_violation', axeId: 'color-contrast', impact: 'serious',  selector, html, description, helpUrl, message, severity: 'warning',  url }
+{ type: 'a11y_axe_violation', axeId: 'button-name',    impact: 'critical', selector, html, description, helpUrl, message, severity: 'critical', url }
+{ type: 'a11y_axe_violation', axeId: 'image-alt',      impact: 'critical', selector, html, description, helpUrl, message, severity: 'critical', url }
 
 // Native Argus detectors (production code — see §14d for implementation details)
 { type: 'heading_level_skip',        from, to, text, message, severity: 'warning', url }
@@ -1518,7 +1520,7 @@ Always walk at least 3 levels back — the proximate cause is almost never the r
 
 ### Known MCP Behavioral Limitations
 
-**There are currently none** — the harness passes 664/664. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again.
+**There are currently none** — the harness passes 688/688. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again. The 2026-06-12 audit found the same wire-contract bug class three more times (get_network_request `reqid`, list_pages markdown, select_page numeric pageId) — all fixed and pinned by block [142].
 
 > **Note on `fill` vs `type_text` and DOM events**: Both tools fire DOM `input` events, but differently:
 >
@@ -1674,13 +1676,13 @@ for (const bp of breakpoints) {
 | Metric | Value |
 | --- | --- |
 | **Version** | `9.7.3` |
-| **Test blocks** | 141 |
-| **Hard assertions** | 679 |
+| **Test blocks** | 142 |
+| **Hard assertions** | 688 |
 | **Soft assertions** | ~23 (Lighthouse / perf traces / memory — headless-unavailable) |
 | **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
 | **Fixture pages** | 62 |
 | **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **679/679** (no permanent failures — exits 0) |
+| **Harness gate** | **688/688** (no permanent failures — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (none)
@@ -1722,6 +1724,7 @@ for (const bp of breakpoints) {
 | v9.7.1 | [49b] drag/drop root-cause fix | `resolveUidForSelector()` exact-accessible-name-first matching (two-pass) in `flow-runner.js` — substring matching had resolved `#drag-source` to the fixture's explanatory paragraph text instead of the draggable div; [49b] removed from `KNOWN_PERMANENT`; upstream chrome-devtools-mcp #2182 closure confirmed correct | 662/664 |
 | v9.7.2 | [67b]/[68b] Issues panel root-cause fix | MCP returns issues as markdown text; `normalizeArray()` returned `[]` for strings so all issues were discarded (production Issues detection was dead) — `parseConsoleMsgResponse()` now used in `issues-analyzer.js` + `orchestrator.js`; `issues-deprecated.html` fixture updated to `unload` listener (Mutation Events removed in Chrome 127); `KNOWN_PERMANENT` now empty | **664/664** |
 | v9.7.3 | Intelligent baseline filtering + root cause linking (MIT) | `noise-filter.js` — cross-run flip-flop classifier over `<branch>-history.json` (20 runs); presence-flip ratio ≥0.4 across ≥4 runs → `noisy: true` + downgrade to info (`ARGUS_NOISE_FILTER=0` disables); `root-cause-linker.js` — `getRecentChanges()` git log + `matchFilesToRoutePath()` slug heuristic + `linkRootCauses()` annotates new findings with `rootCause: { files, commits, global }` (`ARGUS_ROOT_CAUSE=0` disables); both wired into `report-processor.js`; blocks [140] (7) + [141] (8) | **679/679** |
+| v9.7.3+ | Pre-E2E audit — MCP wire-contract fixes | `getNetworkRequest` sends `reqid` (was `requestId` — every call errored, D7.4 contract validation dead); `extractResponseBody()` parses the `### Response Body` markdown section; `parseListPagesResponse()` fixes always-empty `open_tabs`; `selectPage` coerces tabId to Number; `mcp-server.js` logger import + package.json version; `handlePrValidate` path-prefix fix; pr-diff stdout→stderr; `WatchSession` memory caps; `harness:staging` cross-platform flags; block [142] (9) | **688/688** |
 
 ---
 

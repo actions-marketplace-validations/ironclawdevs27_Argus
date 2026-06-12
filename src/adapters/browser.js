@@ -52,15 +52,22 @@ export class CdpBrowserAdapter {
   resize(w, h)                   { return this._mcp.resize_page({ width: w, height: h }); }
 
   // ── Network & performance ───────────────────────────────────────────────────
-  getNetworkRequest(reqId) { return this._mcp.get_network_request({ requestId: reqId }); }
+  // chrome-devtools-mcp expects the wire parameter "reqid" (sending "requestId"
+  // is rejected with an Unknown-argument error). Callers still pass the numeric
+  // requestId parsed from list_network_requests.
+  getNetworkRequest(reqId) { return this._mcp.get_network_request({ reqid: reqId }); }
   lighthouse(url, opts = {}) { return this._mcp.lighthouse_audit({ url, ...opts }); }
   startTrace()             { return this._mcp.performance_start_trace({}); }
   stopTrace()              { return this._mcp.performance_stop_trace({}); }
   analyzeInsight(opts)     { return this._mcp.performance_analyze_insight(opts); }
 
   // ── Tab management ─────────────────────────────────────────────────────────
+  // list_pages returns markdown text ("## Pages\n1: <url> [selected]") like all
+  // MCP responses — callers parse with parseListPagesResponse (mcp-parsers.js).
   listPages()              { return this._mcp.list_pages({}); }
-  selectPage(tabId)        { return this._mcp.select_page({ pageId: tabId }); }
+  // select_page validates pageId as a number — coerce so callers may pass the
+  // string tabId they received from an MCP tool argument.
+  selectPage(tabId)        { return this._mcp.select_page({ pageId: Number(tabId) }); }
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
   close()                  { return this._mcp.close(); }

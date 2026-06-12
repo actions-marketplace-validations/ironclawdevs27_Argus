@@ -298,12 +298,27 @@ function classifyNetworkReq(req, url) {
  * the interval-based runWatchMode() entry point.
  */
 export class WatchSession {
+  // Long-run safety caps: a watch session left running for hours against an app
+  // with cache-busted polling URLs would otherwise grow the dedup sets without
+  // bound. When a set exceeds its cap the oldest fifth is evicted (Sets iterate
+  // in insertion order) — worst case a very old message is re-reported once.
+  static MAX_SEEN_KEYS    = 5000;
+  static MAX_ALL_FINDINGS = 2000;
+
   constructor(browser, baseUrl) {
     this._browser     = browser;
     this._baseUrl     = baseUrl;
     this._seenConsole = new Set();
     this._seenNetwork = new Set();
     this._allFindings = [];
+  }
+
+  /** Evict the oldest 20% of a dedup set once it exceeds the cap. */
+  static _trimSeen(set) {
+    if (set.size <= WatchSession.MAX_SEEN_KEYS) return;
+    const drop = Math.floor(WatchSession.MAX_SEEN_KEYS / 5);
+    const it = set.values();
+    for (let i = 0; i < drop; i++) set.delete(it.next().value);
   }
 
   /**
@@ -350,6 +365,11 @@ export class WatchSession {
     findings.push(...analyzeSecurityNetwork(newNetwork, this._baseUrl));
 
     this._allFindings.push(...findings);
+    if (this._allFindings.length > WatchSession.MAX_ALL_FINDINGS) {
+      this._allFindings = this._allFindings.slice(-WatchSession.MAX_ALL_FINDINGS);
+    }
+    WatchSession._trimSeen(this._seenConsole);
+    WatchSession._trimSeen(this._seenNetwork);
     return { findings, newConsole, newNetwork };
   }
 

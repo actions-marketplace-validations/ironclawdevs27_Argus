@@ -50,7 +50,7 @@ import { loadBaseline, saveBaseline, applyBaseline, appendTrend, getCurrentBranc
 import { mergeRunResults } from '../src/utils/flakiness-detector.js';
 import { runFlow, normalizeArray, resolveUidForSelector } from '../src/utils/flow-runner.js';
 import { chunkArray } from '../src/utils/parallel-crawler.js';
-import { validateSchema, matchesContract } from '../src/utils/contract-validator.js';
+import { validateSchema, matchesContract, extractResponseBody } from '../src/utils/contract-validator.js';
 import { applyOverrides } from '../src/utils/severity-overrides.js';
 import { auditEnvVariables, detectFeatureFlagLeakage, enrichErrorsWithSource, detectDeadRoutes, INTERNAL_LINKS_SCRIPT } from '../src/utils/codebase-analyzer.js';
 import { isSlackConfigured } from '../src/utils/slack-guard.js';
@@ -95,7 +95,7 @@ import { loadRunHistory, recordRunHistory, computeNoiseScores, applyNoiseFilter,
 import { getRecentChanges, matchFilesToRoutePath, linkRootCauses } from '../src/utils/root-cause-linker.js';
 
 // ── Section 1 gap-closer imports (blocks [94]–[107]) ──────────────────────────
-import { parseConsoleMsgResponse, parseNetworkReqResponse } from '../src/utils/mcp-parsers.js';
+import { parseConsoleMsgResponse, parseNetworkReqResponse, parseListPagesResponse } from '../src/utils/mcp-parsers.js';
 import { registerCheap, registerExpensive, getCheap, getExpensive, clearAll as clearRegistry } from '../src/registry.js';
 import { deduplicateFindings, rebuildSummary, processReport } from '../src/orchestration/report-processor.js';
 import { dispatchAll } from '../src/orchestration/dispatcher.js';
@@ -6174,6 +6174,80 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       globalLinked141 === 1 && globalFinding141.rootCause?.global === true &&
       globalFinding141.rootCause.files.includes('package.json'),
       `[141h] infra-only commit links with global:true (got: ${JSON.stringify(globalFinding141.rootCause)})`
+    );
+  }
+
+  // ── Block [142]: MCP wire-contract regressions (2026-06-12 audit) ──────────
+  // Guards the bug class where markdown MCP responses were consumed as
+  // structured data, plus the mcp-server logger/version regressions.
+  {
+    console.log('\n[142] MCP wire-contract regressions — list_pages parse, response body extraction, server hygiene');
+
+    // [142a] parseListPagesResponse parses the markdown pages list
+    const pages142 = parseListPagesResponse('## Pages\n1: http://localhost:3100/a.html [selected]\n2: about:blank');
+    assert(
+      pages142.length === 2 && pages142[0].id === 1 && pages142[0].selected === true &&
+      pages142[0].url === 'http://localhost:3100/a.html' && pages142[1].selected === false,
+      `[142a] parseListPagesResponse parses ids/urls/selected (got: ${JSON.stringify(pages142)})`
+    );
+
+    // [142b] parseListPagesResponse guards null/garbage input
+    assert(
+      Array.isArray(parseListPagesResponse(null)) && parseListPagesResponse(null).length === 0 &&
+      parseListPagesResponse('no pages here').length === 0,
+      `[142b] parseListPagesResponse returns [] for null/garbage`
+    );
+
+    // [142c] extractResponseBody parses the "### Response Body" markdown section
+    const md142 = '## Request http://x/api\nStatus: 200\n### Response Headers\n- a:b\n### Response Body\n{"ok":true,"n":2}';
+    const body142 = extractResponseBody(md142);
+    assert(
+      body142 && body142.ok === true && body142.n === 2,
+      `[142c] extractResponseBody parses markdown body section (got: ${JSON.stringify(body142)})`
+    );
+
+    // [142d] extractResponseBody returns null when no body section exists
+    assert(
+      extractResponseBody('## Request http://x/api\nStatus: 304\n### Response Headers\n- a:b') === null &&
+      extractResponseBody(null) === null,
+      `[142d] extractResponseBody returns null without a body section`
+    );
+
+    // [142e] extractResponseBody legacy structured shapes still work
+    assert(
+      extractResponseBody({ responseBody: '{"a":1}' })?.a === 1 &&
+      extractResponseBody({ body: '{"b":2}' })?.b === 2,
+      `[142e] extractResponseBody handles legacy { responseBody } / { body } shapes`
+    );
+
+    // [142f]–[142i] static source regressions on mcp-server.js + adapters
+    const mcpSrc142     = fs.readFileSync(path.resolve('src/mcp-server.js'), 'utf8');
+    const browserSrc142 = fs.readFileSync(path.resolve('src/adapters/browser.js'), 'utf8');
+    const prDiffSrc142  = fs.readFileSync(path.resolve('src/utils/pr-diff-analyzer.js'), 'utf8');
+
+    // [142f] mcp-server.js defines its logger (a bare `logger.` reference once
+    // threw ReferenceError inside withMcp, masking every handler error)
+    assert(
+      mcpSrc142.includes("childLogger('mcp-server')"),
+      `[142f] mcp-server.js imports and instantiates childLogger`
+    );
+
+    // [142g] mcp-server.js reads its version from package.json (hardcoded '9.6.6' drifted)
+    assert(
+      mcpSrc142.includes('version: pkg.version') && !mcpSrc142.includes("version: '9.6.6'"),
+      `[142g] mcp-server.js Server version comes from package.json`
+    );
+
+    // [142h] browser adapter sends the reqid wire param (requestId is rejected by chrome-devtools-mcp)
+    assert(
+      browserSrc142.includes('get_network_request({ reqid:'),
+      `[142h] CdpBrowserAdapter.getNetworkRequest sends reqid`
+    );
+
+    // [142i] pr-diff-analyzer must never write to stdout (imported by the MCP server)
+    assert(
+      !prDiffSrc142.includes('console.log('),
+      `[142i] pr-diff-analyzer.js has no console.log (stdout reserved for JSON-RPC)`
     );
   }
 }

@@ -24,6 +24,9 @@ argus-vX1-roadmap.md
 argus-vX1-gaps.md
 business-analysis.md
 test-harness-gaps.md
+audit_prompt.md
+AUDIT_REPORT.md
+E2E_PLAN.md
 
 # Harness output log — written by npm run test:harness:log
 harness-results.txt

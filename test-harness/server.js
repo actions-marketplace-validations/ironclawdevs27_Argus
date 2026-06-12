@@ -4,16 +4,26 @@
  * Serves deliberately broken fixture pages so the Argus crawl pipeline has
  * something real to detect.
  *
- *   node test-harness/server.js                          # dev  → http://localhost:3100
- *   PORT=3101 ARGUS_ENV=staging node test-harness/server.js  # staging → http://localhost:3101
+ *   node test-harness/server.js                              # dev  → http://localhost:3100
+ *   node test-harness/server.js --port=3101 --staging        # staging → http://localhost:3101
+ *   PORT=3101 ARGUS_ENV=staging node test-harness/server.js  # staging (env form, POSIX shells)
  *
- * IS_STAGING is determined by ARGUS_ENV, NOT the port number, so dynamic port
- * allocation (findFreePort) doesn't accidentally flip staging to dev behaviour.
+ * The --port/--staging flags exist because the env-prefix form ("PORT=3101 node …")
+ * is POSIX-only and fails in npm scripts on Windows (cmd.exe).
+ *
+ * IS_STAGING is determined by ARGUS_ENV/--staging, NOT the port number, so dynamic
+ * port allocation (findFreePort) doesn't accidentally flip staging to dev behaviour.
  */
 
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Cross-platform CLI flags — mirrored into the env vars the rest of the file reads.
+for (const arg of process.argv.slice(2)) {
+  if (arg.startsWith('--port=')) process.env.PORT = arg.slice('--port='.length);
+  if (arg === '--staging')       process.env.ARGUS_ENV = 'staging';
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT ?? '3100', 10);

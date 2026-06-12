@@ -27,8 +27,8 @@ const navHrefs = {
 
 const stats = [
   { num: '67', label: 'DETECTION\nTYPES' },
-  { num: '141', label: 'TEST\nBLOCKS' },
-  { num: '679', label: 'ASSERTIONS\nRUN' },
+  { num: '142', label: 'TEST\nBLOCKS' },
+  { num: '688', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']

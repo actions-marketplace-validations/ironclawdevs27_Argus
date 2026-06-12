@@ -56,13 +56,19 @@ export function getRecentChanges(repoDir = process.env.ARGUS_SOURCE_DIR || proce
   const changes = [];
   let current = null;
   for (const line of out.split('\n')) {
-    const trimmed = line.trimEnd();
-    if (!trimmed) continue;
-    if (trimmed.includes('\t')) {
-      const [hash, ...subjectParts] = trimmed.split('\t');
+    // Detect commit lines on the RAW line — an empty commit subject leaves a
+    // trailing tab ("abc1234\t") that trimEnd() would strip, misclassifying
+    // the hash as a file path. File lines never contain raw tabs: git quotes
+    // paths with special characters (core.quotePath octal escapes).
+    if (line.includes('\t')) {
+      const [hash, ...subjectParts] = line.trimEnd().split('\t');
       current = { hash, subject: subjectParts.join('\t'), files: [] };
       changes.push(current);
-    } else if (current) {
+      continue;
+    }
+    const trimmed = line.trimEnd();
+    if (!trimmed) continue;
+    if (current) {
       // Git emits paths with forward slashes on every platform
       current.files.push(trimmed);
     }

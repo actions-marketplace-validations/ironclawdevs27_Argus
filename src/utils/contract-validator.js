@@ -126,6 +126,32 @@ function loadSchema(contract) {
 }
 
 /**
+ * Extract and JSON-parse the response body from a get_network_request result.
+ *
+ * chrome-devtools-mcp returns the request detail as markdown text with the
+ * body under a "### Response Body" section — the dominant production shape.
+ * Structured shapes ({ responseBody } / { body }) are kept for legacy clients.
+ *
+ * @param {any} raw - Raw value returned by browser.getNetworkRequest()
+ * @returns {any|null} Parsed JSON body, or null when absent
+ * @throws {SyntaxError} when a body section exists but is not valid JSON
+ */
+export function extractResponseBody(raw) {
+  if (raw == null) return null;
+  if (typeof raw === 'object') {
+    const text = raw.responseBody ?? raw.body ?? null;
+    if (text == null) return null;
+    return typeof text === 'string' ? JSON.parse(text) : text;
+  }
+  const text = String(raw);
+  const m = text.match(/### Response Body\s*\n([\s\S]*?)(?=\n###? |$)/);
+  if (!m) return null;
+  const section = m[1].trim();
+  if (!section) return null;
+  return JSON.parse(section);
+}
+
+/**
  * Validate captured network requests against apiContracts[].
  * For each request that matches a contract, fetches the response body via
  * browser.getNetworkRequest and validates the parsed JSON against the schema.
@@ -153,8 +179,7 @@ export async function validateApiContracts(networkReqs, browser, contracts, page
       let body = null;
       try {
         const raw = await browser.getNetworkRequest(req.id ?? req.requestId);
-        const text = raw?.responseBody ?? raw?.body ?? null;
-        if (text) body = JSON.parse(text);
+        body = extractResponseBody(raw);
       } catch {
         continue; // body unavailable — skip validation for this request
       }
