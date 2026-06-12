@@ -1675,7 +1675,7 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.7.3` |
+| **Version** | `9.7.4` |
 | **Test blocks** | 142 |
 | **Hard assertions** | 688 |
 | **Soft assertions** | ~23 (Lighthouse / perf traces / memory — headless-unavailable) |
@@ -1724,7 +1724,7 @@ for (const bp of breakpoints) {
 | v9.7.1 | [49b] drag/drop root-cause fix | `resolveUidForSelector()` exact-accessible-name-first matching (two-pass) in `flow-runner.js` — substring matching had resolved `#drag-source` to the fixture's explanatory paragraph text instead of the draggable div; [49b] removed from `KNOWN_PERMANENT`; upstream chrome-devtools-mcp #2182 closure confirmed correct | 662/664 |
 | v9.7.2 | [67b]/[68b] Issues panel root-cause fix | MCP returns issues as markdown text; `normalizeArray()` returned `[]` for strings so all issues were discarded (production Issues detection was dead) — `parseConsoleMsgResponse()` now used in `issues-analyzer.js` + `orchestrator.js`; `issues-deprecated.html` fixture updated to `unload` listener (Mutation Events removed in Chrome 127); `KNOWN_PERMANENT` now empty | **664/664** |
 | v9.7.3 | Intelligent baseline filtering + root cause linking (MIT) | `noise-filter.js` — cross-run flip-flop classifier over `<branch>-history.json` (20 runs); presence-flip ratio ≥0.4 across ≥4 runs → `noisy: true` + downgrade to info (`ARGUS_NOISE_FILTER=0` disables); `root-cause-linker.js` — `getRecentChanges()` git log + `matchFilesToRoutePath()` slug heuristic + `linkRootCauses()` annotates new findings with `rootCause: { files, commits, global }` (`ARGUS_ROOT_CAUSE=0` disables); both wired into `report-processor.js`; blocks [140] (7) + [141] (8) | **679/679** |
-| v9.7.3+ | Pre-E2E audit — MCP wire-contract fixes | `getNetworkRequest` sends `reqid` (was `requestId` — every call errored, D7.4 contract validation dead); `extractResponseBody()` parses the `### Response Body` markdown section; `parseListPagesResponse()` fixes always-empty `open_tabs`; `selectPage` coerces tabId to Number; `mcp-server.js` logger import + package.json version; `handlePrValidate` path-prefix fix; pr-diff stdout→stderr; `WatchSession` memory caps; `harness:staging` cross-platform flags; block [142] (9) | **688/688** |
+| v9.7.4 | Pre-E2E audit — MCP wire-contract fixes | `getNetworkRequest` sends `reqid` (was `requestId` — every call errored, D7.4 contract validation dead); `extractResponseBody()` parses the `### Response Body` markdown section; `parseListPagesResponse()` fixes always-empty `open_tabs`; `selectPage` coerces tabId to Number; `mcp-server.js` logger import + package.json version; `handlePrValidate` path-prefix fix; pr-diff stdout→stderr; `WatchSession` memory caps; `harness:staging` cross-platform flags; block [142] (9) | **688/688** |
 
 ---
 
