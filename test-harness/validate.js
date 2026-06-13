@@ -4730,8 +4730,10 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[119a] argus_get_context calls complete without throwing (${err119?.message ?? 'ok'})`);
     assert(typeof snap1Obj119.snapshot_id === 'string' && snap1Obj119.snapshot_id.length > 0,
       `[119b] argus_get_context response includes snapshot_id string (got ${typeof snap1Obj119.snapshot_id})`);
-    assert(Array.isArray(snap1Obj119.open_tabs),
-      `[119c] argus_get_context response includes open_tabs array (got ${typeof snap1Obj119.open_tabs})`);
+    assert(
+      Array.isArray(snap1Obj119.open_tabs) && snap1Obj119.open_tabs.length >= 1 &&
+      typeof snap1Obj119.open_tabs[0].id === 'number',
+      `[119c] argus_get_context open_tabs is a non-empty array of tabs with numeric ids — not the [] failure mode (got ${JSON.stringify(snap1Obj119.open_tabs)})`);
     assert(snap2Resp119 !== null && 'resolved' in snap2Obj119 && 'new_issues' in snap2Obj119,
       `[119d] argus_get_context with snapshot_id returns diff shape with resolved + new_issues fields`);
   }
@@ -6826,6 +6828,119 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       err145 === null && finalPages145.length === 1 && finalPages145[0]?.url === pageAUrl145,
       `[145f] close_page cleanup leaves a single tab (page A) — no leaked tab (err: ${err145?.message ?? 'none'}, final: ${JSON.stringify(finalPages145)})`
+    );
+  }
+
+  // ── [146] SELF-LINT (anti-vacuous) — the harness forbids NEW bare-shape ──────────
+  // assertions. A condition that is *solely* a shape predicate is satisfied by the
+  // empty/default failure mode itself — `Array.isArray(x)` passes on `[]` (exactly
+  // what let the v9.7.4 open_tabs bug ride [119c] green for months, now content-
+  // checked); `typeof x === 'object'` passes on the wrong object; `x.length >= 0` is
+  // a tautology. Such a guard proves nothing unless a SIBLING assertion checks
+  // content. This block reads validate.js's own source and gates three families
+  // against reviewed allowlists. Same self-reading discipline as [142f–i] / [143zz].
+  // SELF-EXCLUSION: the scan covers blocks [1]–[145] ONLY — the source is sliced at
+  // this block's "[146] SELF-LINT" marker, so [146]'s own allowlist, regexes, doc
+  // comments, and positive-control samples can never self-match. (No fragile
+  // "don't write pattern X in this file's prose" rule — the block excludes itself.)
+  {
+    console.log('\n[146] Anti-vacuous lint — no NEW bare-shape assertions outside the reviewed allowlists');
+
+    const fullSrc146 = fs.readFileSync(path.join(__dirname, 'validate.js'), 'utf8');
+    // Scan everything BEFORE this block. indexOf finds the comment header above (the
+    // first "[146] SELF-LINT" in the file), excluding all of [146] from the scan.
+    const scanSrc146 = fullSrc146.slice(0, fullSrc146.indexOf('[146] SELF-LINT'));
+
+    // ── Family 1: bare `Array.isArray(x)` (the demonstrated [119c] pattern) ─────────
+    // Reviewed exceptions — each is a bare Array.isArray(x) assertion (no && conjunct)
+    // whose content IS proven by a sibling assertion, OR a soft-Lighthouse /
+    // negative-control / documented-empty case. Keyed by the exact inner expression
+    // (unique per block). See the 2.1 vacuous-sweep inventory.
+    const ALLOWLIST_146 = new Set([
+      'lh.failingAudits',               // [16a]  soft Lighthouse; failingAudits.length in [16] soft
+      'violations',                     // [30]   checkLighthouse; fields checked when length>0 + soft
+      'paths',                          // [57a]  sibling [57b] paths.includes('/about')
+      'paths59',                        // [59a]  sibling [59b] paths59.includes('/dashboard')
+      'merged61',                       // [61a]  siblings [61b]+ check route content
+      'result65.errors',                // [65a]  sibling [65d] criticals filter (clean → 0)
+      'findings66',                     // [66a]  siblings [66b]/[66c] (clean → none)
+      'findings67',                     // [67a]  sibling [67b] csp.length>=1
+      'findings68',                     // [68a]  sibling [68b] deprecated.length>=1
+      'empty69',                        // [69a]  negative control — empty input → []
+      'findings70',                     // [70a]  sibling [70b] heading_level_skip>=1
+      'findings71',                     // [71a]  sibling [71b] responsive_overflow>0
+      'findings72',                     // [72a]  sibling [72b] focus_visible_missing>=1
+      'findings73',                     // [73a]  sibling [73b] aria_expanded_no_controls>=2
+      'findings75.errors',              // [75a]  sibling [75b] origin-field check
+      'findings77',                     // [77a]  sibling [77b] iframe_no_sandbox>=2
+      'cssSummary90?.scssSourceFiles',  // [90b]  sibling [90c] scssSourceFiles.length>0
+      'lhResult92',                     // [92a]  soft Lighthouse contract
+      'parseConsoleMsgResponse(null)',  // [94a]  negative control — null input → array
+      'cheap95',                        // [95a]  documented-empty; sibling [95c] exp>=6
+      'json116.findings',               // [116c] sibling [116d] findings.length===1
+      'snapObj120?.findings',           // [120c] watch-snapshot findings may legitimately be empty
+      'result124?.errors',              // [124c] resilience shape-check (clean page → may be empty)
+      'results127', 'results128', 'results129', 'results130a', 'results131',
+      'results132a', 'results133', 'results134', 'results135', // [NNa] analyzer type-guards; each block's [NNb]+ check specific findings
+    ]);
+
+    // Matches assert(/soft( whose ENTIRE condition is Array.isArray(<expr>): the inner
+    // call closes directly into the message comma — no && / || conjunct follows.
+    const bareArrRe146 = /(?:assert|soft)\(\s*Array\.isArray\(((?:[^()]|\([^()]*\))*)\)\s*,/g;
+    const foundBare146 = new Set();
+    let m146;
+    while ((m146 = bareArrRe146.exec(scanSrc146)) !== null) foundBare146.add(m146[1].trim());
+
+    // [146a] scanner sanity — the regex actually matches the known bare occurrences
+    // (guards against a broken pattern vacuously finding nothing and passing green).
+    assert(
+      foundBare146.size >= 30,
+      `[146a] anti-vacuous scanner finds the reviewed bare-Array.isArray assertions (found ${foundBare146.size}; expected ≥30)`
+    );
+
+    // [146b] THE GATE — no bare Array.isArray assertion exists outside the allowlist.
+    const unreviewed146 = [...foundBare146].filter(k => !ALLOWLIST_146.has(k));
+    assert(
+      unreviewed146.length === 0,
+      `[146b] no NEW bare Array.isArray assertion outside the reviewed allowlist — add a content check (e.g. && x.length >= 1) or a justified allowlist entry (offenders: ${unreviewed146.join(' | ') || 'none'})`
+    );
+
+    // [146c] allowlist hygiene — every allowlisted key still exists as a bare assertion
+    // (a fixed/renamed one must be dropped from the allowlist, keeping it honest).
+    const stale146 = [...ALLOWLIST_146].filter(k => !foundBare146.has(k));
+    assert(
+      stale146.length === 0,
+      `[146c] no stale allowlist entries — every reviewed exception still exists as a bare assertion (stale: ${stale146.join(' | ') || 'none'})`
+    );
+
+    // ── Families 2/3: bare `typeof x === 'object'` + `.length >= 0/> -1` tautology ──
+    // ZERO instances exist today (every typeof-object check is conjoined with a
+    // `!== null` and a sibling; no length tautology anywhere). A "no offenders" gate
+    // over a zero-instance pattern is itself vacuous if the regex is dead — so each
+    // family carries a POSITIVE CONTROL: a known-bad sample the regex MUST match,
+    // proving it is live before [146e] asserts the real source is clean. (Both samples
+    // live inside this self-excluded block, so they never count as real offenders.)
+    const typeofObjRe146  = /(?:assert|soft)\(\s*typeof\s+[\w$.?]+\s*===\s*'object'\s*,/;
+    const lengthTautRe146 = /\.length\s*(?:>=\s*0|>\s*-1)\b/;
+    const SAMPLE_OBJ_146  = "assert(typeof zzz === 'object', 'known-bad sample');";
+    const SAMPLE_LEN_146  = "assert(zzz.length >= 0, 'known-bad sample');";
+
+    // [146d] positive controls — both family regexes match their known-bad samples.
+    const objLive146 = typeofObjRe146.test(SAMPLE_OBJ_146);
+    const lenLive146 = lengthTautRe146.test(SAMPLE_LEN_146);
+    assert(
+      objLive146 && lenLive146,
+      `[146d] family regexes are live — positive controls match known-bad samples (typeof-object: ${objLive146}, length-tautology: ${lenLive146})`
+    );
+
+    // [146e] THE GATE — no bare `typeof x === 'object'` assertion and no `.length >= 0`
+    // / `.length > -1` tautology in blocks [1]–[145] (conjoined typeof-object forms
+    // like `x !== null && typeof x === 'object'` are fine and do not match).
+    const typeofObjHits146  = scanSrc146.match(new RegExp(typeofObjRe146.source, 'g'))  || [];
+    const lengthTautHits146 = scanSrc146.match(new RegExp(lengthTautRe146.source, 'g')) || [];
+    assert(
+      typeofObjHits146.length === 0 && lengthTautHits146.length === 0,
+      `[146e] no bare typeof-object assertion and no .length>=0/> -1 tautology in [1]–[145] (typeof-object: ${typeofObjHits146.length}${typeofObjHits146.length ? ' → ' + typeofObjHits146.join(' | ') : ''}, length-tautology: ${lengthTautHits146.length}${lengthTautHits146.length ? ' → ' + lengthTautHits146.join(' | ') : ''})`
     );
   }
 }
