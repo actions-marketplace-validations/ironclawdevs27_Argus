@@ -1675,7 +1675,7 @@ for (const bp of breakpoints) {
 
 | Metric | Value |
 | --- | --- |
-| **Version** | `9.7.4` |
+| **Version** | `9.7.5` |
 | **Test blocks** | 144 |
 | **Hard assertions** | 738 |
 | **Soft assertions** | ~19 (Lighthouse / memory — headless-unavailable) |
