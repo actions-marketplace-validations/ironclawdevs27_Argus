@@ -358,3 +358,15 @@ Consolidated landing-page stat sync (the changelog skipped v9.7.4). v9.7.4 pre-E
 | Docs § "Running" code | `679 hard assertions`, `679/679` | `738 hard assertions`, `738/738` |
 | Docs § Breakdown | — | Blocks [142]–[145] bullets added |
 | "How we built it" caption | `141 test blocks` | `144 test blocks` |
+
+## Stats Update (2026-06-14 — HARNESS_MAX_PLAN Phase 2: assertion quality)
+
+Phase 2 (test-harness + `test-harness/contracts/` only — npm publish still pending from Phase 1): 2.1 vacuous-assertion sweep (upgraded [119c] `open_tabs` in place); block [146] anti-vacuous self-lint (5 — the harness reads its own source and forbids new shape-only assertions); block [147] golden response schemas for all 9 MCP tools (14 — live `safeParse` ×8 + `argus_pr_validate` source cross-check + coverage ratchet + negative controls), which shook out + fixed the `argus_compare` two-mode contract via a discriminated union. No new detection categories (still 67 / 64 verified). **Net: 144 → 146 blocks, 738 → 757 hard assertions, 757/757 gate, 60 fixture pages.**
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `144` | `146` |
+| `stats[2].num` (ASSERTIONS RUN) | `738` | `757` |
+| Docs § "Test Coverage" tagline | `144 blocks, 738 hard assertions` | `146 blocks, 757 hard assertions` |
+| Docs § "Running" code | `738 hard assertions`, `738/738` | `757 hard assertions`, `757/757` |
+| Docs § Breakdown | — | Blocks [146]–[147] bullets added |

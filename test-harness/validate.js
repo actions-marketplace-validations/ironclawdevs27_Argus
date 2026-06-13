@@ -93,6 +93,11 @@ import { checkChrome, checkMcpConfig, checkEnvKeys } from '../src/cli/doctor.js'
 import { checkSourceMapExposure, checkOpenRedirects } from '../src/utils/security-analyzer.js';
 import { loadRunHistory, recordRunHistory, computeNoiseScores, applyNoiseFilter, NOISE_MIN_RUNS } from '../src/utils/noise-filter.js';
 import { getRecentChanges, matchFilesToRoutePath, linkRootCauses } from '../src/utils/root-cause-linker.js';
+// Golden MCP tool response schemas (block [147] — test-harness/contracts/ source of truth).
+import {
+  TOOL_RESPONSE_SCHEMAS, TOOL_NAMES, formatZodError,
+  auditResponseSchema, getContextResponseSchema, reportSummarySchema, prValidateResponseSchema,
+} from './contracts/mcp-tool-schemas.js';
 
 // ── Section 1 gap-closer imports (blocks [94]–[107]) ──────────────────────────
 import { parseConsoleMsgResponse, parseNetworkReqResponse, parseListPagesResponse } from '../src/utils/mcp-parsers.js';
@@ -6941,6 +6946,156 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       typeofObjHits146.length === 0 && lengthTautHits146.length === 0,
       `[146e] no bare typeof-object assertion and no .length>=0/> -1 tautology in [1]–[145] (typeof-object: ${typeofObjHits146.length}${typeofObjHits146.length ? ' → ' + typeofObjHits146.join(' | ') : ''}, length-tautology: ${lengthTautHits146.length}${lengthTautHits146.length ? ' → ' + lengthTautHits146.join(' | ') : ''})`
+    );
+  }
+
+  // ── [147] Golden MCP tool response schemas ───────────────────────────────────
+  // Every tool's happy-path response is safeParse'd against a Zod contract stored in
+  // test-harness/contracts/mcp-tool-schemas.js (the single source of truth, exported
+  // for E2E too). A handler that renames or drops a response field turns a silently-
+  // changed contract into a loud, attributable failure — the exact blind spot that let
+  // three features die in production while the harness stayed green (2.3 goal). The
+  // schemas were derived from LIVE responses (prototype-147*.mjs, deleted), not memory.
+  // 8 tools validate against a live response; argus_pr_validate's happy path needs the
+  // GitHub network (non-hermetic, like Lighthouse) so it is pinned via a handler↔schema
+  // source cross-check instead. Negative controls prove the safeParse-success assertions
+  // are NOT vacuous — a real response with a required field removed must fail safeParse.
+  {
+    console.log('\n[147] Golden MCP tool response schemas — safeParse live responses against test-harness/contracts/');
+
+    const parse147 = (resp) => {
+      const text = resp?.result?.content?.[0]?.text ?? '';
+      let obj = null; try { obj = JSON.parse(text); } catch { /* non-JSON */ }
+      return { obj, isError: resp?.result?.isError === true, text };
+    };
+    const sp147 = (tool, obj) => {
+      const r = TOOL_RESPONSE_SCHEMAS[tool].safeParse(obj);
+      return { ok: r.success, msg: r.success ? 'valid' : formatZodError(r) };
+    };
+
+    let srv147 = null;
+    let err147 = null;
+    let auditObj147 = null;   // reused by negative controls [147k]/[147m]
+    let ctxObj147 = null;     // reused by negative control [147l]
+
+    try {
+      // FIGMA_API_TOKEN:'' → deterministic no-token design-audit; TARGET_STAGING_URL:''
+      // → deterministic CSS-only argus_compare regardless of the developer's shell.
+      srv147 = await spawnArgusServer(path.resolve(__dirname, '..'), {
+        FIGMA_API_TOKEN: '',
+        ARGUS_RETRY_ATTEMPTS: '1',
+        MCP_TOOL_TIMEOUT_MS: '25000',
+        TARGET_DEV_URL: B,
+        TARGET_STAGING_URL: '',
+      });
+
+      // [147a] argus_audit
+      auditObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_audit', { url: `${B}/clean.html` }, 60000)).obj;
+      { const v = sp147('argus_audit', auditObj147);
+        assert(v.ok, `[147a] argus_audit response matches golden schema (got: ${v.msg})`); }
+
+      // [147b] argus_audit_full (full report) — also persists a report consumed by [147c]
+      const fullObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_audit_full', { url: `${B}/clean.html` }, 180000)).obj;
+      { const v = sp147('argus_audit_full', fullObj147);
+        assert(v.ok, `[147b] argus_audit_full report matches golden schema (got: ${v.msg})`); }
+
+      // [147c] argus_last_report (report-from-disk OR no-reports sentinel — union schema)
+      const lastObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_last_report', {}, 20000)).obj;
+      { const v = sp147('argus_last_report', lastObj147);
+        assert(v.ok, `[147c] argus_last_report response matches golden schema (got: ${v.msg})`); }
+
+      // [147d] argus_compare (CSS-only env-comparison)
+      const cmpObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_compare', {}, 120000)).obj;
+      { const v = sp147('argus_compare', cmpObj147);
+        assert(v.ok, `[147d] argus_compare response matches golden schema (got: ${v.msg})`); }
+
+      // [147e] argus_watch_snapshot
+      const wsObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_watch_snapshot', {}, 60000)).obj;
+      { const v = sp147('argus_watch_snapshot', wsObj147);
+        assert(v.ok, `[147e] argus_watch_snapshot response matches golden schema (got: ${v.msg})`); }
+
+      // [147f] argus_get_context
+      ctxObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_get_context', {}, 60000)).obj;
+      { const v = sp147('argus_get_context', ctxObj147);
+        assert(v.ok, `[147f] argus_get_context response matches golden schema (got: ${v.msg})`); }
+
+      // [147g] argus_visual_diff
+      const vdObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_visual_diff', { url: `${B}/clean.html` }, 60000)).obj;
+      { const v = sp147('argus_visual_diff', vdObj147);
+        assert(v.ok, `[147g] argus_visual_diff response matches golden schema (got: ${v.msg})`); }
+
+      // [147h] argus_design_audit (no-token degraded path — deterministic)
+      const daObj147 = parse147(await mcpToolCall(srv147.proc, 'argus_design_audit',
+        { url: `${B}/clean.html`, figmaFrameUrl: 'https://www.figma.com/file/ABC/X?node-id=1%3A2' }, 30000)).obj;
+      { const v = sp147('argus_design_audit', daObj147);
+        assert(v.ok, `[147h] argus_design_audit (degraded) response matches golden schema (got: ${v.msg})`); }
+
+      // [147i] argus_pr_validate — happy path needs GitHub network (non-hermetic). Hermetic
+      // substitute: assert every schema-required key appears in handlePrValidate's RETURN
+      // literal in src/mcp-server.js. This guards a handler-side field rename — the same
+      // direction the 8 live-validated tools cover via their actual responses. Live error
+      // paths are already covered by [144f]/[144g].
+      const serverSrc147   = fs.readFileSync(path.resolve(__dirname, '../src/mcp-server.js'), 'utf8');
+      const prFnStart147   = serverSrc147.indexOf('async function handlePrValidate');
+      const prJsonStart147 = serverSrc147.indexOf('JSON.stringify({', prFnStart147);
+      const prJsonEnd147   = serverSrc147.indexOf('}, null, 2)', prJsonStart147);
+      const prRetLiteral147 = prJsonStart147 !== -1 && prJsonEnd147 > prJsonStart147
+        ? serverSrc147.slice(prJsonStart147, prJsonEnd147) : '';
+      const prReqKeys147    = Object.keys(prValidateResponseSchema.shape);
+      const missingPrKeys147 = prReqKeys147.filter(k => !new RegExp(`[\\s{]${k}\\s*[,:]`).test(prRetLiteral147));
+      assert(
+        prFnStart147 !== -1 && prRetLiteral147.length > 0 && missingPrKeys147.length === 0,
+        `[147i] argus_pr_validate handler return literal contains all ${prReqKeys147.length} schema-required keys — guards a handler field rename (missing: ${missingPrKeys147.join(', ') || 'none'})`
+      );
+
+      // [147j] META coverage-ratchet — every tool the server advertises has a golden
+      // schema. A new tool then cannot ship without a pinned response contract (mirrors
+      // [143zz]'s adapter-method ratchet).
+      const liveTools147  = (await mcpListTools(srv147.proc, 10000)).map(t => t.name);
+      const unschemaed147 = liveTools147.filter(n => !TOOL_RESPONSE_SCHEMAS[n]);
+      assert(
+        liveTools147.length === TOOL_NAMES.length && unschemaed147.length === 0,
+        `[147j] every advertised MCP tool has a golden schema (live: ${liveTools147.length}, schemas: ${TOOL_NAMES.length}, unschemaed: ${unschemaed147.join(', ') || 'none'})`
+      );
+
+      // ── Negative controls — prove the safeParse-success assertions are not vacuous. ──
+
+      // [147k] argus_audit response with `summary` removed MUST be rejected.
+      const auditNoSummary147 = { ...(auditObj147 ?? {}) }; delete auditNoSummary147.summary;
+      const k147 = auditResponseSchema.safeParse(auditNoSummary147);
+      assert(
+        auditObj147 !== null && k147.success === false,
+        `[147k] golden schema REJECTS an argus_audit response with summary removed — proves [147a] is non-vacuous (rejected: ${!k147.success})`
+      );
+
+      // [147l] argus_get_context without `snapshot_id`, and `{}`, MUST both be rejected.
+      const ctxNoId147 = { ...(ctxObj147 ?? {}) }; delete ctxNoId147.snapshot_id;
+      const l1_147 = getContextResponseSchema.safeParse(ctxNoId147);
+      const l2_147 = getContextResponseSchema.safeParse({});
+      assert(
+        ctxObj147 !== null && l1_147.success === false && l2_147.success === false,
+        `[147l] golden schema REJECTS get_context without snapshot_id and {} — non-vacuous (sans-id rejected: ${!l1_147.success}, {} rejected: ${!l2_147.success})`
+      );
+
+      // [147m] the two summary contracts are genuinely distinct: the report-summary schema
+      // (requires `total`) must REJECT the cheap-audit summary (no `total`), so a handler
+      // that drops `total` from a full report fails [147b]/[147d] rather than passing under
+      // a one-size-fits-all summary schema.
+      const m147 = reportSummarySchema.safeParse(auditObj147?.summary);
+      assert(
+        auditObj147?.summary != null && m147.success === false,
+        `[147m] report-summary schema rejects the cheap-audit summary (no total) — the audit/report summary contracts are distinct (rejected: ${!m147.success})`
+      );
+
+    } catch (e) {
+      err147 = e;
+    } finally {
+      try { srv147?.proc?.kill(); } catch { }
+    }
+    // [147n] completion guard — a mid-block throw must surface, not silently shrink the count.
+    assert(
+      err147 === null,
+      `[147n] golden-schema block ran to completion without the harness itself throwing (${err147?.message ?? 'ok'})`
     );
   }
 }
