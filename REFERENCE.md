@@ -794,8 +794,8 @@ argus/
 │       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
 │       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
 ├── test-harness/
-│   ├── validate.js                   — 146-block correctness harness (757/757 gate)
-│   ├── contracts/                    — golden Zod response schemas for the 9 MCP tools (block [147])
+│   ├── validate.js                   — 147-block correctness harness (762/762 gate)
+│   ├── contracts/                    — golden Zod response schemas for the 9 MCP tools (block [147]) + chrome-devtools-mcp inputSchema canary snapshot (block [148])
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
 │   ├── .env.harness                  — ARGUS_LOG_LEVEL=warn — suppresses INFO flood during harness runs
@@ -860,7 +860,7 @@ argus/
 
 ## Known MCP Tool Limitations
 
-**None** — the harness passes `757/757` and `KNOWN_PERMANENT` in `validate.js` is empty (since v9.7.2). All three historical "permanent failures" were Argus bugs:
+**None** — the harness passes `762/762` and `KNOWN_PERMANENT` in `validate.js` is empty (since v9.7.2). All three historical "permanent failures" were Argus bugs:
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 

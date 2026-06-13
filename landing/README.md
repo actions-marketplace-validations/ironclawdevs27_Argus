@@ -370,3 +370,15 @@ Phase 2 (test-harness + `test-harness/contracts/` only — npm publish still pen
 | Docs § "Test Coverage" tagline | `144 blocks, 738 hard assertions` | `146 blocks, 757 hard assertions` |
 | Docs § "Running" code | `738 hard assertions`, `738/738` | `757 hard assertions`, `757/757` |
 | Docs § Breakdown | — | Blocks [146]–[147] bullets added |
+
+## Stats Update (2026-06-14 — HARNESS_MAX_PLAN Phase 3.1: upstream canary)
+
+Phase 3.1 + 3.4 (test-harness + `test-harness/contracts/` only — npm publish still pending from Phase 1): block [148] upstream canary — a freshly spawned `chrome-devtools-mcp@1.1.1` `tools/list` is diffed (tool set + required params + property names/types) against the new golden snapshot `contracts/chrome-devtools-mcp@1.1.1.json`, catching the next `reqid→requestId`-class param rename at a version bump; `mcp-client.js` pin ↔ snapshot-filename lockstep; plus a Chrome-rot watch that `issues-deprecated.html` still emits a DeprecationIssue in the live Chrome. No new detection categories (still 67 / 64 verified). **Net: 146 → 147 blocks, 757 → 762 hard assertions, 762/762 gate, 60 fixture pages.**
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `146` | `147` |
+| `stats[2].num` (ASSERTIONS RUN) | `757` | `762` |
+| Docs § "Test Coverage" tagline | `146 blocks, 757 hard assertions` | `147 blocks, 762 hard assertions` |
+| Docs § "Running" code | `757 hard assertions`, `757/757` | `762 hard assertions`, `762/762` |
+| Docs § Breakdown | — | Block [148] bullet added |

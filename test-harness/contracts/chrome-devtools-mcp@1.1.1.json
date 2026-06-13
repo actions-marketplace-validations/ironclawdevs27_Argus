@@ -1,0 +1,407 @@
+{
+  "_comment": "Golden chrome-devtools-mcp inputSchema snapshot — upstream canary (test-harness/validate.js block [148]). REGENERATE DELIBERATELY on a version bump (the diff IS the review): node test-harness/prototype-148.mjs <version>, then review the git diff. Captures each tool's required params, property names, and JSON-schema types from a live tools/list against the pinned version.",
+  "version": "1.1.1",
+  "toolCount": 29,
+  "tools": {
+    "click": {
+      "required": [
+        "uid"
+      ],
+      "props": [
+        "dblClick",
+        "includeSnapshot",
+        "uid"
+      ],
+      "types": {
+        "dblClick": "boolean",
+        "includeSnapshot": "boolean",
+        "uid": "string"
+      }
+    },
+    "close_page": {
+      "required": [
+        "pageId"
+      ],
+      "props": [
+        "pageId"
+      ],
+      "types": {
+        "pageId": "number"
+      }
+    },
+    "drag": {
+      "required": [
+        "from_uid",
+        "to_uid"
+      ],
+      "props": [
+        "from_uid",
+        "includeSnapshot",
+        "to_uid"
+      ],
+      "types": {
+        "from_uid": "string",
+        "includeSnapshot": "boolean",
+        "to_uid": "string"
+      }
+    },
+    "emulate": {
+      "required": [],
+      "props": [
+        "colorScheme",
+        "cpuThrottlingRate",
+        "extraHttpHeaders",
+        "geolocation",
+        "networkConditions",
+        "userAgent",
+        "viewport"
+      ],
+      "types": {
+        "colorScheme": "string",
+        "cpuThrottlingRate": "number",
+        "extraHttpHeaders": "string",
+        "geolocation": "string",
+        "networkConditions": "string",
+        "userAgent": "string",
+        "viewport": "string"
+      }
+    },
+    "evaluate_script": {
+      "required": [
+        "function"
+      ],
+      "props": [
+        "args",
+        "dialogAction",
+        "filePath",
+        "function"
+      ],
+      "types": {
+        "args": "array",
+        "dialogAction": "string",
+        "filePath": "string",
+        "function": "string"
+      }
+    },
+    "fill": {
+      "required": [
+        "uid",
+        "value"
+      ],
+      "props": [
+        "includeSnapshot",
+        "uid",
+        "value"
+      ],
+      "types": {
+        "includeSnapshot": "boolean",
+        "uid": "string",
+        "value": "string"
+      }
+    },
+    "fill_form": {
+      "required": [
+        "elements"
+      ],
+      "props": [
+        "elements",
+        "includeSnapshot"
+      ],
+      "types": {
+        "elements": "array",
+        "includeSnapshot": "boolean"
+      }
+    },
+    "get_console_message": {
+      "required": [
+        "msgid"
+      ],
+      "props": [
+        "msgid"
+      ],
+      "types": {
+        "msgid": "number"
+      }
+    },
+    "get_network_request": {
+      "required": [],
+      "props": [
+        "reqid",
+        "requestFilePath",
+        "responseFilePath"
+      ],
+      "types": {
+        "reqid": "number",
+        "requestFilePath": "string",
+        "responseFilePath": "string"
+      }
+    },
+    "handle_dialog": {
+      "required": [
+        "action"
+      ],
+      "props": [
+        "action",
+        "promptText"
+      ],
+      "types": {
+        "action": "string",
+        "promptText": "string"
+      }
+    },
+    "hover": {
+      "required": [
+        "uid"
+      ],
+      "props": [
+        "includeSnapshot",
+        "uid"
+      ],
+      "types": {
+        "includeSnapshot": "boolean",
+        "uid": "string"
+      }
+    },
+    "lighthouse_audit": {
+      "required": [],
+      "props": [
+        "device",
+        "mode",
+        "outputDirPath"
+      ],
+      "types": {
+        "device": "string",
+        "mode": "string",
+        "outputDirPath": "string"
+      }
+    },
+    "list_console_messages": {
+      "required": [],
+      "props": [
+        "includePreservedMessages",
+        "pageIdx",
+        "pageSize",
+        "types"
+      ],
+      "types": {
+        "includePreservedMessages": "boolean",
+        "pageIdx": "integer",
+        "pageSize": "integer",
+        "types": "array"
+      }
+    },
+    "list_network_requests": {
+      "required": [],
+      "props": [
+        "includePreservedRequests",
+        "pageIdx",
+        "pageSize",
+        "resourceTypes"
+      ],
+      "types": {
+        "includePreservedRequests": "boolean",
+        "pageIdx": "integer",
+        "pageSize": "integer",
+        "resourceTypes": "array"
+      }
+    },
+    "list_pages": {
+      "required": [],
+      "props": [],
+      "types": {}
+    },
+    "navigate_page": {
+      "required": [],
+      "props": [
+        "handleBeforeUnload",
+        "ignoreCache",
+        "initScript",
+        "timeout",
+        "type",
+        "url"
+      ],
+      "types": {
+        "handleBeforeUnload": "string",
+        "ignoreCache": "boolean",
+        "initScript": "string",
+        "timeout": "integer",
+        "type": "string",
+        "url": "string"
+      }
+    },
+    "new_page": {
+      "required": [
+        "url"
+      ],
+      "props": [
+        "background",
+        "isolatedContext",
+        "timeout",
+        "url"
+      ],
+      "types": {
+        "background": "boolean",
+        "isolatedContext": "string",
+        "timeout": "integer",
+        "url": "string"
+      }
+    },
+    "performance_analyze_insight": {
+      "required": [
+        "insightName",
+        "insightSetId"
+      ],
+      "props": [
+        "insightName",
+        "insightSetId"
+      ],
+      "types": {
+        "insightName": "string",
+        "insightSetId": "string"
+      }
+    },
+    "performance_start_trace": {
+      "required": [],
+      "props": [
+        "autoStop",
+        "filePath",
+        "reload"
+      ],
+      "types": {
+        "autoStop": "boolean",
+        "filePath": "string",
+        "reload": "boolean"
+      }
+    },
+    "performance_stop_trace": {
+      "required": [],
+      "props": [
+        "filePath"
+      ],
+      "types": {
+        "filePath": "string"
+      }
+    },
+    "press_key": {
+      "required": [
+        "key"
+      ],
+      "props": [
+        "includeSnapshot",
+        "key"
+      ],
+      "types": {
+        "includeSnapshot": "boolean",
+        "key": "string"
+      }
+    },
+    "resize_page": {
+      "required": [
+        "height",
+        "width"
+      ],
+      "props": [
+        "height",
+        "width"
+      ],
+      "types": {
+        "height": "number",
+        "width": "number"
+      }
+    },
+    "select_page": {
+      "required": [
+        "pageId"
+      ],
+      "props": [
+        "bringToFront",
+        "pageId"
+      ],
+      "types": {
+        "bringToFront": "boolean",
+        "pageId": "number"
+      }
+    },
+    "take_heapsnapshot": {
+      "required": [
+        "filePath"
+      ],
+      "props": [
+        "filePath"
+      ],
+      "types": {
+        "filePath": "string"
+      }
+    },
+    "take_screenshot": {
+      "required": [],
+      "props": [
+        "filePath",
+        "format",
+        "fullPage",
+        "quality",
+        "uid"
+      ],
+      "types": {
+        "filePath": "string",
+        "format": "string",
+        "fullPage": "boolean",
+        "quality": "number",
+        "uid": "string"
+      }
+    },
+    "take_snapshot": {
+      "required": [],
+      "props": [
+        "filePath",
+        "verbose"
+      ],
+      "types": {
+        "filePath": "string",
+        "verbose": "boolean"
+      }
+    },
+    "type_text": {
+      "required": [
+        "text"
+      ],
+      "props": [
+        "submitKey",
+        "text"
+      ],
+      "types": {
+        "submitKey": "string",
+        "text": "string"
+      }
+    },
+    "upload_file": {
+      "required": [
+        "filePath",
+        "uid"
+      ],
+      "props": [
+        "filePath",
+        "includeSnapshot",
+        "uid"
+      ],
+      "types": {
+        "filePath": "string",
+        "includeSnapshot": "boolean",
+        "uid": "string"
+      }
+    },
+    "wait_for": {
+      "required": [
+        "text"
+      ],
+      "props": [
+        "text",
+        "timeout"
+      ],
+      "types": {
+        "text": "array",
+        "timeout": "integer"
+      }
+    }
+  }
+}

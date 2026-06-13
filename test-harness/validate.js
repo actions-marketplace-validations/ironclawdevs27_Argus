@@ -936,6 +936,41 @@ async function mcpListTools(proc, timeoutMs = 10000) {
   return resp?.result?.tools ?? [];
 }
 
+/**
+ * Upstream canary helper ([148]) — spawn chrome-devtools-mcp@<version> raw (same
+ * spawn shape as src/utils/mcp-client.js), do the JSON-RPC handshake, read tools/list,
+ * and return the tools array. Used to diff the live inputSchemas against the golden
+ * snapshot in test-harness/contracts/. The process is killed in finally.
+ */
+async function listChromeDevtoolsMcpTools(version, timeoutMs = 45000) {
+  const browserUrl = process.env.MCP_BROWSER_URL ?? 'http://127.0.0.1:9222';
+  // shell:true → resolves npx.cmd on Windows (matches mcp-client.js); stderr inherited
+  // (the package's update-notifier + privacy banner go there, not to the JSON-RPC stdout).
+  const proc = spawn('npx', [
+    '-y', `chrome-devtools-mcp@${version}`,
+    `--browser-url=${browserUrl}`,
+    '--headless=true',
+    '--viewport=1920x1080',
+  ], { stdio: ['pipe', 'pipe', 'inherit'], shell: true });
+  proc.on('error', () => {});
+  try {
+    const initId = ++_mcpSeq;
+    proc.stdin.write(JSON.stringify({
+      jsonrpc: '2.0', id: initId, method: 'initialize',
+      params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'argus-canary', version: '1.0' } },
+    }) + '\n');
+    await mcpStdioRead(proc.stdout, initId, timeoutMs);
+    proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n');
+    const listId = ++_mcpSeq;
+    proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: listId, method: 'tools/list', params: {} }) + '\n');
+    const resp = await mcpStdioRead(proc.stdout, listId, timeoutMs);
+    return resp?.result?.tools ?? [];
+  } finally {
+    try { proc.stdin.end(); } catch { /* already closed */ }
+    try { proc.kill('SIGTERM'); } catch { /* already dead */ }
+  }
+}
+
 // ── Test suite ────────────────────────────────────────────────────────────────
 
 async function runTests(mcp, stagingProc, devPort, stagingPort) {
@@ -7096,6 +7131,113 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       err147 === null,
       `[147n] golden-schema block ran to completion without the harness itself throwing (${err147?.message ?? 'ok'})`
+    );
+  }
+
+  // ── [148] Upstream canary — chrome-devtools-mcp inputSchema drift + Chrome-rot watch ──
+  // Pins our ASSUMPTIONS about chrome-devtools-mcp@<pinned>: spawns it raw, reads
+  // tools/list, and diffs every tool's inputSchema (tool set + required params + property
+  // names + JSON-schema types) against the golden snapshot in test-harness/contracts/.
+  // The next reqid→requestId-class param rename fails HERE at a version bump — loudly and
+  // attributably — instead of shipping silently to production (the 2026-06-12 audit bug
+  // class). [148d] keeps the pin in mcp-client.js and the snapshot filename in lockstep.
+  // [148e] is the Chrome-rot watch (plan §3.4): issues-deprecated.html must still emit a
+  // DeprecationIssue in the RUNNING Chrome, so a Chrome upgrade that drops `unload`
+  // deprecation emission attributes to Chrome, not to detection block [68].
+  {
+    console.log('\n[148] Upstream canary — chrome-devtools-mcp inputSchema snapshot diff + Chrome-rot watch');
+
+    // ── [148d] pinned version ↔ snapshot filename lockstep ──
+    const mcpClientSrc148 = fs.readFileSync(path.resolve(__dirname, '../src/utils/mcp-client.js'), 'utf8');
+    const pinnedVer148    = mcpClientSrc148.match(/chrome-devtools-mcp@(\d+\.\d+\.\d+)/)?.[1] ?? null;
+    const contractsDir148 = path.resolve(__dirname, 'contracts');
+    const snapFiles148    = fs.readdirSync(contractsDir148).filter(f => /^chrome-devtools-mcp@.*\.json$/.test(f));
+    const expectedSnap148 = `chrome-devtools-mcp@${pinnedVer148}.json`;
+    assert(
+      pinnedVer148 !== null && snapFiles148.length === 1 && snapFiles148[0] === expectedSnap148,
+      `[148d] mcp-client.js pin (${pinnedVer148 ?? 'none'}) matches the single golden snapshot filename — no drift between pin and snapshot (found: ${snapFiles148.join(', ') || 'none'}, expected: ${expectedSnap148})`
+    );
+
+    // ── load golden snapshot + live tools/list from a fresh chrome-devtools-mcp@<pinned> ──
+    const snapTools148 = pinnedVer148 && snapFiles148.includes(expectedSnap148)
+      ? JSON.parse(fs.readFileSync(path.join(contractsDir148, expectedSnap148), 'utf8')).tools
+      : {};
+    let live148 = null, err148 = null;
+    try {
+      if (!pinnedVer148) throw new Error('no pinned version found in mcp-client.js');
+      live148 = await listChromeDevtoolsMcpTools(pinnedVer148, 45000);
+    } catch (e) { err148 = e; }
+
+    // normalize live tools/list to { name: { required[], props[], types{} } } (matches the snapshot)
+    const liveMap148 = {};
+    for (const t of (live148 ?? [])) {
+      const propsObj = t.inputSchema?.properties ?? {};
+      const props = Object.keys(propsObj).sort();
+      const types = {}; for (const p of props) types[p] = propsObj[p]?.type ?? '(complex)';
+      liveMap148[t.name] = { required: (t.inputSchema?.required ?? []).slice().sort(), props, types };
+    }
+    const liveNames148 = Object.keys(liveMap148).sort();
+    const snapNames148 = Object.keys(snapTools148).sort();
+
+    // [148a] tool-name SET matches (a tool added or removed upstream → loud diff → regenerate)
+    const addedT148   = liveNames148.filter(n => !snapTools148[n]);
+    const removedT148 = snapNames148.filter(n => !liveMap148[n]);
+    assert(
+      err148 === null && snapNames148.length > 0 && liveNames148.length === snapNames148.length &&
+      addedT148.length === 0 && removedT148.length === 0,
+      `[148a] live tools/list tool set matches the golden snapshot (live: ${liveNames148.length}, snapshot: ${snapNames148.length}, +[${addedT148.join(',') || 'none'}] -[${removedT148.join(',') || 'none'}]${err148 ? ' err=' + err148.message : ''})`
+    );
+
+    // [148b] per-tool REQUIRED-param set matches the snapshot
+    const reqDiffs148 = [];
+    for (const name of snapNames148) {
+      if (!liveMap148[name]) continue;
+      const snapReq = JSON.stringify(snapTools148[name].required);
+      const liveReq = JSON.stringify(liveMap148[name].required);
+      if (snapReq !== liveReq) reqDiffs148.push(`${name}{snap:${snapReq} live:${liveReq}}`);
+    }
+    assert(
+      err148 === null && reqDiffs148.length === 0,
+      `[148b] every tool's required-param set matches the snapshot (diffs: ${reqDiffs148.join('; ') || 'none'})`
+    );
+
+    // [148c] MARQUEE — per-tool property NAMES + TYPES match. A reqid→requestId-class rename,
+    // an added/removed param, or a number→string type change fails here, listing the exact tool.
+    const propDiffs148 = [];
+    for (const name of snapNames148) {
+      if (!liveMap148[name]) continue;
+      const snapP = snapTools148[name].props, liveP = liveMap148[name].props;
+      const addedP   = liveP.filter(p => !snapP.includes(p));
+      const removedP = snapP.filter(p => !liveP.includes(p));
+      const typeChg  = snapP.filter(p => liveMap148[name].types[p] !== undefined &&
+                                         snapTools148[name].types[p] !== liveMap148[name].types[p])
+                            .map(p => `${p}:${snapTools148[name].types[p]}→${liveMap148[name].types[p]}`);
+      if (addedP.length || removedP.length || typeChg.length) {
+        propDiffs148.push(`${name}{+[${addedP.join(',')}] -[${removedP.join(',')}] ${typeChg.join(',')}}`);
+      }
+    }
+    assert(
+      err148 === null && propDiffs148.length === 0,
+      `[148c] every tool's property names + JSON-schema types match the snapshot — a reqid→requestId-class rename fails here (diffs: ${propDiffs148.join('; ') || 'none'})`
+    );
+
+    // ── [148e] Chrome-rot watch (plan §3.4) — DeprecationIssue still emitted by live Chrome ──
+    let chromeVer148 = 'Chrome/?';
+    try {
+      chromeVer148 = String(unwrapEval(await browser.evaluate('() => navigator.userAgent')))
+        .match(/(?:Headless)?Chrome\/[\d.]+/)?.[0] ?? 'Chrome/?';
+    } catch { /* leave default */ }
+    let depRaw148 = '';
+    try {
+      await browser.navigate(`${B}/issues-deprecated.html`);
+      await new Promise(r => setTimeout(r, 1000));
+      // RAW wire read (before Argus classification) — this is the upstream canary, distinct
+      // from [68] which asserts the classified deprecated_api_use finding.
+      depRaw148 = String(await browser.listConsoleRaw({ types: ['issue'] }) ?? '');
+    } catch (e) { depRaw148 = `<error: ${e.message}>`; }
+    assert(
+      /deprecat|will be removed|no longer supported|unload/i.test(depRaw148),
+      `[148e] ${chromeVer148} still emits a DeprecationIssue for issues-deprecated.html — a failure here is Chrome rot (upstream dropped the unload deprecation), not an Argus/[68] regression (raw: ${depRaw148.slice(0, 140).replace(/\s+/g, ' ')})`
     );
   }
 }
