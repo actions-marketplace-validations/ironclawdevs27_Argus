@@ -345,3 +345,16 @@ MIT items: `noise-filter.js` (intelligent baseline filtering) + `root-cause-link
 | Docs § "Running" code | `664 hard assertions`, `664/664` | `679 hard assertions`, `679/679` |
 | Docs § Breakdown | — | Block [140] + [141] bullets added |
 | "How we built it" caption | `139 test blocks` | `141 test blocks` |
+
+## Stats Update (2026-06-13 — v9.7.4 + HARNESS_MAX_PLAN Phase 1 + perf-vestige cleanup)
+
+Consolidated landing-page stat sync (the changelog skipped v9.7.4). v9.7.4 pre-E2E audit: block [142] (9), 142 blocks / 688. Phase 1 contract armor: block [143] CdpBrowserAdapter wire-contract conformance (28 hard + 5 soft + meta), [144] MCP tool error-path matrix (16), [145] multi-tab end-to-end (6) → 145 blocks / 738. Post-Phase-1 cleanup: removed dead+redundant `checkPerformanceBudgets` (orchestrator) + the superseded perf-budget harness block [11] + 3 perf fixtures (Core Web Vitals are covered by the web-vitals analyzer, block [129]; `perf-cls.html` kept for block [92]); block id [11] retired ([10]→[12] gap). No new detection categories (still 67 / 64 verified). **Net: 141 → 144 blocks, 679 → 738 hard assertions, 738/738 gate, 60 fixture pages.**
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `141` | `144` |
+| `stats[2].num` (ASSERTIONS RUN) | `679` | `738` |
+| Docs § "Test Coverage" tagline | `141 blocks, 679 hard assertions` | `144 blocks, 738 hard assertions` |
+| Docs § "Running" code | `679 hard assertions`, `679/679` | `738 hard assertions`, `738/738` |
+| Docs § Breakdown | — | Blocks [142]–[145] bullets added |
+| "How we built it" caption | `141 test blocks` | `144 test blocks` |

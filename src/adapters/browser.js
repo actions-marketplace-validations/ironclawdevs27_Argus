@@ -21,7 +21,24 @@ export class CdpBrowserAdapter {
   constructor(mcp) { this._mcp = mcp; }
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  navigate(url)            { return withRetry(() => this._mcp.navigate_page({ url }), { label: `navigate(${url})` }); }
+  // navigate_page reports failures as RESOLVED text ("Unable to navigate ...
+  // net::ERR_CONNECTION_REFUSED", "Could not connect to Chrome ..."), never as a
+  // thrown error. Unchecked, a dead target or dead browser produced a "clean"
+  // audit: analyzers ran against chrome-error://chromewebdata and emitted bogus
+  // findings (or none), and CI gates passed with Chrome down. Throw so failures
+  // propagate through the existing crawl error path.
+  navigate(url) {
+    return withRetry(async () => {
+      const resp = await this._mcp.navigate_page({ url });
+      if (typeof resp === 'string' &&
+          (resp.includes('Unable to navigate') ||
+           resp.includes('Could not connect to Chrome') ||
+           resp.includes('A dialog is open'))) {
+        throw new Error(`navigate(${url}) failed: ${resp.split('\n')[0].slice(0, 200)}`);
+      }
+      return resp;
+    }, { label: `navigate(${url})` });
+  }
 
   // ── Evaluation & snapshots ──────────────────────────────────────────────────
   evaluate(fn)             { return this._mcp.evaluate_script({ function: fn }); }

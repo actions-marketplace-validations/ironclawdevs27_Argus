@@ -31,8 +31,10 @@
       shifting the page layout and raising the Cumulative Layout Shift score.
     </p>
     <p>
-      Expected Argus finding: <code>performance_budget</code> CLS violation
-      (soft — depends on Chrome trace support for CLS metric).
+      Retained as the fixture for harness block [92] — the <code>checkLighthouse</code>
+      soft-contract shape test (Lighthouse is headless-N/A in CI). The old trace-based
+      perf-budget block [11] was removed; Core Web Vitals (incl. CLS) are now covered by
+      the web-vitals analyzer (block [129], <code>perf-vitals.html</code>).
     </p>
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
     tempor incididunt ut labore et dolore magna aliqua. This content shifts down

@@ -80,25 +80,6 @@ app.get('/api/feature-flags', (_req, res) => {
   res.json({ flags: { darkMode: true, betaSignup: false, newNav: true } });
 });
 
-// ── Slow image (3 000 ms delay) — used for LCP test ───────────────────────────
-// perf-lcp.html references this as the hero image.  Chrome records LCP when
-// the image finally renders, which will be 3 000 ms+ after navigation.
-app.get('/api/slow-image', (_req, res) => {
-  setTimeout(() => {
-    // Guard against client disconnect — if the browser navigated away during the
-    // 3 s delay, res.send() on a closed socket throws ECONNRESET and crashes the worker.
-    if (res.headersSent) return;
-    // Minimal valid 1×1 transparent PNG
-    const png = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-      'base64'
-    );
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'no-store');
-    res.send(png);
-  }, 3000);
-});
-
 // ── API frequency test endpoints ───────────────────────────────────────────────
 // api-frequency.html calls each of these N times to trigger the frequency ladder.
 
@@ -234,19 +215,6 @@ app.get('/redirect-chain-hop1', (_req, res) => {
 });
 app.get('/redirect-chain-hop2', (_req, res) => {
   res.redirect(301, '/redirect-chain-end.html');
-});
-
-// ── Performance test route (deliberate TTFB delay) ─────────────────────────────
-// Delays the response by 1 200 ms so TTFB exceeds the 800 ms budget.
-
-app.get('/perf-issues.html', (_req, res) => {
-  setTimeout(() => {
-    // Error callback — sendFile() silently fails (ENOENT, EACCES) without one;
-    // the response hangs open until the browser times out.
-    res.sendFile(path.join(__dirname, 'pages', 'perf-issues.html'), err => {
-      if (err) console.error('[ARGUS Harness] sendFile error:', err.message);
-    });
-  }, 1200);
 });
 
 // ── perf-vitals.html — served with no-store to prevent BFcache ───────────────

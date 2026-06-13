@@ -14,7 +14,7 @@ Argus is an AI-driven automated QA harness that audits web pages against 67 dete
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
 - `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate)
-- `test-harness/validate.js` — 142-block correctness harness (688 hard assertions)
+- `test-harness/validate.js` — 144-block correctness harness (738 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -1520,7 +1520,7 @@ Always walk at least 3 levels back — the proximate cause is almost never the r
 
 ### Known MCP Behavioral Limitations
 
-**There are currently none** — the harness passes 688/688. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again. The 2026-06-12 audit found the same wire-contract bug class three more times (get_network_request `reqid`, list_pages markdown, select_page numeric pageId) — all fixed and pinned by block [142].
+**There are currently none** — the harness passes 738/738. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again. The 2026-06-12 audit found the same wire-contract bug class three more times (get_network_request `reqid`, list_pages markdown, select_page numeric pageId) — all fixed and pinned by block [142].
 
 > **Note on `fill` vs `type_text` and DOM events**: Both tools fire DOM `input` events, but differently:
 >
@@ -1676,13 +1676,13 @@ for (const bp of breakpoints) {
 | Metric | Value |
 | --- | --- |
 | **Version** | `9.7.4` |
-| **Test blocks** | 142 |
-| **Hard assertions** | 688 |
-| **Soft assertions** | ~23 (Lighthouse / perf traces / memory — headless-unavailable) |
+| **Test blocks** | 144 |
+| **Hard assertions** | 738 |
+| **Soft assertions** | ~19 (Lighthouse / memory — headless-unavailable) |
 | **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
-| **Fixture pages** | 62 |
+| **Fixture pages** | 60 |
 | **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **688/688** (no permanent failures — exits 0) |
+| **Harness gate** | **738/738** (no permanent failures — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (none)
@@ -1725,6 +1725,8 @@ for (const bp of breakpoints) {
 | v9.7.2 | [67b]/[68b] Issues panel root-cause fix | MCP returns issues as markdown text; `normalizeArray()` returned `[]` for strings so all issues were discarded (production Issues detection was dead) — `parseConsoleMsgResponse()` now used in `issues-analyzer.js` + `orchestrator.js`; `issues-deprecated.html` fixture updated to `unload` listener (Mutation Events removed in Chrome 127); `KNOWN_PERMANENT` now empty | **664/664** |
 | v9.7.3 | Intelligent baseline filtering + root cause linking (MIT) | `noise-filter.js` — cross-run flip-flop classifier over `<branch>-history.json` (20 runs); presence-flip ratio ≥0.4 across ≥4 runs → `noisy: true` + downgrade to info (`ARGUS_NOISE_FILTER=0` disables); `root-cause-linker.js` — `getRecentChanges()` git log + `matchFilesToRoutePath()` slug heuristic + `linkRootCauses()` annotates new findings with `rootCause: { files, commits, global }` (`ARGUS_ROOT_CAUSE=0` disables); both wired into `report-processor.js`; blocks [140] (7) + [141] (8) | **679/679** |
 | v9.7.4 | Pre-E2E audit — MCP wire-contract fixes | `getNetworkRequest` sends `reqid` (was `requestId` — every call errored, D7.4 contract validation dead); `extractResponseBody()` parses the `### Response Body` markdown section; `parseListPagesResponse()` fixes always-empty `open_tabs`; `selectPage` coerces tabId to Number; `mcp-server.js` logger import + package.json version; `handlePrValidate` path-prefix fix; pr-diff stdout→stderr; `WatchSession` memory caps; `harness:staging` cross-platform flags; block [142] (9) | **688/688** |
+| _(unreleased — test-harness + browser.js/mcp-client.js only; npm publish pending)_ | Harness Max Phase 1 — contract armor | block [143] CdpBrowserAdapter wire-contract conformance (28 hard + 5 soft + meta [143zz]; found+fixed 4 dead wire features: `handleDialog` `{action}`, `wait_for` `text:[]` + `#waitForNetworkIdle`, mcp-client screenshot image-item scan, `emulateReducedMotion` throws-on-unsupported); block [144] MCP tool error-path matrix (16: structured `{error}` + `isError` + server-survives + no masked `"is not defined"`; pins `navigate()` throw + logger-import regressions); block [145] multi-tab end-to-end (6: `new_page` auto-select / `open_tabs` / `selectPage` page-switch / `close_page` cleanup); +50 hard | **738/738** |
+| _(unreleased — cleanup)_ | Removed dead perf-budget path | Deleted `checkPerformanceBudgets` (orchestrator.js, dead trace/insight wiring) + superseded harness block [11] "Performance budgets" + `measurePerf` + 3 perf fixtures (`perf-issues`/`perf-lcp`/`perf-fid.html`) + 2 dead server endpoints — Core Web Vitals covered by web-vitals analyzer [129]; `perf-cls.html` kept for block [92]; block id [11] retired ([10]→[12] gap). No hard assertions changed | **738/738** (144 blocks / 60 fixtures) |
 
 ---
 

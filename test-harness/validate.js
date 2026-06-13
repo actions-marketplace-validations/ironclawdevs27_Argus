@@ -797,25 +797,6 @@ async function crawlFixture(mcp, url, { critical = false, waitFor = null } = {})
   return { errors, networkReqs, consoleMsgs };
 }
 
-// ── Performance measurement ───────────────────────────────────────────────────
-
-async function measurePerf(mcp, url) {
-  try {
-    await mcp.navigate_page({ url });
-    await mcp.performance_start_trace();
-    await sleep(4000);
-    const trace = await mcp.performance_stop_trace();
-    const insights = await mcp.performance_analyze_insight({ trace });
-    const m = insights?.metrics ?? insights?.performanceMetrics ?? {};
-    return {
-      ttfb: m.timeToFirstByte ?? m.TTFB ?? null,
-      lcp: m.largestContentfulPaint ?? m.LCP ?? null,
-      cls: m.cumulativeLayoutShift ?? m.CLS ?? null,
-      fid: m.totalBlockingTime ?? m.TBT ?? m.FID ?? null,
-    };
-  } catch { return {}; }
-}
-
 // ── Full Lighthouse measurement (v3 — all 4 categories) ──────────────────────
 
 async function measureLighthouse(mcp, url) {
@@ -911,12 +892,12 @@ async function mcpStdioRead(stdout, id, timeoutMs = 10000) {
   });
 }
 
-async function spawnArgusServer(cwd) {
+async function spawnArgusServer(cwd, extraEnv = {}) {
   const serverPath = path.resolve(__dirname, '../src/mcp-server.js');
   const proc = spawn(process.execPath, [serverPath], {
     cwd: cwd || path.resolve(__dirname, '..'),
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, ARGUS_LOG_LEVEL: 'error', ARGUS_LOG_PRETTY: '0' },
+    env: { ...process.env, ARGUS_LOG_LEVEL: 'error', ARGUS_LOG_PRETTY: '0', ...extraEnv },
   });
   proc.stderr.on('data', () => {});
   proc.on('error', () => {});
@@ -933,6 +914,21 @@ async function spawnArgusServer(cwd) {
   proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n');
 
   return { proc, initResp };
+}
+
+/** Send a tools/call and return the raw JSON-RPC response object. */
+async function mcpToolCall(proc, name, args = {}, timeoutMs = 60000) {
+  const id = ++_mcpSeq;
+  proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } }) + '\n');
+  return mcpStdioRead(proc.stdout, id, timeoutMs);
+}
+
+/** Send a tools/list and return the tools array (server-survives probe). */
+async function mcpListTools(proc, timeoutMs = 10000) {
+  const id = ++_mcpSeq;
+  proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/list', params: {} }) + '\n');
+  const resp = await mcpStdioRead(proc.stdout, id, timeoutMs);
+  return resp?.result?.tools ?? [];
 }
 
 // ── Test suite ────────────────────────────────────────────────────────────────
@@ -1085,25 +1081,10 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `SCSS sourceMappingURL detected in <style> tag`);
   }
 
-  // ── [11] Performance budgets — GAPS 8–10 FIX: LCP, CLS, FID pages ────────
-  console.log('\n[11] Performance budgets (all soft — depends on Chrome trace availability)');
-  {
-    const ttfbMetrics = await measurePerf(mcp, `${B}/perf-issues.html`);
-    soft(ttfbMetrics.ttfb != null && ttfbMetrics.ttfb > 800,
-      `TTFB=${ttfbMetrics.ttfb ?? 'N/A'} ms — budget 800 ms`);
-
-    const lcpMetrics = await measurePerf(mcp, `${B}/perf-lcp.html`);
-    soft(lcpMetrics.lcp != null && lcpMetrics.lcp > 2500,
-      `LCP=${lcpMetrics.lcp ?? 'N/A'} ms — budget 2500 ms`);
-
-    const clsMetrics = await measurePerf(mcp, `${B}/perf-cls.html`);
-    soft(clsMetrics.cls != null && clsMetrics.cls > 0.1,
-      `CLS=${clsMetrics.cls ?? 'N/A'} — budget 0.1`);
-
-    const fidMetrics = await measurePerf(mcp, `${B}/perf-fid.html`);
-    soft(fidMetrics.fid != null && fidMetrics.fid > 100,
-      `FID/TBT=${fidMetrics.fid ?? 'N/A'} ms — budget 100 ms`);
-  }
+  // [11] removed — the trace-based perf-budget path (measurePerf + checkPerformanceBudgets)
+  // was dead (broken performance_analyze_insight wiring) and is superseded by the
+  // web-vitals analyzer (block [129], perf-vitals.html). Block id [11] is intentionally
+  // retired; the [10] → [12] gap is deliberate (no renumber).
 
   // ── [12] Accessibility critical (soft) ───────────────────────────────────
   console.log('\n[12] A11y critical (soft) — Lighthouse score < 50');
@@ -6603,6 +6584,248 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
     assert(
       protoMethods143.length >= 30 && uncovered143.length === 0,
       `[143zz] every CdpBrowserAdapter method has a conformance entry in this block (${protoMethods143.length} methods; uncovered: ${uncovered143.join(', ') || 'none'})`
+    );
+  }
+
+  // ── Block [144] MCP tool error-path matrix — invalid input + environmental failure ──
+  // Direct guard for the v9.7.4 masked-error bug class: a missing `logger` import in
+  // mcp-server.js turned every withMcp error path into "logger is not defined", hiding
+  // the real cause. So every error-path assertion here ALSO asserts the response does
+  // NOT contain "is not defined", and after each provoked error a follow-up tools/list
+  // proves the SAME server instance is still answering. Happy paths are covered
+  // elsewhere and not duplicated here: [117] tools/list, [118] argus_last_report
+  // (no-reports), [119] argus_get_context diff, [120] argus_watch_snapshot. Every error
+  // shape below was pinned against live Chrome before these assertions were written.
+  {
+    console.log('\n[144] MCP tool error-path matrix — structured {error} + isError + server-survives + no masked ReferenceError');
+
+    const ND = 'is not defined';                 // the masked-ReferenceError signature
+    const parse144 = (resp) => {
+      const text = resp?.result?.content?.[0]?.text ?? '';
+      let obj = null; try { obj = JSON.parse(text); } catch { /* non-JSON error text */ }
+      return { text, obj, isError: resp?.result?.isError === true };
+    };
+
+    let srvA144 = null;        // normal server (real Chrome on 9222); FIGMA token forced off
+    let srvB144 = null;        // dead-browser server (MCP_BROWSER_URL → closed port)
+    const surviveA144 = [];    // tools-count after each srvA error/edge call
+    let err144 = null;
+
+    try {
+      // FIGMA_API_TOKEN:'' makes the no-token design-audit path deterministic regardless
+      // of the developer's shell; ARGUS_RETRY_ATTEMPTS:'1' makes the unreachable-URL
+      // navigate fail on the first attempt instead of retrying with backoff.
+      srvA144 = await spawnArgusServer(
+        path.resolve(__dirname, '..'),
+        { FIGMA_API_TOKEN: '', ARGUS_RETRY_ATTEMPTS: '1', MCP_TOOL_TIMEOUT_MS: '20000' },
+      );
+
+      // ── invalid-input rows: handler throw → dispatch catch → { error } + isError:true ──
+      const invalidRows144 = [
+        ['144a', 'argus_audit',        {},                                        'Invalid URL'],
+        ['144b', 'argus_audit',        { url: 'not-a-url' },                      'Invalid URL'],
+        ['144c', 'argus_audit_full',   {},                                        'Invalid URL'],
+        ['144d', 'argus_visual_diff',  {},                                        'url is required'],
+        ['144e', 'argus_design_audit', { url: 'http://localhost:3100/x' },        'figmaFrameUrl is required'],
+        ['144f', 'argus_pr_validate',  {},                                        'prUrl is required'],
+        ['144g', 'argus_pr_validate',  { prUrl: 'http://example.com/not-a-pr' },  'Invalid GitHub PR URL'],
+      ];
+      for (const [label, tool, args, substr] of invalidRows144) {
+        const p = parse144(await mcpToolCall(srvA144.proc, tool, args, 60000));
+        surviveA144.push((await mcpListTools(srvA144.proc, 10000)).length);
+        assert(
+          p.isError === true && p.obj !== null && typeof p.obj.error === 'string'
+            && p.obj.error.includes(substr) && !p.text.includes(ND),
+          `[${label}] ${tool}(${JSON.stringify(args)}) → isError:true with structured {error} containing "${substr}", no "${ND}" (got: isError=${p.isError}, error=${JSON.stringify(p.obj?.error)?.slice(0, 120)})`
+        );
+      }
+
+      // ── graceful-degradation row: missing FIGMA token → structured error, NOT isError ──
+      const figP144 = parse144(await mcpToolCall(
+        srvA144.proc, 'argus_design_audit',
+        { url: 'http://localhost:3100/x', figmaFrameUrl: 'https://www.figma.com/file/ABC123/Test?node-id=1%3A2' },
+        20000,
+      ));
+      surviveA144.push((await mcpListTools(srvA144.proc, 10000)).length);
+      assert(
+        figP144.isError === false && figP144.obj !== null
+          && String(figP144.obj.error).includes('FIGMA_API_TOKEN')
+          && Array.isArray(figP144.obj.findings) && figP144.obj.findings.length === 0
+          && !figP144.text.includes(ND),
+        `[144h] argus_design_audit with no FIGMA_API_TOKEN degrades gracefully — error field set, findings:[], NOT isError (got: isError=${figP144.isError}, error=${JSON.stringify(figP144.obj?.error)?.slice(0, 80)})`
+      );
+
+      // ── resilience rows: edge input that must NOT crash the handler (isError:false) ──
+      const cmpP144 = parse144(await mcpToolCall(srvA144.proc, 'argus_compare', {}, 90000));
+      surviveA144.push((await mcpListTools(srvA144.proc, 10000)).length);
+      assert(
+        cmpP144.isError === false && cmpP144.obj !== null
+          && typeof cmpP144.obj.mode === 'string' && !cmpP144.text.includes(ND),
+        `[144i] argus_compare returns a structured report with a mode string and never crashes (got: isError=${cmpP144.isError}, mode=${JSON.stringify(cmpP144.obj?.mode)})`
+      );
+
+      const wsP144 = parse144(await mcpToolCall(srvA144.proc, 'argus_watch_snapshot', { tabId: 'bogus-tab-999' }, 60000));
+      surviveA144.push((await mcpListTools(srvA144.proc, 10000)).length);
+      assert(
+        wsP144.isError === false && wsP144.obj !== null
+          && Array.isArray(wsP144.obj.findings) && !wsP144.text.includes(ND),
+        `[144j] argus_watch_snapshot with a bogus tabId degrades to the active tab — findings array, no crash (got: isError=${wsP144.isError}, findings=${Array.isArray(wsP144.obj?.findings) ? wsP144.obj.findings.length : typeof wsP144.obj?.findings})`
+      );
+
+      const gcP144 = parse144(await mcpToolCall(srvA144.proc, 'argus_get_context', { tabId: 'bogus-tab-999' }, 60000));
+      surviveA144.push((await mcpListTools(srvA144.proc, 10000)).length);
+      assert(
+        gcP144.isError === false && gcP144.obj !== null
+          && typeof gcP144.obj.snapshot_id === 'string' && gcP144.obj.snapshot_id.length > 0
+          && !gcP144.text.includes(ND),
+        `[144k] argus_get_context with a bogus tabId degrades to the active tab — snapshot_id present, no crash (got: isError=${gcP144.isError}, snapshot_id=${JSON.stringify(gcP144.obj?.snapshot_id)?.slice(0, 40)})`
+      );
+
+      // ── MARQUEE 1: unreachable target → navigate() throws (the v9.7.4 navigate fix) ──
+      const unreachP144 = parse144(await mcpToolCall(srvA144.proc, 'argus_audit', { url: 'http://localhost:9/' }, 60000));
+      surviveA144.push((await mcpListTools(srvA144.proc, 10000)).length);
+      assert(
+        unreachP144.isError === true && unreachP144.obj !== null
+          && String(unreachP144.obj.error).includes('navigate')
+          && String(unreachP144.obj.error).includes('Unable to navigate')
+          && !unreachP144.text.includes(ND),
+        `[144l] argus_audit on an unreachable URL surfaces navigate()'s thrown error, not a fake-clean result (got: isError=${unreachP144.isError}, error=${JSON.stringify(unreachP144.obj?.error)?.slice(0, 140)})`
+      );
+
+      // ── MARQUEE 2: dead Chrome → "Could not connect", NOT "logger is not defined" ──
+      srvB144 = await spawnArgusServer(
+        path.resolve(__dirname, '..'),
+        { MCP_BROWSER_URL: 'http://127.0.0.1:9777', ARGUS_RETRY_ATTEMPTS: '1', MCP_TOOL_TIMEOUT_MS: '15000' },
+      );
+      const deadP144 = parse144(await mcpToolCall(srvB144.proc, 'argus_audit', { url: 'http://localhost:3100/clean.html' }, 60000));
+      const deadSurvive144 = (await mcpListTools(srvB144.proc, 10000)).length;
+      assert(
+        deadP144.isError === true && deadP144.obj !== null
+          && String(deadP144.obj.error).includes('Could not connect to Chrome')
+          && !deadP144.text.includes(ND),
+        `[144m] argus_audit against a dead Chrome reports the real cause through the withMcp error path — no masked "${ND}" (got: isError=${deadP144.isError}, error=${JSON.stringify(deadP144.obj?.error)?.slice(0, 140)})`
+      );
+
+      // ── server-survives: every provoked error left both servers answering ──
+      const minA144 = surviveA144.length ? Math.min(...surviveA144) : 0;
+      assert(
+        surviveA144.length >= 12 && minA144 >= 8,
+        `[144n] the normal server answered tools/list after every one of its ${surviveA144.length} error/edge calls (min tools seen: ${minA144})`
+      );
+      assert(
+        deadSurvive144 >= 8,
+        `[144o] the dead-Chrome server recovered and answered tools/list after the environmental failure (tools: ${deadSurvive144})`
+      );
+    } catch (e) {
+      err144 = e;
+    } finally {
+      try { srvA144?.proc?.kill(); } catch { }
+      try { srvB144?.proc?.kill(); } catch { }
+    }
+    assert(
+      err144 === null,
+      `[144p] error-path matrix ran to completion without the harness itself throwing (${err144?.message ?? 'ok'})`
+    );
+  }
+
+  // ── Block [145] multi-tab end-to-end — open_tabs + selectPage page-switch ─────
+  // Behaviorally pins the v9.7.4 open_tabs fix end-to-end: [142a] pins the parser and
+  // [119c] the shape, but neither drives a real second tab through argus_get_context.
+  // Observed against live Chrome first: new_page() auto-selects the new tab, selectPage
+  // switches the page evaluate_script targets, close_page returns to one tab. The tab
+  // created here is closed in finally — a leaked tab poisons later blocks' snapshots.
+  {
+    console.log('\n[145] multi-tab end-to-end — argus_get_context.open_tabs + selectPage page-switch + close_page cleanup');
+
+    const pageAUrl145 = `${B}/clean.html`;
+    const pageBUrl145 = `${B}/adapter-conformance.html?tab=multitab145`;
+    let bOpened145 = false;
+    let srv145 = null;
+    let err145 = null;
+    let openTabs145 = [];
+    let titleA145 = '';
+    let titleB145 = '';
+
+    try {
+      // establish page A on the shared client, then open page B (auto-selected)
+      await browser.navigate(pageAUrl145);
+      const beforePages145 = parseListPagesResponse(await mcp.list_pages({}));
+      await mcp.new_page({ url: pageBUrl145 });
+      bOpened145 = true;
+      const afterPages145 = parseListPagesResponse(await mcp.list_pages({}));
+
+      // [145a] new_page added exactly one tab and auto-selected it
+      const newSel145 = afterPages145.find(p => p.selected);
+      assert(
+        afterPages145.length === beforePages145.length + 1
+          && newSel145 != null && String(newSel145.url).includes('tab=multitab145'),
+        `[145a] new_page() opens a second tab and auto-selects it (before ${beforePages145.length} → after ${afterPages145.length}, selected url: ${newSel145?.url})`
+      );
+
+      // [145b] both tabs are visible via argus_get_context.open_tabs with distinct numeric ids
+      srv145 = await spawnArgusServer(path.resolve(__dirname, '..'));
+      const ctxResp145 = await mcpToolCall(srv145.proc, 'argus_get_context', {}, 30000);
+      let ctx145 = {}; try { ctx145 = JSON.parse(ctxResp145?.result?.content?.[0]?.text ?? '{}'); } catch { /* non-JSON */ }
+      openTabs145 = Array.isArray(ctx145.open_tabs) ? ctx145.open_tabs : [];
+      const tabA145 = openTabs145.find(t => t.url === pageAUrl145);
+      const tabB145 = openTabs145.find(t => String(t.url ?? '').includes('tab=multitab145'));
+      assert(
+        tabA145 != null && tabB145 != null
+          && Number.isFinite(tabA145.id) && Number.isFinite(tabB145.id)
+          && tabA145.id !== tabB145.id,
+        `[145b] argus_get_context.open_tabs lists both tabs with distinct numeric ids (open_tabs: ${JSON.stringify(openTabs145)})`
+      );
+
+      // [145c] open_tabs reflects exactly the two open tabs, all numeric ids
+      const ids145 = openTabs145.map(t => t.id);
+      assert(
+        openTabs145.length === 2 && ids145.every(id => Number.isFinite(id)),
+        `[145c] open_tabs reflects exactly the two open tabs, all numeric ids (length ${openTabs145.length}, ids ${JSON.stringify(ids145)})`
+      );
+
+      // selectPage switches the page evaluate_script targets — pin via document.title,
+      // using the shared client's own list_pages ids (the per-client page index).
+      const sharedPages145 = parseListPagesResponse(await mcp.list_pages({}));
+      const sharedA145 = sharedPages145.find(p => p.url === pageAUrl145);
+      const sharedB145 = sharedPages145.find(p => String(p.url ?? '').includes('tab=multitab145'));
+
+      // [145d] selectPage(string id) → page A is active (document.title is A's)
+      await browser.selectPage(String(sharedA145?.id));
+      titleA145 = String(unwrapEval(await browser.evaluate('() => document.title')));
+      assert(
+        sharedA145 != null && titleA145.includes('Clean Page'),
+        `[145d] selectPage(tab A) makes evaluate_script run on page A (document.title: ${JSON.stringify(titleA145)})`
+      );
+
+      // [145e] selectPage(tab B) switches the active page — title flips A→B
+      await browser.selectPage(String(sharedB145?.id));
+      titleB145 = String(unwrapEval(await browser.evaluate('() => document.title')));
+      assert(
+        sharedB145 != null && titleB145.includes('Adapter Conformance') && titleB145 !== titleA145,
+        `[145e] selectPage(tab B) switches the active page — document.title changes A→B (A: ${JSON.stringify(titleA145)}, B: ${JSON.stringify(titleB145)})`
+      );
+    } catch (e) {
+      err145 = e;
+    } finally {
+      try { srv145?.proc?.kill(); } catch { }
+      // close the tab we opened so later blocks/reruns start from a single tab
+      if (bOpened145) {
+        try {
+          const fp = parseListPagesResponse(await mcp.list_pages({}));
+          const bTab = fp.find(p => String(p.url ?? '').includes('tab=multitab145'));
+          if (bTab) await mcp.close_page({ pageId: Number(bTab.id) });
+          const rp = parseListPagesResponse(await mcp.list_pages({}));
+          if (rp[0]) await browser.selectPage(String(rp[0].id));
+        } catch { /* best-effort cleanup */ }
+      }
+    }
+
+    // [145f] cleanup closed the created tab — exactly one tab remains and it is page A
+    let finalPages145 = [];
+    try { finalPages145 = parseListPagesResponse(await mcp.list_pages({})); } catch { /* ignore */ }
+    assert(
+      err145 === null && finalPages145.length === 1 && finalPages145[0]?.url === pageAUrl145,
+      `[145f] close_page cleanup leaves a single tab (page A) — no leaked tab (err: ${err145?.message ?? 'none'}, final: ${JSON.stringify(finalPages145)})`
     );
   }
 }

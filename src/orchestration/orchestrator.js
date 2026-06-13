@@ -370,54 +370,13 @@ function analyzeNetworkPerformance(perfEntries, pageUrl) {
   return bugs;
 }
 
-// ── Performance Budgets ────────────────────────────────────────────────────────
-
-async function checkPerformanceBudgets(browser, url) {
-  const violations = [];
-
-  try {
-    await browser.startTrace();
-    await new Promise(r => setTimeout(r, 3000));
-    const trace    = await browser.stopTrace();
-    const insights = await browser.analyzeInsight({ insightSetId: trace?.insightSetId ?? trace?.id ?? trace });
-
-    const metrics = insights?.metrics ?? insights?.performanceMetrics ?? {};
-
-    const checks = [
-      { key: 'LCP',  value: metrics.largestContentfulPaint ?? metrics.LCP,  budget: thresholds.perf.LCP,  unit: 'ms' },
-      { key: 'CLS',  value: metrics.cumulativeLayoutShift  ?? metrics.CLS,  budget: thresholds.perf.CLS,  unit: ''   },
-      { key: 'FID',  value: metrics.totalBlockingTime ?? metrics.TBT ?? metrics.FID, budget: thresholds.perf.FID, unit: 'ms' },
-      { key: 'TTFB', value: metrics.timeToFirstByte   ?? metrics.TTFB,      budget: thresholds.perf.TTFB, unit: 'ms' },
-    ];
-
-    for (const { key, value, budget, unit } of checks) {
-      if (value == null) continue;
-      if (value > budget) {
-        violations.push({
-          type:      'performance_budget',
-          metric:    key,
-          value:     `${value}${unit}`,
-          budget:    `${budget}${unit}`,
-          message:   `Performance budget exceeded: ${key} = ${value}${unit} (budget: ${budget}${unit})`,
-          severity:  'warning',
-          url,
-        });
-      }
-    }
-  } catch (err) {
-    logger.warn(`[ARGUS] Performance trace skipped for ${url}: ${err.message}`);
-  }
-
-  return violations;
-}
-
 // ── Cheap Crawl (called ×2 for flakiness detection) ───────────────────────────
 
 /**
  * Cheap detections for one route.
  * Runs: console, network, JS errors, blank page, API frequency, contracts,
  *       SEO, security, content, CSS, debugger statements, duplicate ids, screenshot.
- * Does NOT run: Lighthouse, perf budgets, network perf, redirect chain, broken links, cache headers.
+ * Does NOT run: Lighthouse, network perf, redirect chain, broken links, cache headers.
  */
 export async function crawlRouteCheap(route, baseUrl, mcp) {
   const browser = new CdpBrowserAdapter(mcp);
@@ -757,8 +716,11 @@ export async function crawlRouteCheap(route, baseUrl, mcp) {
 
 /**
  * Expensive/deterministic analyzers for one route — called ONCE per route.
- * Runs: network perf, redirect chain, perf budgets, Lighthouse,
+ * Runs: network perf, redirect chain, Lighthouse,
  *       broken internal links, cache headers.
+ * (Core Web Vitals — LCP/CLS/TTFB — are emitted by the web-vitals-analyzer
+ *  registerExpensive plugin, which is headless-compatible; the old trace-based
+ *  perf-budget path was removed as dead + redundant.)
  */
 export async function crawlRouteExpensive(route, baseUrl, mcp) {
   const browser = new CdpBrowserAdapter(mcp);
@@ -804,9 +766,6 @@ export async function crawlRouteExpensive(route, baseUrl, mcp) {
   } catch (err) {
     logger.warn(`[ARGUS] Redirect chain check skipped for ${url}: ${err.message}`);
   }
-
-  // Performance budget check
-  errors.push(...(await checkPerformanceBudgets(browser, url)));
 
   // Full Lighthouse audit (capped at LIGHTHOUSE_TIMEOUT_MS to prevent indefinite hang)
   errors.push(...(await Promise.race([

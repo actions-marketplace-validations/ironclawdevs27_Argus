@@ -76,32 +76,14 @@ export const harnessRoutes = [
     expected: 'css_override (important), css_unused_rules, css_component_leak, css_modules_detected, react_inline_style_conflict',
   },
   {
-    path: '/perf-issues.html',
-    name: 'Perf TTFB',
-    critical: false,
-    waitFor: null,
-    expected: 'performance_budget TTFB > 800 ms (soft)',
-  },
-  {
-    path: '/perf-lcp.html',
-    name: 'Perf LCP',
-    critical: false,
-    waitFor: null,
-    expected: 'performance_budget LCP > 2500 ms (soft)',
-  },
-  {
+    // Retained for block [92] (checkLighthouse soft-contract fixture); the old
+    // trace-based perf-budget path (block [11]) was removed — Core Web Vitals are
+    // now covered by the web-vitals analyzer (block [129], perf-vitals.html).
     path: '/perf-cls.html',
     name: 'Perf CLS',
     critical: false,
     waitFor: null,
-    expected: 'performance_budget CLS > 0.1 (soft)',
-  },
-  {
-    path: '/perf-fid.html',
-    name: 'Perf FID',
-    critical: false,
-    waitFor: null,
-    expected: 'performance_budget FID/TBT > 100 ms (soft)',
+    expected: 'checkLighthouse soft-contract shape (block [92], headless N/A)',
   },
   {
     path: '/js-errors-critical.html',
