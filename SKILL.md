@@ -7,14 +7,14 @@ description: Argus AI-powered QA harness — Chrome DevTools MCP reference for b
 
 ## 1. What Argus Is
 
-Argus is an AI-driven automated QA harness that audits web pages against 67 detection categories (64 positively verified by the correctness harness) using Chrome DevTools Protocol (CDP) via the `chrome-devtools` MCP server. It drives a real Chromium browser, executes multi-step user flows, and emits structured JSON findings.
+Argus is an AI-driven automated QA harness that audits web pages against 67 detection categories (positively verified by the correctness harness except 3 environment-limited Chrome-Issues detectors, which are covered as negative controls) using Chrome DevTools Protocol (CDP) via the `chrome-devtools` MCP server. It drives a real Chromium browser, executes multi-step user flows, and emits structured JSON findings.
 
 ### Entry points
 
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
 - `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate)
-- `test-harness/validate.js` — 148-block correctness harness (832 hard assertions)
+- `test-harness/validate.js` — 149-block correctness harness (845 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -862,7 +862,7 @@ Flat alphabetical reference for writing assertions in `validate.js`. Every `type
 | `design_typography_mismatch` | `design-fidelity-analyzer` | `warning` |
 | `flow_assert_failed` | `flow-runner` | `warning` / `critical` |
 | `flow_step_failed` | `flow-runner` | `critical` |
-| `focus_lost` | `keyboard-analyzer` | `warning` (no fixture yet) |
+| `focus_lost` | `keyboard-analyzer` | `warning` (block [150] — `keyboard-focus-lost.html`) |
 | `focus_visible_missing` | `keyboard-analyzer` | `warning` |
 | `font_foit_risk` | `font-analyzer` | `warning` |
 | `font_fout_risk` | `font-analyzer` | `info` |
@@ -1520,7 +1520,7 @@ Always walk at least 3 levels back — the proximate cause is almost never the r
 
 ### Known MCP Behavioral Limitations
 
-**There are currently none** — the harness passes 832/832. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again. The 2026-06-12 audit found the same wire-contract bug class three more times (get_network_request `reqid`, list_pages markdown, select_page numeric pageId) — all fixed and pinned by block [142].
+**There are currently none** — the harness passes 845/845. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again. The 2026-06-12 audit found the same wire-contract bug class three more times (get_network_request `reqid`, list_pages markdown, select_page numeric pageId) — all fixed and pinned by block [142].
 
 > **Note on `fill` vs `type_text` and DOM events**: Both tools fire DOM `input` events, but differently:
 >
@@ -1676,13 +1676,13 @@ for (const bp of breakpoints) {
 | Metric | Value |
 | --- | --- |
 | **Version** | `9.7.5` |
-| **Test blocks** | 148 |
-| **Hard assertions** | 832 |
+| **Test blocks** | 149 |
+| **Hard assertions** | 845 |
 | **Soft assertions** | ~19 (Lighthouse / memory — headless-unavailable) |
-| **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
-| **Fixture pages** | 61 |
+| **Detection categories** | 67 in production code; **positively verified by harness fixtures except 3 environment-limited Chrome-Issues detectors** — `mixed_content` (needs HTTPS), `low_contrast_native` (DevTools-audit-only), `permission_policy_violation` (needs a secure context) — which can't be positively triggered in headless localhost http and are covered only as [149] negative controls. Block [150] closed the previously-closeable gaps (`focus_lost`, `security_no_https`, `cors_violation`, `cookie_attribute_missing`) |
+| **Fixture pages** | 63 |
 | **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **832/832** (no permanent failures — exits 0) |
+| **Harness gate** | **845/845** (no permanent failures — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (none)
@@ -1730,6 +1730,7 @@ for (const bp of breakpoints) {
 | _(unreleased — test-harness + contracts only; npm publish pending)_ | Harness Max Phase 2 — assertion quality | **2.1** vacuous sweep — upgraded the sole vacuous-upgradeable hit ([119c] `open_tabs`) to a content assertion in place; **2.2** block [146] anti-vacuous self-lint (5: the harness reads its own source and gates bare `Array.isArray` / `typeof x==='object'` / `.length>=0` assertions against reviewed allowlists, each family with a positive control); **2.3** block [147] golden response schemas for all 9 MCP tools (`test-harness/contracts/mcp-tool-schemas.js`, exported for E2E; 14: live safeParse ×8 + `argus_pr_validate` handler↔schema source cross-check + tool→schema coverage ratchet + 3 anti-vacuous negative controls + completion guard) — caught + fixed the `argus_compare` two-mode contract (env-comparison vs css-analysis) via a discriminated union; +19 hard | **757/757** |
 | _(unreleased — test-harness + contracts only; npm publish pending)_ | Harness Max Phase 3.1 — upstream canary + Chrome-rot watch | block [148] (5 [148a]–[148e]): a freshly spawned chrome-devtools-mcp@1.1.1 `tools/list` diffed (tool set + required params + property names/types) against golden snapshot `contracts/chrome-devtools-mcp@1.1.1.json` — catches the next `reqid→requestId`-class param rename at a version bump; [148d] pin↔snapshot-filename lockstep; [148e] `issues-deprecated.html` DeprecationIssue Chrome-rot canary; +5 hard | **762/762** |
 | _(unreleased — test-harness + 1 fixture only; npm publish pending)_ | Harness Max Phase 3.2 — per-category negative controls | block [149] (70: [149a]–[149e] structural + 65 per-category [149:&lt;cat&gt;]): drives the REAL production pipeline (`crawlRouteCheap` cheap pass + the `getExpensive()` registry loop, exactly orchestrator.js:879, + `analyzeIssues`) against the NEW comprehensively well-formed fixture `negative-controls.html` and asserts ZERO warning/critical across 65 detection categories — the over-fire / false-positive guard the 2026-06-12 audit lacked; [149a–c] positive controls prove the pipeline ANALYZED the page (12 DOM analyzers ran + 7 summaries present) so the per-category `=== 0` checks are non-vacuous; [149d] marquee aggregate; deliberately skips lighthouse + the 3 baseline/diff detectors (`visual`/`har-recorder`/`design-fidelity`) whose fire-condition is a stored-baseline DIFF; mutation-proven (strip the fixture's `<meta description>` → `seo_missing_description` fires → [149d]+[149:seo_missing_description] FAIL); +70 hard, +1 fixture | **832/832** |
+| _(unreleased — test-harness + `issues-analyzer.js`/`orchestrator.js` src fix; npm publish pending)_ | Harness Max Phase 3.3 — verification-gap closure | block [150] (13 hard [150a–m]): positive firing fixtures for the previously-untriggered `focus_lost` (new `keyboard-focus-lost.html`), `security_no_https` (exported `checkHttpsRequired()` rule in `orchestrator.js`), `cors_violation` + `cookie_attribute_missing` (new `issues-cookie.html` + reused `cors-error.html`). **Shook out a real production bug** — Chrome 149's CORS/cookie Issue titles ("Ensure CORS response header values are valid" / "Mark cross-site cookies as Secure…") matched no `issues-analyzer.js` classifier pattern, so every real CORS/cookie Issue fell through to `unclassified_devtools_issue`; fixed + mutation-pinned by [150i]/[150k]/[150m] (revert patterns → both FAIL to unclassified). `mixed_content`/`low_contrast_native`/`permission_policy_violation` stay environment-limited (HTTPS / DevTools-audit / secure-context), covered as [149] negative controls. +13 hard, +2 fixtures | **845/845** |
 
 ---
 
@@ -1967,7 +1968,7 @@ Detection logic:
 - `focus_lost`: `document.activeElement === document.body` after Tab (focus escaped the tab order)
 - Walk short-circuits when the same element (by tag+id+outerHTML prefix) is seen twice (cycle complete)
 
-> `focus_lost` is implemented but has no harness fixture (v6.105). `focus_visible_missing` is positively tested by `keyboard-issues.html`.
+> `focus_lost` is positively tested by `keyboard-focus-lost.html` (block [150] — Tab past the styled button hits a `tabindex=0` div whose `focus` handler blurs to `document.body`). `focus_visible_missing` is positively tested by `keyboard-issues.html`.
 
 ---
 

@@ -31,7 +31,10 @@ const CLASSIFIERS = [
   {
     type:             'cors_violation',
     issueTypePattern: /cors/i,
-    textPattern:      /cors policy|cross.origin.*blocked|access.control.allow.origin/i,
+    // Live Chrome 149 surfaces CorsIssue in the panel as e.g.
+    // "Ensure CORS response header values are valid" — the older phrase-specific
+    // patterns missed it, so the \bcors\b word-match anchors any CORS issue title.
+    textPattern:      /cors policy|cross.origin.*blocked|access.control.allow.origin|\bcors\b/i,
     severity:         (isCritical) => isCritical ? 'critical' : 'warning',
   },
   {
@@ -49,7 +52,10 @@ const CLASSIFIERS = [
   {
     type:             'cookie_attribute_missing',
     issueTypePattern: /cookie/i,
-    textPattern:      /samesite|secure attribute|partitioned|cookie.*rejected|set-cookie.*blocked/i,
+    // Live Chrome 149 surfaces the SameSite=None-without-Secure cookie Issue as
+    // "Mark cross-site cookies as Secure to allow setting them in cross-site contexts"
+    // — neither "samesite" nor "secure attribute" appear, so match those phrasings too.
+    textPattern:      /samesite|secure attribute|partitioned|cookie.*rejected|set-cookie.*blocked|cross-site cookies?|cookies? as secure/i,
     severity:         () => 'warning',
   },
   {

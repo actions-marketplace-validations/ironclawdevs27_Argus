@@ -11,7 +11,7 @@ env:
 
 jobs:
   harness:
-    name: Test Harness (148 blocks · 832 assertions)
+    name: Test Harness (149 blocks · 845 assertions)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -59,7 +59,7 @@ jobs:
 
       - name: Run test harness
         run: npm run test:harness
-        # KNOWN_PERMANENT is empty (since v9.7.2) — all 832 assertions pass; any failure exits 1.
+        # KNOWN_PERMANENT is empty (since v9.7.2) — all 845 assertions pass; any failure exits 1.
         # If a genuine upstream limit appears, add its block ID to the KNOWN_PERMANENT
         # array in test-harness/validate.js (exit 0 when only those fail).
 

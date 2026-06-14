@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cookie attribute issue fixture for Argus cookie_attribute_missing detection">
+  <title>Cookie Issue Fixture — Argus</title>
+</head>
+<body>
+  <main>
+    <h1>Cookie issue fixture</h1>
+    <p>Fetches an endpoint that sets a <code>SameSite=None</code> cookie without the
+       <code>Secure</code> attribute. Chrome rejects the cookie and records a cookie
+       Issue in the DevTools Issues panel.</p>
+  </main>
+  <script>
+    // SameSite=None cookies require Secure; over http the cookie is rejected and
+    // Chrome adds a cookie Issue (separate from the console) to the Issues panel.
+    fetch('/api/set-bad-cookie', { credentials: 'include' }).catch(function () {});
+  </script>
+</body>
+</html>

@@ -370,6 +370,33 @@ function analyzeNetworkPerformance(perfEntries, pageUrl) {
   return bugs;
 }
 
+/**
+ * HTTPS-enforcement rule (single source of truth, exported so it can be verified
+ * directly — the harness can only crawl localhost, which is excluded, so the
+ * positive-trigger path has no live fixture).
+ *
+ * Returns a `security_no_https` finding for an http:// page on a non-loopback host,
+ * or null otherwise (https, or any localhost/127.x/::1 address).
+ *
+ * @param {string} url
+ * @returns {{type:string,message:string,severity:string,url:string}|null}
+ */
+export function checkHttpsRequired(url) {
+  try {
+    const parsed = new URL(url);
+    const isLocalhost = /^(localhost|127\.|::1)/.test(parsed.hostname);
+    if (parsed.protocol === 'http:' && !isLocalhost) {
+      return {
+        type:     'security_no_https',
+        message:  `Page served over HTTP — enforce HTTPS via server redirect or HSTS`,
+        severity: 'warning',
+        url,
+      };
+    }
+  } catch { /* URL parse failure */ }
+  return null;
+}
+
 // ── Cheap Crawl (called ×2 for flakiness detection) ───────────────────────────
 
 /**
@@ -680,19 +707,9 @@ export async function crawlRouteCheap(route, baseUrl, mcp) {
     logger.warn(`[ARGUS] Issues analysis skipped for ${url}: ${err.message}`);
   }
 
-  // 9f. HTTPS enforcement check
-  try {
-    const parsed = new URL(url);
-    const isLocalhost = /^(localhost|127\.|::1)/.test(parsed.hostname);
-    if (parsed.protocol === 'http:' && !isLocalhost) {
-      result.errors.push({
-        type:     'security_no_https',
-        message:  `Page served over HTTP — enforce HTTPS via server redirect or HSTS`,
-        severity: 'warning',
-        url,
-      });
-    }
-  } catch { /* URL parse failure */ }
+  // 9f. HTTPS enforcement check (shared rule — see checkHttpsRequired above)
+  const httpsFinding = checkHttpsRequired(url);
+  if (httpsFinding) result.errors.push(httpsFinding);
 
   // 10. Deduplicate within this cheap run
   result.errors = deduplicateErrors(result.errors);

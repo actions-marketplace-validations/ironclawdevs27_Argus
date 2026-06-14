@@ -346,6 +346,14 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'deprecated_api_use info from Chrome DevTools Issues panel (document.domain + DOMSubtreeModified mutation event)',
   },
+  // Chrome DevTools Issues panel: SameSite=None cookie without Secure → cookie Issue
+  {
+    path: '/issues-cookie.html',
+    name: 'Issues Cookie',
+    critical: false,
+    waitFor: null,
+    expected: 'cookie_attribute_missing warning from Chrome DevTools Issues panel (SameSite=None cookie set without Secure over http) — block [150]',
+  },
   // heading hierarchy: h1→h3 and h4→h6 skips (two heading_level_skip findings)
   {
     path: '/heading-issues.html',
@@ -361,6 +369,14 @@ export const harnessRoutes = [
     critical: false,
     waitFor: null,
     expected: 'focus_visible_missing warning (#no-focus-ring button has outline:0 and no box-shadow)',
+  },
+  // keyboard navigation: focus escapes to document.body after Tab → focus_lost
+  {
+    path: '/keyboard-focus-lost.html',
+    name: 'Keyboard Focus Lost',
+    critical: false,
+    waitFor: null,
+    expected: 'focus_lost warning (Tab past #start bounces focus to document.body via the #trap blur handler) — block [150]',
   },
   // ARIA state: aria-expanded without aria-controls (missing or broken reference)
   {

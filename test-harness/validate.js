@@ -66,7 +66,7 @@ import {
 // Import the production crawl function so the harness exercises the real pipeline,
 // not a hand-rolled duplicate. The Slack init side-effect concern was resolved by lazy
 // WebClient init, so importing crawl-and-report.js is now safe in test context.
-import { crawlRouteCheap } from '../src/orchestration/crawl-and-report.js';
+import { crawlRouteCheap, checkHttpsRequired } from '../src/orchestration/crawl-and-report.js';
 import { analyzeIssues } from '../src/utils/issues-analyzer.js';
 import { parseNetworkTiming } from '../src/utils/network-timing-analyzer.js';
 import { analyzeKeyboard } from '../src/utils/keyboard-analyzer.js';
@@ -7382,6 +7382,71 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
         `[149:${cat}] negative control — ${cat} does NOT fire on the well-formed page (got ${hits.length}: ${hits.map(h => String(h.message ?? '').slice(0, 70)).join(' | ') || 'none'})`
       );
     }
+  }
+
+  // ── [150] Verification-gap closure (64/67 → 67/67) ──────────────────────────
+  // Positive coverage for the three detection categories that previously had NO
+  // firing fixture (only negative/localhost coverage): keyboard focus_lost,
+  // security_no_https (the orchestrator HTTPS rule), and the Chrome DevTools
+  // Issues-panel residual types. Fixtures + classifier patterns were derived from
+  // LIVE Chrome 149 this session (run-don't-reason). cors_violation +
+  // cookie_attribute_missing are now positively verified; mixed_content (needs
+  // HTTPS), low_contrast_native (DevTools-audit-only) and permission_policy_violation
+  // (needs a secure context) stay environment-limited and remain covered as
+  // negative controls in [149].
+  console.log('\n[150] Verification-gap closure — focus_lost + security_no_https + Issues-panel residual');
+  {
+    // ── focus_lost — keyboard-focus-lost.html bounces Tab focus to document.body ──
+    const kb150 = await analyzeKeyboard(browser, `${B}/keyboard-focus-lost.html`);
+    assert(Array.isArray(kb150), '[150a] analyzeKeyboard returns an array for the focus-lost fixture');
+    const lost150 = kb150.filter(f => f.type === 'focus_lost');
+    assert(lost150.length >= 1,
+      `[150b] keyboard-focus-lost fixture produces at least 1 focus_lost finding (got ${lost150.length})`);
+    assert(lost150.every(f => f.severity === 'warning' && f.url && typeof f.step === 'number'),
+      `[150c] focus_lost findings are warning severity with a numeric step (got ${JSON.stringify(lost150.map(f => ({ s: f.severity, step: f.step })))})`);
+    // Clean-page baseline — analyzeKeyboard must NOT over-fire focus_lost on a healthy page.
+    const kbClean150 = await analyzeKeyboard(browser, `${B}/clean.html`);
+    const cleanLost150 = kbClean150.filter(f => f.type === 'focus_lost');
+    assert(cleanLost150.length === 0,
+      `[150d] clean.html does NOT emit focus_lost (got ${cleanLost150.length})`);
+
+    // ── security_no_https — orchestrator HTTPS-enforcement rule ──
+    // The harness can only crawl localhost (excluded), so the POSITIVE trigger is
+    // verified through the exported rule the real crawlRouteCheap calls (9f); the
+    // localhost NEGATIVE is verified through the real crawl in [76a].
+    const https150 = checkHttpsRequired('http://example.com/page');
+    assert(https150 !== null && https150.type === 'security_no_https',
+      `[150e] checkHttpsRequired('http://example.com') emits security_no_https (got ${JSON.stringify(https150)})`);
+    assert(https150.severity === 'warning' && https150.url === 'http://example.com/page',
+      `[150f] security_no_https finding is warning severity carrying the offending url (got ${JSON.stringify(https150)})`);
+    assert(checkHttpsRequired('https://example.com/') === null,
+      '[150g] checkHttpsRequired returns null for an https:// page');
+    assert(checkHttpsRequired(`${B}/clean.html`) === null,
+      '[150h] checkHttpsRequired returns null for a localhost http:// page (loopback exclusion)');
+
+    // ── Issues-panel residual — cors_violation + cookie_attribute_missing ──
+    // Classifier textPatterns were corrected to Chrome 149's actual Issue titles
+    // this session; before the fix both fell through to unclassified_devtools_issue.
+    const cors150 = await analyzeIssues(browser, `${B}/cors-error.html`);
+    const corsHits150 = cors150.filter(f => f.type === 'cors_violation');
+    assert(corsHits150.length >= 1,
+      `[150i] cors-error.html produces a cors_violation Issue (got: ${cors150.map(f => f.type).join(', ') || 'none'})`);
+    assert(corsHits150.every(f => f.severity === 'warning' && f.url),
+      '[150j] cors_violation findings are warning severity with url');
+
+    const cookie150 = await analyzeIssues(browser, `${B}/issues-cookie.html`);
+    const cookieHits150 = cookie150.filter(f => f.type === 'cookie_attribute_missing');
+    assert(cookieHits150.length >= 1,
+      `[150k] issues-cookie.html produces a cookie_attribute_missing Issue (got: ${cookie150.map(f => f.type).join(', ') || 'none'})`);
+    assert(cookieHits150.every(f => f.severity === 'warning' && f.url),
+      '[150l] cookie_attribute_missing findings are warning severity with url');
+
+    // Anti-vacuous guard: the real (now-fixed) classifier sorts these into their
+    // specific types, not the unclassified_devtools_issue catch-all — the exact
+    // dead-detector failure mode this session shook out.
+    assert(!cors150.some(f => f.type === 'unclassified_devtools_issue') &&
+           !cookie150.some(f => f.type === 'unclassified_devtools_issue'),
+      `[150m] CORS + cookie Issues classify to specific types, not unclassified_devtools_issue (cors: ${cors150.map(f => f.type).join(',') || 'none'}; cookie: ${cookie150.map(f => f.type).join(',') || 'none'})`);
   }
 }
 

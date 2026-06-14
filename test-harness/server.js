@@ -45,6 +45,13 @@ app.use((_req, res, next) => {
   next();
 });
 
+// issues-cookie.html fetches this — Set-Cookie with SameSite=None but no Secure is
+// rejected by Chrome over http and recorded as a cookie Issue (cookie_attribute_missing).
+app.get('/api/set-bad-cookie', (_req, res) => {
+  res.setHeader('Set-Cookie', 'argus_bad=1; SameSite=None');
+  res.json({ ok: true });
+});
+
 // ── API routes (must come before static middleware) ────────────────────────────
 
 // Always returns 500 — used to test HTTP 5xx detection

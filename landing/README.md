@@ -395,3 +395,16 @@ Phase 3.2 (test-harness + one new fixture only — npm publish still pending fro
 | Docs § "Running" code | `762 hard assertions`, `762/762` | `832 hard assertions`, `832/832` |
 | Docs § Breakdown | — | Block [149] bullet added |
 | "How we built it" caption | `147 test blocks` | `148 test blocks` |
+
+## Stats Update (2026-06-14 — HARNESS_MAX_PLAN Phase 3.3: verification-gap closure)
+
+Phase 3.3 (test-harness + a small `issues-analyzer.js`/`orchestrator.js` src fix — npm publish still pending from Phase 1): block [150] verification-gap closure — positive firing fixtures for the three detection categories that previously had no triggering fixture: `focus_lost` (new `keyboard-focus-lost.html`), `security_no_https` (exported `checkHttpsRequired()` rule in `orchestrator.js`), and the Chrome DevTools Issues-panel residual `cors_violation` + `cookie_attribute_missing` (new `issues-cookie.html` + reused `cors-error.html`). Probing live Chrome 149 shook out a **real production bug**: Chrome's CORS/cookie Issue titles ("Ensure CORS response header values are valid" / "Mark cross-site cookies as Secure…") matched none of the `issues-analyzer.js` classifier patterns, so every real CORS/cookie Issue fell through to `unclassified_devtools_issue` — fixed and mutation-pinned. `mixed_content` (HTTPS), `low_contrast_native` (DevTools-audit) and `permission_policy_violation` (secure-context) stay environment-limited, covered as [149] negative controls. Detection categories: every category is now positively verified by a firing fixture except the 3 named environment-limited Issues detectors (`mixed_content` / `low_contrast_native` / `permission_policy_violation`), which can't trigger in headless localhost http and stay covered as [149] negative controls. +13 hard ([150a–m]); +2 fixture pages. **Net: 148 → 149 blocks, 832 → 845 hard assertions, 845/845 gate, 61 → 63 fixture pages.**
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `148` | `149` |
+| `stats[2].num` (ASSERTIONS RUN) | `832` | `845` |
+| Docs § "Test Coverage" tagline | `148 blocks, 832 hard assertions` | `149 blocks, 845 hard assertions` |
+| Docs § "Running" code | `832 hard assertions`, `832/832` | `845 hard assertions`, `845/845` |
+| Docs § Breakdown | — | Block [150] bullet added |
+| "How we built it" caption | `148 test blocks` | `149 test blocks` |

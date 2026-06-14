@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Keyboard focus-lost fixture for Argus focus_lost detection">
+  <title>Keyboard Focus Lost Fixture — Argus</title>
+  <style>
+    /* Give the start button a clearly visible focus ring so it does NOT also
+       trip focus_visible_missing — this fixture isolates focus_lost. */
+    #start:focus { outline: 3px solid #2563eb; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Focus-lost fixture</h1>
+    <p>Tabbing past the button bounces focus back to <code>document.body</code>,
+       which the keyboard analyzer reports as <code>focus_lost</code>.</p>
+    <button id="start">Start</button>
+    <div id="trap" tabindex="0">Focus trap — drops focus to body on receipt</div>
+  </main>
+  <script>
+    // When the trap div receives Tab focus, immediately drop focus back to body.
+    // On the analyzer's next read document.activeElement === document.body → focus_lost.
+    // The styled button before it provides a clean, non-lost first Tab step.
+    document.getElementById('trap').addEventListener('focus', function () {
+      this.blur();
+    });
+  </script>
+</body>
+</html>
