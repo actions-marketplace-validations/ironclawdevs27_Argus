@@ -382,3 +382,16 @@ Phase 3.1 + 3.4 (test-harness + `test-harness/contracts/` only — npm publish s
 | Docs § "Test Coverage" tagline | `146 blocks, 757 hard assertions` | `147 blocks, 762 hard assertions` |
 | Docs § "Running" code | `757 hard assertions`, `757/757` | `762 hard assertions`, `762/762` |
 | Docs § Breakdown | — | Block [148] bullet added |
+
+## Stats Update (2026-06-14 — HARNESS_MAX_PLAN Phase 3.2: per-category negative controls)
+
+Phase 3.2 (test-harness + one new fixture only — npm publish still pending from Phase 1): block [149] per-category negative controls — drives the REAL production pipeline (cheap crawl + `getExpensive` analyzer loop + DevTools Issues panel) against a new comprehensively well-formed fixture `negative-controls.html` (full SEO metadata, landmark structure, accessible form, ≥44×44px touch targets, data-URI favicon) and asserts ZERO warning/critical findings across 65 detection categories — the over-fire / false-positive guard the 2026-06-12 audit lacked. Positive controls ([149a–c]) prove the analyzers actually ran, so the per-category zero-findings checks are non-vacuous. +70 hard (5 structural + 65 per-category); +1 fixture page. No new detection categories (still 67 / 64 verified). **Net: 147 → 148 blocks, 762 → 832 hard assertions, 832/832 gate, 60 → 61 fixture pages.**
+
+| Field | Old | New |
+|---|---|---|
+| `stats[1].num` (TEST BLOCKS) | `147` | `148` |
+| `stats[2].num` (ASSERTIONS RUN) | `762` | `832` |
+| Docs § "Test Coverage" tagline | `147 blocks, 762 hard assertions` | `148 blocks, 832 hard assertions` |
+| Docs § "Running" code | `762 hard assertions`, `762/762` | `832 hard assertions`, `832/832` |
+| Docs § Breakdown | — | Block [149] bullet added |
+| "How we built it" caption | `147 test blocks` | `148 test blocks` |

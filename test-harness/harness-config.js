@@ -474,6 +474,16 @@ export const harnessRoutes = [
     waitFor: null,
     expected: 'one probe element per CdpBrowserAdapter method: click/hover/drag/upload side effects in data attributes, late-probe-ready text for waitFor, console + /api/data network probes',
   },
+  // Block [149] — per-category negative controls (3.2): a comprehensively well-formed
+  // page (full SEO metadata, landmark structure, accessible form, ≥44×44px touch
+  // targets, data-URI favicon) that every analyzer runs against but trips NO detector.
+  {
+    path: '/negative-controls.html',
+    name: 'Negative Controls',
+    critical: false,
+    waitFor: null,
+    expected: 'ZERO warning/critical from the full pipeline (cheap crawl + getExpensive + Issues panel); analyzer summaries present (over-fire guard)',
+  },
 ];
 
 /** Routes used for env-comparison tests (same path served by both servers). */

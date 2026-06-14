@@ -7240,6 +7240,149 @@ async function runTests(mcp, stagingProc, devPort, stagingPort) {
       `[148e] ${chromeVer148} still emits a DeprecationIssue for issues-deprecated.html — a failure here is Chrome rot (upstream dropped the unload deprecation), not an Argus/[68] regression (raw: ${depRaw148.slice(0, 140).replace(/\s+/g, ' ')})`
     );
   }
+
+  // ── [149] PER-CATEGORY NEGATIVE CONTROLS (3.2) ──────────────────────────────────
+  // The positive blocks prove each detector FIRES on its broken fixture; this block
+  // proves no detector FIRES on a comprehensively well-formed page. It drives the REAL
+  // production pipeline (crawlRouteCheap + the registry's getExpensive() loop + the
+  // DevTools Issues panel) against test-harness/pages/negative-controls.html — a page
+  // built to satisfy every analyzer (full SEO metadata, landmark structure, accessible
+  // form, ≥44×44px touch targets, data-URI favicon so /favicon.ico never 404s) — then
+  // asserts every detection category produces ZERO warning/critical findings.
+  //
+  // NON-VACUOUS by construction: [149a]–[149c] are POSITIVE controls proving the
+  // pipeline actually analyzed the page (analyzers ran, cheap path ran, summaries were
+  // emitted) — so the per-category `=== 0` assertions cannot pass because the pipeline
+  // silently no-op'd. [149d] is the marquee aggregate: a FUTURE analyzer that over-fires
+  // on safe input fails here even without a per-category row. Skips lighthouse (headless
+  // N/A) and the three baseline/diff detectors (visual / har-recorder / design-fidelity)
+  // whose fire-condition is a stored-baseline DIFF, not unsafe input — running them would
+  // make the negative control depend on persisted state and flake run-to-run.
+  {
+    console.log('\n[149] Per-category negative controls — a well-formed page trips NO detector (over-fire guard)');
+
+    const cleanRoute149 = { name: 'negative-controls', path: '/negative-controls.html', critical: false, waitFor: null };
+    const cleanUrl149   = `${B}/negative-controls.html`;
+    const SKIP149        = new Set(['lighthouse', 'visual', 'har-recorder', 'design-fidelity']);
+    const BUG149         = new Set(['warning', 'critical']);
+
+    const all149 = [];
+    const ran149 = [];
+    let cheap149 = { errors: [], url: '', isBlankPage: null };
+    let err149   = null;
+
+    try {
+      // Cheap pass — console / network / SEO / security / content / api-frequency.
+      cheap149 = await crawlRouteCheap(cleanRoute149, B, mcp);
+      for (const e of cheap149.errors) all149.push(e);
+
+      // Registered expensive analyzers — exactly the production loop (orchestrator.js:879).
+      await browser.navigate(cleanUrl149);
+      for (const { name, analyze } of getExpensive()) {
+        if (SKIP149.has(name)) continue;
+        ran149.push(name);
+        try {
+          const raw      = await analyze(browser, cleanUrl149, cleanRoute149);
+          const findings = Array.isArray(raw) ? raw : (raw?.findings ?? []);
+          for (const f of findings) all149.push(f);
+        } catch { /* an analyzer that skips emits nothing → cannot over-fire; coverage proven by ran149 */ }
+      }
+
+      // Chrome DevTools Issues panel — CSP / CORS / deprecated-API / cookie issues.
+      try {
+        const issues149 = await analyzeIssues(browser, cleanUrl149);
+        for (const f of issues149) all149.push(f);
+      } catch { /* issues panel best-effort */ }
+    } catch (e) {
+      err149 = e;
+    }
+
+    const bug149          = all149.filter(f => BUG149.has(f.severity));
+    const presentTypes149 = new Set(all149.map(f => f.type));
+
+    // ── Positive controls — prove the pipeline genuinely analyzed the page ───────────
+    const EXPECT_RAN_149 = ['css', 'responsive', 'memory', 'hover', 'snapshot', 'keyboard', 'theme', 'web-vitals', 'a11y-deep', 'motion', 'font', 'form'];
+    const missingRan149  = EXPECT_RAN_149.filter(n => !ran149.includes(n));
+    assert(
+      err149 === null && ran149.length >= EXPECT_RAN_149.length && missingRan149.length === 0,
+      `[149a] the registered expensive-analyzer pipeline executed against the clean page (err: ${err149?.message ?? 'none'}, ran ${ran149.length}: [${ran149.join(', ')}], missing: ${missingRan149.join(', ') || 'none'})`
+    );
+
+    assert(
+      typeof cheap149.url === 'string' && cheap149.url.endsWith('/negative-controls.html')
+        && cheap149.isBlankPage === false && Array.isArray(cheap149.errors),
+      `[149b] the cheap crawl path (console/network/SEO/security/content) executed on the clean page (url: ${cheap149.url}, isBlankPage: ${cheap149.isBlankPage})`
+    );
+
+    const EXPECT_SUMMARY_149 = ['css_summary', 'theme_summary', 'motion_summary', 'font_summary', 'form_summary', 'perf_vitals_summary', 'a11y_deep_summary'];
+    const missingSummary149  = EXPECT_SUMMARY_149.filter(t => !presentTypes149.has(t));
+    assert(
+      missingSummary149.length === 0,
+      `[149c] analyzer summaries present — analyzers ANALYZED the page (not skipped), so the per-category zero-findings checks below are non-vacuous (missing: ${missingSummary149.join(', ') || 'none'})`
+    );
+
+    // ── [149d] MARQUEE — zero warning/critical across the ENTIRE pipeline ─────────────
+    assert(
+      bug149.length === 0,
+      `[149d] the well-formed page produces ZERO warning/critical findings across the full pipeline (got ${bug149.length}: ${[...new Set(bug149.map(f => `${f.type}/${f.severity}`))].join(', ') || 'none'})`
+    );
+
+    // ── Per-category negative controls — one "does NOT fire" guard per detection
+    //    category (data-driven; an over-fire fails attributably by category name) ──────
+    const NEG_CATEGORIES_149 = [
+      // SEO (seo-analyzer — cheap path) — fixture has full, valid metadata
+      'seo_missing_description', 'seo_missing_og', 'seo_og_image_relative_url', 'seo_multiple_h1',
+      'seo_missing_h1', 'seo_generic_title', 'seo_missing_canonical', 'seo_missing_viewport',
+      // Security (security-analyzer — cheap path + orchestrator https check)
+      'security_token_in_storage', 'security_eval_usage', 'security_cookie_no_httponly', 'security_missing_csp',
+      'security_missing_xframe', 'security_iframe_no_sandbox', 'security_unsafe_blank_link', 'security_missing_sri',
+      'security_sensitive_console', 'security_token_in_url', 'security_no_https',
+      // Content quality (content-analyzer — cheap path)
+      'content_null_rendered', 'content_placeholder_text', 'content_broken_image', 'content_empty_list',
+      // CSS (css-analyzer) — fixture CSS is fully applied, no overrides/leaks
+      'css_override', 'css_unused_rules', 'css_component_leak', 'react_inline_style_conflict',
+      // Responsive (responsive-analyzer) — no overflow, ≥44×44px touch targets
+      'responsive_overflow', 'responsive_small_touch_target',
+      // Accessibility — snapshot (snapshot-analyzer)
+      'a11y_missing_name', 'a11y_missing_form_label', 'a11y_duplicate_landmark', 'aria_expanded_no_controls', 'heading_level_skip',
+      // Accessibility — deep (a11y-deep-analyzer / axe-core + CVD simulation)
+      'a11y_axe_violation', 'a11y_colorblind_risk',
+      // Theme (theme-analyzer)
+      'theme_static_var',
+      // Motion (motion-analyzer) — no animation/autoplay on the fixture
+      'motion_no_reduced_motion_query', 'motion_autoplay_no_pause', 'motion_interactive_animation', 'motion_reduced_not_honoured',
+      // Font (font-analyzer)
+      'font_foit_risk', 'font_fout_risk', 'font_no_fallback', 'font_slow_load', 'font_suboptimal_format',
+      // Form (form-analyzer) — the fixture form is required/autocompleted/labelled/masked
+      'form_missing_required', 'form_no_autocomplete', 'form_inaccessible_error', 'form_unmasked_password',
+      // Keyboard (keyboard-analyzer) — focusable elements keep focus + default outlines
+      'focus_lost', 'focus_visible_missing',
+      // Memory (memory-analyzer)
+      'memory_detached_dom_nodes', 'memory_heap_growth',
+      // Web Vitals (web-vitals-analyzer) — small page, no oversized bundle
+      'perf_bundle_large',
+      // Hover (hover-analyzer)
+      'hover_dropdown_broken', 'hover_tooltip_missing',
+      // Chrome DevTools Issues panel (issues-analyzer)
+      'csp_violation', 'cors_violation', 'mixed_content', 'cookie_attribute_missing',
+      'deprecated_api_use', 'low_contrast_native', 'permission_policy_violation', 'unclassified_devtools_issue',
+    ];
+
+    // [149e] meta — the category table is populated and de-duplicated, so the sweep
+    // below cannot pass vacuously by being accidentally empty/truncated.
+    assert(
+      NEG_CATEGORIES_149.length >= 60 && new Set(NEG_CATEGORIES_149).size === NEG_CATEGORIES_149.length,
+      `[149e] negative-control category table is populated and duplicate-free (got ${NEG_CATEGORIES_149.length}, unique ${new Set(NEG_CATEGORIES_149).size})`
+    );
+
+    for (const cat of NEG_CATEGORIES_149) {
+      const hits = all149.filter(f => f.type === cat && BUG149.has(f.severity));
+      assert(
+        hits.length === 0,
+        `[149:${cat}] negative control — ${cat} does NOT fire on the well-formed page (got ${hits.length}: ${hits.map(h => String(h.message ?? '').slice(0, 70)).join(' | ') || 'none'})`
+      );
+    }
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

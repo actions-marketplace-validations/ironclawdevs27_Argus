@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-762%2F762-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-832%2F832-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**
@@ -218,7 +218,7 @@ npm run report:pdf     # Export HTML report to A4 PDF (requires: npm install pup
 npm run server         # Start Slack slash-command server (port 3001)
 npm run init           # Interactive setup wizard
 npm run test:unit          # 61 unit tests — no Chrome required
-npm run test:harness       # 147-block correctness harness — requires Chrome
+npm run test:harness       # 148-block correctness harness — requires Chrome
 npm run test:harness:log   # same, but tees full output to harness-results.txt
 ```
 
@@ -342,7 +342,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-All 762 harness assertions pass (`762/762`) — there are currently no known MCP- or Chrome-layer restrictions. Soft assertions (Lighthouse, performance traces) still require non-headless Chrome and are skipped in headless CI.
+All 832 harness assertions pass (`832/832`) — there are currently no known MCP- or Chrome-layer restrictions. Soft assertions (Lighthouse, performance traces) still require non-headless Chrome and are skipped in headless CI.
 
 ---
 
@@ -361,7 +361,7 @@ src/
     chrome-launcher.js  — npm run chrome / argus-chrome — launches Chrome with correct flags
     doctor.js           — npm run doctor / argus-doctor — pre-flight checks
     pr-validate.js      — headless CI entry point for GitHub Actions
-test-harness/           — 147-block correctness harness, 762 hard assertions, 60 fixture pages
+test-harness/           — 148-block correctness harness, 832 hard assertions, 61 fixture pages
 test/unit/              — 61 Vitest unit tests (no Chrome required)
 landing/                — Product landing page (React 19 + Vite + Tailwind)
 ```

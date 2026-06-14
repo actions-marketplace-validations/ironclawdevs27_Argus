@@ -14,7 +14,7 @@ Argus is an AI-driven automated QA harness that audits web pages against 67 dete
 - `src/argus.js` — single-page audit (CLI)
 - `src/batch-runner.js` — multi-page batch audit
 - `src/mcp-server.js` — MCP server (AI-callable via Claude or any MCP client; registers argus_audit / argus_audit_full / argus_compare / argus_last_report / argus_watch_snapshot / argus_get_context / argus_design_audit / argus_visual_diff / argus_pr_validate)
-- `test-harness/validate.js` — 147-block correctness harness (762 hard assertions)
+- `test-harness/validate.js` — 148-block correctness harness (832 hard assertions)
 - `test-harness/harness-config.js` — fixture page routing table
 
 ---
@@ -1520,7 +1520,7 @@ Always walk at least 3 levels back — the proximate cause is almost never the r
 
 ### Known MCP Behavioral Limitations
 
-**There are currently none** — the harness passes 762/762. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again. The 2026-06-12 audit found the same wire-contract bug class three more times (get_network_request `reqid`, list_pages markdown, select_page numeric pageId) — all fixed and pinned by block [142].
+**There are currently none** — the harness passes 832/832. Every assertion previously blamed on the MCP or Chrome ([49b], [67b], [68b]) turned out to be an Argus bug; the resolution notes below are kept because each one encodes a real API contract that is easy to get wrong again. The 2026-06-12 audit found the same wire-contract bug class three more times (get_network_request `reqid`, list_pages markdown, select_page numeric pageId) — all fixed and pinned by block [142].
 
 > **Note on `fill` vs `type_text` and DOM events**: Both tools fire DOM `input` events, but differently:
 >
@@ -1676,13 +1676,13 @@ for (const bp of breakpoints) {
 | Metric | Value |
 | --- | --- |
 | **Version** | `9.7.5` |
-| **Test blocks** | 147 |
-| **Hard assertions** | 762 |
+| **Test blocks** | 148 |
+| **Hard assertions** | 832 |
 | **Soft assertions** | ~19 (Lighthouse / memory — headless-unavailable) |
 | **Detection categories** | 67 in production code; **64 positively verified** by harness fixtures |
-| **Fixture pages** | 60 |
+| **Fixture pages** | 61 |
 | **Analysis engines** | 32 (`registerExpensive` plugins + inline cheap analyzers) |
-| **Harness gate** | **762/762** (no permanent failures — exits 0) |
+| **Harness gate** | **832/832** (no permanent failures — exits 0) |
 | **Flow step actions** | 11 (`navigate`, `waitFor`, `sleep`, `fill`, `click`, `drag`, `upload_file`, `select_option`, `press_key`, `handle_dialog`, `assert`) |
 
 ### Permanent MCP-Limited Failures (none)
@@ -1729,6 +1729,7 @@ for (const bp of breakpoints) {
 | _(unreleased — cleanup)_ | Removed dead perf-budget path | Deleted `checkPerformanceBudgets` (orchestrator.js, dead trace/insight wiring) + superseded harness block [11] "Performance budgets" + `measurePerf` + 3 perf fixtures (`perf-issues`/`perf-lcp`/`perf-fid.html`) + 2 dead server endpoints — Core Web Vitals covered by web-vitals analyzer [129]; `perf-cls.html` kept for block [92]; block id [11] retired ([10]→[12] gap). No hard assertions changed | **738/738** (144 blocks / 60 fixtures) |
 | _(unreleased — test-harness + contracts only; npm publish pending)_ | Harness Max Phase 2 — assertion quality | **2.1** vacuous sweep — upgraded the sole vacuous-upgradeable hit ([119c] `open_tabs`) to a content assertion in place; **2.2** block [146] anti-vacuous self-lint (5: the harness reads its own source and gates bare `Array.isArray` / `typeof x==='object'` / `.length>=0` assertions against reviewed allowlists, each family with a positive control); **2.3** block [147] golden response schemas for all 9 MCP tools (`test-harness/contracts/mcp-tool-schemas.js`, exported for E2E; 14: live safeParse ×8 + `argus_pr_validate` handler↔schema source cross-check + tool→schema coverage ratchet + 3 anti-vacuous negative controls + completion guard) — caught + fixed the `argus_compare` two-mode contract (env-comparison vs css-analysis) via a discriminated union; +19 hard | **757/757** |
 | _(unreleased — test-harness + contracts only; npm publish pending)_ | Harness Max Phase 3.1 — upstream canary + Chrome-rot watch | block [148] (5 [148a]–[148e]): a freshly spawned chrome-devtools-mcp@1.1.1 `tools/list` diffed (tool set + required params + property names/types) against golden snapshot `contracts/chrome-devtools-mcp@1.1.1.json` — catches the next `reqid→requestId`-class param rename at a version bump; [148d] pin↔snapshot-filename lockstep; [148e] `issues-deprecated.html` DeprecationIssue Chrome-rot canary; +5 hard | **762/762** |
+| _(unreleased — test-harness + 1 fixture only; npm publish pending)_ | Harness Max Phase 3.2 — per-category negative controls | block [149] (70: [149a]–[149e] structural + 65 per-category [149:&lt;cat&gt;]): drives the REAL production pipeline (`crawlRouteCheap` cheap pass + the `getExpensive()` registry loop, exactly orchestrator.js:879, + `analyzeIssues`) against the NEW comprehensively well-formed fixture `negative-controls.html` and asserts ZERO warning/critical across 65 detection categories — the over-fire / false-positive guard the 2026-06-12 audit lacked; [149a–c] positive controls prove the pipeline ANALYZED the page (12 DOM analyzers ran + 7 summaries present) so the per-category `=== 0` checks are non-vacuous; [149d] marquee aggregate; deliberately skips lighthouse + the 3 baseline/diff detectors (`visual`/`har-recorder`/`design-fidelity`) whose fire-condition is a stored-baseline DIFF; mutation-proven (strip the fixture's `<meta description>` → `seo_missing_description` fires → [149d]+[149:seo_missing_description] FAIL); +70 hard, +1 fixture | **832/832** |
 
 ---
 

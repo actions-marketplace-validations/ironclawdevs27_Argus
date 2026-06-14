@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Negative-control baseline for Argus — every analyzer executes against this page but should report zero warnings or criticals.">
+  <meta property="og:title" content="Negative Controls — Argus Harness">
+  <meta property="og:description" content="A comprehensively well-formed page proving Argus analyzers do not over-fire on safe, valid input.">
+  <meta property="og:image" content="http://localhost:3100/static/og-image.png">
+  <link rel="canonical" href="http://localhost:3100/negative-controls.html">
+  <!-- Inline data-URI favicon so the browser does NOT auto-request /favicon.ico (a 404
+       would surface as a console warning + network finding, polluting the negative control). -->
+  <link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==">
+  <title>Negative Controls — Argus Harness</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; background: #ffffff; }
+    nav a { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px 16px; line-height: 20px; box-sizing: border-box; color: #0a4ea3; margin-right: 8px; }
+    h1 { font-size: 1.8rem; }
+    h2 { font-size: 1.3rem; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input { display: block; width: 100%; min-height: 44px; padding: 10px; margin-top: 4px; box-sizing: border-box; border: 1px solid #767676; font-size: 1rem; }
+    button { min-height: 44px; min-width: 44px; padding: 12px 20px; margin-top: 16px; background: #0a4ea3; color: #ffffff; border: none; cursor: pointer; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <main id="main-content">
+    <h1>Negative Controls</h1>
+    <p>
+      This page is deliberately well-formed: complete SEO metadata, a single landmark
+      structure, an accessible form, sequential headings, and touch targets sized at
+      least 44×44&nbsp;px. Every Argus analyzer runs against it but should find no issues.
+    </p>
+
+    <nav aria-label="Main navigation">
+      <a href="#home">Home</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+
+    <section aria-labelledby="contact-heading">
+      <h2 id="contact-heading">Contact</h2>
+      <form id="contact-form" action="/submit" method="post">
+        <label for="full-name">Full name</label>
+        <input id="full-name" name="name" type="text" required autocomplete="name">
+
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" required autocomplete="email">
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password" minlength="8">
+
+        <button type="submit">Send message</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
