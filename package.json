@@ -53,6 +53,10 @@
     "test:harness:log": "node test-harness/run-with-log.mjs",
     "test:unit": "vitest run test/unit",
     "test": "npm run test:unit && npm run test:harness",
+    "coverage:unit": "vitest run test/unit --coverage",
+    "coverage:harness": "c8 npm run test:harness",
+    "coverage:gate": "node scripts/coverage-gate.mjs --min-lines 60 --allow-uncovered src/mcp-server.js,src/orchestration/env-comparison.js,src/server/index.js",
+    "test:coverage": "npm run coverage:harness && npm run coverage:unit && npm run coverage:gate",
     "report:html": "node src/utils/html-reporter.js",
     "report:pdf": "node src/utils/pdf-exporter.js",
     "mcp-server": "node src/mcp-server.js"
@@ -72,6 +76,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.8",
+    "c8": "^10.1.3",
+    "istanbul-lib-coverage": "^3.2.2",
     "vitest": "^4.1.8"
   }
 }

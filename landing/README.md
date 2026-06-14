@@ -408,3 +408,7 @@ Phase 3.3 (test-harness + a small `issues-analyzer.js`/`orchestrator.js` src fix
 | Docs § "Running" code | `832 hard assertions`, `832/832` | `845 hard assertions`, `845/845` |
 | Docs § Breakdown | — | Block [150] bullet added |
 | "How we built it" caption | `148 test blocks` | `149 test blocks` |
+
+## Stats Update (2026-06-15 — HARNESS_MAX_PLAN Phase 4.1: coverage gate)
+
+**No landing-page stat change.** Phase 4.1 is test/CI/config-only infrastructure (a merged unit+harness coverage gate via `scripts/coverage-gate.mjs`; two audit-flagged modules now unit-tested; CI step in `harness-ci.yml`). It adds **no harness blocks or assertions** — the landing hero stats stay at **149 test blocks / 845 assertions** and `App.jsx` is intentionally left untouched. The only test-suite count that moved is the unit suite (61 → 72 tests, 6 → 8 files), which the landing page does not surface. Recorded here so the build-changelog stays a complete log.

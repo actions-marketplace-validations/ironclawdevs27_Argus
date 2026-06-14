@@ -786,13 +786,15 @@ argus/
 │       ├── doctor.js                 — checkChrome/checkMcpConfig/checkEnvKeys pre-flight checks; argus-doctor bin
 │       └── pr-validate.js            — headless CI entry point for GitHub Actions; exports buildStepSummary/writeGithubOutputs
 ├── test/
-│   └── unit/                         — Vitest unit tests — no Chrome required
+│   └── unit/                         — Vitest unit tests, 8 files / 72 tests — no Chrome required
 │       ├── finding.test.js           — createFinding() — 8 tests
 │       ├── config-schema.test.js     — validateConfig() — 8 tests
 │       ├── report-processor.test.js  — deduplicateFindings + rebuildSummary — 11 tests
 │       ├── flakiness-detector.test.js — findingKey + mergeRunResults — 13 tests
-│       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 9 tests
-│       └── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
+│       ├── baseline-manager.test.js  — loadBaseline/saveBaseline/applyBaseline — 10 tests
+│       ├── flow-runner.test.js       — normalizeArray + runFlow mock browser — 11 tests
+│       ├── screen-recorder.test.js   — PollingRecorder (mock browser) + CdpScreenRecorder guard — 8 tests
+│       └── pdf-exporter.test.js      — exportReportToPdf / exportPageToPdf guard paths — 3 tests
 ├── test-harness/
 │   ├── validate.js                   — 149-block correctness harness (845/845 gate)
 │   ├── contracts/                    — golden Zod response schemas for the 9 MCP tools (block [147]) + chrome-devtools-mcp inputSchema canary snapshot (block [148])
@@ -819,7 +821,8 @@ argus/
 │   ├── package.json                  — React 19, Vite 8, Tailwind 3, Framer Motion 12
 │   └── .env.example                  — VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY template
 ├── scripts/
-│   └── dispatch-report.js            — Standalone Slack re-dispatch for existing JSON report
+│   ├── dispatch-report.js            — Standalone Slack re-dispatch for existing JSON report
+│   └── coverage-gate.mjs             — Merges unit (vitest-v8) + harness (c8) coverage; gates --min-lines + --allow-uncovered
 └── reports/                          — Output: JSON reports + screenshots (gitignored)
     ├── baselines/
     │   ├── <branch>.json             — Per-route finding keys, per git branch

@@ -57,11 +57,22 @@ jobs:
             sleep 1
           done
 
-      - name: Run test harness
-        run: npm run test:harness
-        # KNOWN_PERMANENT is empty (since v9.7.2) — all 845 assertions pass; any failure exits 1.
-        # If a genuine upstream limit appears, add its block ID to the KNOWN_PERMANENT
-        # array in test-harness/validate.js (exit 0 when only those fail).
+      - name: Run test harness (with coverage)
+        run: npm run coverage:harness
+        # Runs the 845-assertion harness under c8 — the harness exit code still gates:
+        # KNOWN_PERMANENT is empty (since v9.7.2), so all 845 pass and any failure exits 1
+        # (c8 propagates the child exit code). c8 captures in-process src/ coverage to
+        # coverage/harness/coverage-final.json. If a genuine upstream limit appears, add
+        # its block ID to KNOWN_PERMANENT in test-harness/validate.js.
 
-      - name: Run unit tests (no Chrome required)
-        run: npm run test:unit
+      - name: Run unit tests (with coverage, no Chrome required)
+        run: npm run coverage:unit
+        # Vitest v8 coverage → coverage/unit/coverage-final.json (the unit half: Vitest
+        # workers do not propagate NODE_V8_COVERAGE to c8, so the two halves are measured
+        # separately and merged by scripts/coverage-gate.mjs).
+
+      - name: Coverage gate (merged unit + harness)
+        run: npm run coverage:gate
+        # Fails CI if merged line coverage < 60% (conservative floor; ratchet up) or a
+        # src/ module outside the documented subprocess-tested allowlist is fully
+        # uncovered — the "zero-coverage module" guard for the 2026-06-12 audit blind spot.

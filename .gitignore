@@ -33,6 +33,10 @@ harness_max_prompt.md
 # Harness output log — written by npm run test:harness:log
 harness-results.txt
 
+# Coverage output — c8 (harness) + vitest v8 (unit), merged by scripts/coverage-gate.mjs
+coverage/
+coverage-harness-run.txt
+
 # Argus auth session files — contain live cookies/localStorage tokens, never commit
 .argus-*.json
 
