@@ -786,7 +786,7 @@ argus/
 │       ├── doctor.js                 — checkChrome/checkMcpConfig/checkEnvKeys pre-flight checks; argus-doctor bin
 │       └── pr-validate.js            — headless CI entry point for GitHub Actions; exports buildStepSummary/writeGithubOutputs
 ├── test/
-│   └── unit/                         — Vitest unit tests, 8 files / 72 tests — no Chrome required
+│   └── unit/                         — Vitest unit tests, 9 files / 94 tests — no Chrome required
 │       ├── finding.test.js           — createFinding() — 8 tests
 │       ├── config-schema.test.js     — validateConfig() — 8 tests
 │       ├── report-processor.test.js  — deduplicateFindings + rebuildSummary — 11 tests
@@ -796,7 +796,7 @@ argus/
 │       ├── screen-recorder.test.js   — PollingRecorder (mock browser) + CdpScreenRecorder guard — 8 tests
 │       └── pdf-exporter.test.js      — exportReportToPdf / exportPageToPdf guard paths — 3 tests
 ├── test-harness/
-│   ├── validate.js                   — 149-block correctness harness (845/845 gate)
+│   ├── validate.js                   — 149-block correctness harness (846/846 gate)
 │   ├── contracts/                    — golden Zod response schemas for the 9 MCP tools (block [147]) + chrome-devtools-mcp inputSchema canary snapshot (block [148])
 │   ├── harness-config.js             — Route definitions + expected findings
 │   ├── server.js                     — Fixture HTTP server (ports 3100 dev / 3101 staging)
@@ -863,7 +863,7 @@ argus/
 
 ## Known MCP Tool Limitations
 
-**None** — the harness passes `845/845` and `KNOWN_PERMANENT` in `validate.js` is empty (since v9.7.2). All three historical "permanent failures" were Argus bugs:
+**None** — the harness passes `846/846` and `KNOWN_PERMANENT` in `validate.js` is empty (since v9.7.2). All three historical "permanent failures" were Argus bugs:
 
 > **`type_text` clarification:** `type_text` fires DOM `input` events when the element is properly focused first via `mcp.click({ uid })`. Always use uid-based focus — passing `{ selector }` to `mcp.click` silently does nothing.
 

@@ -111,7 +111,19 @@ export class CdpBrowserAdapter {
   // is rejected with an Unknown-argument error). Callers still pass the numeric
   // requestId parsed from list_network_requests.
   getNetworkRequest(reqId) { return this._mcp.get_network_request({ reqid: reqId }); }
-  lighthouse(url, opts = {}) { return this._mcp.lighthouse_audit({ url, ...opts }); }
+  // lighthouse_audit audits the CURRENTLY-NAVIGATED page and accepts only
+  // mode/device/outputDirPath. Passing `url` (or `categories`) is REJECTED with an
+  // "Unknown argument" error that comes back as RESOLVED text — so every Argus Lighthouse
+  // run silently no-op'd (caught upstream as "Lighthouse skipped", scores perpetually N/A).
+  // Navigate to the target first, then audit; strip url/categories defensively so legacy
+  // callers cannot reintroduce the rejected args. mode 'navigation' (the tool default)
+  // reloads + audits. Performance is intentionally excluded by lighthouse_audit (covered by
+  // the web-vitals analyzer) — it returns accessibility/best-practices/seo/agentic-browsing.
+  async lighthouse(url, opts = {}) {
+    if (url) await this.navigate(url);
+    const { url: _ignoredUrl, categories: _ignoredCats, ...valid } = opts;
+    return this._mcp.lighthouse_audit(valid);
+  }
   startTrace()             { return this._mcp.performance_start_trace({}); }
   stopTrace()              { return this._mcp.performance_stop_trace({}); }
   analyzeInsight(opts)     { return this._mcp.performance_analyze_insight(opts); }

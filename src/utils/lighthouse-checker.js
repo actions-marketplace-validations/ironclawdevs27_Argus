@@ -5,11 +5,48 @@
  * checkLighthouse directly without pulling in the Slack-initialised orchestrator.
  */
 
+import fs from 'node:fs';
 import { registerExpensive } from '../registry.js';
 import { thresholds }        from '../config/targets.js';
 import { childLogger }       from './logger.js';
 
 const logger = childLogger('lighthouse-checker');
+
+/**
+ * Parse a chrome-devtools-mcp `lighthouse_audit` response into the Lighthouse
+ * result shape this module consumes: `{ categories, audits }` (category scores 0–1,
+ * `audits` keyed by id). The tool returns markdown with a "### Reports" section that
+ * points at a full `report.json`; we read that for complete category scores +
+ * per-audit detail (`auditRefs`, `title`, `description`). If the file is unavailable
+ * we fall back to the markdown "### Category Scores" block (scores only, no audits).
+ * Returns `{ categories: {}, audits: {} }` when nothing parses — never throws.
+ *
+ * @param {string} responseText - raw lighthouse_audit response (markdown text)
+ * @returns {{ categories: object, audits: object }}
+ */
+export function parseLighthouseReport(responseText) {
+  const text = String(responseText ?? '');
+  // Prefer the authoritative report.json (categories + auditRefs + per-audit detail).
+  const pathMatch = text.match(/([A-Za-z]:\\[^\r\n]*?report\.json|\/[^\r\n]*?report\.json)/);
+  if (pathMatch) {
+    try {
+      const json = JSON.parse(fs.readFileSync(pathMatch[1].trim(), 'utf8'));
+      if (json && typeof json === 'object' && json.categories) {
+        return { categories: json.categories, audits: json.audits ?? {} };
+      }
+    } catch { /* fall through to the markdown scores */ }
+  }
+  // Fallback: synthesize categories from the "### Category Scores" markdown block,
+  // e.g. "- Accessibility: 96 (accessibility)". Scores normalised to 0–1 to match report.json.
+  const categories = {};
+  const block = text.match(/### Category Scores\s*\n([\s\S]*?)(?:\n###|\s*$)/);
+  if (block) {
+    for (const m of block[1].matchAll(/^\s*-\s+.+?:\s*([\d.]+)\s*\(([\w-]+)\)\s*$/gm)) {
+      categories[m[2]] = { id: m[2], score: Number(m[1]) / 100 };
+    }
+  }
+  return { categories, audits: {} };
+}
 
 const LIGHTHOUSE_LABELS = {
   accessibility:    'Accessibility',
@@ -39,13 +76,16 @@ export async function checkLighthouse(browser, url) {
   const LIGHTHOUSE_TIMEOUT_MS = parseInt(process.env.ARGUS_LIGHTHOUSE_TIMEOUT ?? '120000', 10);
 
   try {
-    const auditPromise = browser.lighthouse(url, {
-      categories: ['accessibility', 'performance', 'seo', 'best-practices'],
-    });
+    // browser.lighthouse navigates to url + audits the current page. lighthouse_audit
+    // returns markdown referencing a full report.json — parseLighthouseReport reads that
+    // back into the { categories, audits } shape this function consumes. Performance is
+    // excluded by the tool (covered by web-vitals); thresholds.lighthouse.performance is
+    // simply skipped below when its category is absent.
+    const auditPromise = browser.lighthouse(url);
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error(`Lighthouse timed out after ${LIGHTHOUSE_TIMEOUT_MS / 1000}s`)), LIGHTHOUSE_TIMEOUT_MS)
     );
-    const result = await Promise.race([auditPromise, timeoutPromise]);
+    const result = parseLighthouseReport(await Promise.race([auditPromise, timeoutPromise]));
 
     const categories = result?.categories ?? {};
     const audits     = result?.audits     ?? {};

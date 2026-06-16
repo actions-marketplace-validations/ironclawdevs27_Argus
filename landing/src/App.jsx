@@ -28,7 +28,7 @@ const navHrefs = {
 const stats = [
   { num: '67', label: 'DETECTION\nTYPES' },
   { num: '149', label: 'TEST\nBLOCKS' },
-  { num: '845', label: 'ASSERTIONS\nRUN' },
+  { num: '846', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']
@@ -765,7 +765,7 @@ const docChapters = [
   {
     num: '05',
     title: 'Test Coverage',
-    tagline: '149 blocks, 845 hard assertions, fixture-driven with zero ambiguity',
+    tagline: '149 blocks, 846 hard assertions, fixture-driven with zero ambiguity',
     sections: [
       {
         body: 'Every detection category has a corresponding fixture HTML page that reliably triggers exactly that bug. Fixtures are served via HTTP — never file:// — so CORS, ES modules, and fetch APIs work correctly. Each block has at minimum 3 hard assertions and passes consistently across environments without flakiness.',
@@ -802,23 +802,23 @@ const docChapters = [
           'Block 148: Upstream canary — chrome-devtools-mcp inputSchema snapshot diff (tool set + required + property names/types) + Chrome-rot deprecation watch, 5 assertions',
           'Block 149: Per-category negative controls — a well-formed page trips no detector; 65-category over-fire sweep driving the real pipeline, 70 assertions',
           'Block 150: Verification-gap closure — positive fixtures for focus_lost, security_no_https, cors_violation and cookie_attribute_missing (the last two fixed a real Chrome-149 Issues-panel classifier bug), 13 assertions',
-          '61 Vitest unit tests covering core logic — zero Chrome dependency',
-          'All 845 hard assertions pass — zero permanent failures',
+          '94 Vitest unit tests covering core logic — zero Chrome dependency',
+          'All 846 hard assertions pass — zero permanent failures',
         ],
       },
       {
         title: 'Known Limits',
         bullets: [
           'No known MCP- or Chrome-layer restrictions — every previously documented limit was root-caused and fixed in Argus',
-          'Soft assertions (Lighthouse, perf traces) require non-headless Chrome and are skipped in headless CI',
+          'Lighthouse runs in headless; remaining soft checks (perf traces, GC-dependent heap-growth) are promoted to hard only in the weekly headful lane',
         ],
       },
       {
         title: 'Running',
-        code: `npm run test:unit     # 61 Vitest tests — no Chrome required
-npm run test:harness  # 845 hard assertions — Chrome required (headless)
-# Expected: 845/845 — no permanent failures
-# Soft assertions (Lighthouse, perf traces) require non-headless Chrome`,
+        code: `npm run test:unit     # 94 Vitest tests — no Chrome required
+npm run test:harness  # 846 hard assertions — Chrome required (headless)
+# Expected: 846/846 — no permanent failures
+# Weekly headful lane promotes ~23 soft checks to hard via ARGUS_HARNESS_STRICT_SOFT`,
       },
     ],
   },

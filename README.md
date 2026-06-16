@@ -4,7 +4,7 @@
 
 [![npm](https://img.shields.io/npm/v/argusqa-os?color=7C3AED)](https://www.npmjs.com/package/argusqa-os)
 [![MCP Server](https://glama.ai/mcp/servers/ironclawdevs27/Argus/badges/card.svg)](https://glama.ai/mcp/servers/ironclawdevs27/Argus)
-[![Harness](https://img.shields.io/badge/harness-845%2F845-4ADE80)](test-harness/)
+[![Harness](https://img.shields.io/badge/harness-846%2F846-4ADE80)](test-harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Argus catches the bugs your test suite misses — visual regressions, API loops, CSS drift, console noise, accessibility failures, and more — and delivers rich reports to Slack (or a local HTML dashboard).**
@@ -217,7 +217,7 @@ npm run report:html    # Generate reports/report.html from last JSON audit
 npm run report:pdf     # Export HTML report to A4 PDF (requires: npm install puppeteer)
 npm run server         # Start Slack slash-command server (port 3001)
 npm run init           # Interactive setup wizard
-npm run test:unit          # 72 unit tests — no Chrome required
+npm run test:unit          # 94 unit tests — no Chrome required
 npm run test:harness       # 149-block correctness harness — requires Chrome
 npm run test:harness:log   # same, but tees full output to harness-results.txt
 npm run test:coverage      # merged unit + harness coverage gate (requires Chrome)
@@ -343,7 +343,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-All 845 harness assertions pass (`845/845`) — there are currently no known MCP- or Chrome-layer restrictions. Soft assertions (Lighthouse, performance traces) still require non-headless Chrome and are skipped in headless CI.
+All 846 harness assertions pass (`846/846`) — there are currently no known MCP- or Chrome-layer restrictions. Lighthouse now runs in headless (after the `lighthouse_audit` argument fix); the remaining soft assertions (perf traces, GC-dependent heap-growth) are promoted to counted hard assertions only in the weekly headful lane via `ARGUS_HARNESS_STRICT_SOFT`.
 
 ---
 
@@ -362,8 +362,8 @@ src/
     chrome-launcher.js  — npm run chrome / argus-chrome — launches Chrome with correct flags
     doctor.js           — npm run doctor / argus-doctor — pre-flight checks
     pr-validate.js      — headless CI entry point for GitHub Actions
-test-harness/           — 149-block correctness harness, 845 hard assertions, 63 fixture pages
-test/unit/              — 72 Vitest unit tests (no Chrome required)
+test-harness/           — 149-block correctness harness, 846 hard assertions, 63 fixture pages
+test/unit/              — 94 Vitest unit tests (no Chrome required)
 landing/                — Product landing page (React 19 + Vite + Tailwind)
 ```
 
@@ -374,7 +374,7 @@ Full source map → [CLAUDE.md](CLAUDE.md) · MCP/DSL reference → [SKILL.md](S
 ## Contributing
 
 1. Fork the repo and create a branch
-2. `npm run test:unit` — verify without Chrome (72 tests)
+2. `npm run test:unit` — verify without Chrome (94 tests)
 3. `npm run test:harness` — full integration coverage (requires Chrome on port 9222)
 4. Open a PR — Argus audits itself via the CI workflow
 
