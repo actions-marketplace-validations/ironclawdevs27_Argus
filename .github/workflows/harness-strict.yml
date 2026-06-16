@@ -1,0 +1,83 @@
+name: Argus Harness (strict-soft lane)
+
+# Weekly strict-soft lane (HARNESS_MAX_PLAN 4.3, revised). Runs the harness HEADLESS
+# with ARGUS_HARNESS_STRICT_SOFT=1, which promotes every soft() check (Lighthouse
+# scores, perf-trace summaries, heap-growth) to a counted hard assertion. The per-PR
+# gate (harness-ci.yml) keeps these soft to avoid flaky merges; this lane verifies
+# them as hard, weekly + on demand. Expected: 869/869 (846 + ~23 promoted soft checks).
+#
+# HISTORY: an earlier revision used Xvfb + non-headless Chrome, on the (disproven)
+# assumption that Lighthouse needs a real display. After the lighthouse_audit argument
+# fix, Lighthouse returns real scores in HEADLESS via chrome-devtools-mcp's attach mode
+# (verified locally at 869/869). Non-headless Chrome under Xvfb broke the whole harness
+# on the runner (pages rendered blank), so this lane is headless — same Chrome setup as
+# the proven harness-ci.yml, just with the soft→hard flag.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch: {}    # allow manual runs from the Actions tab
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  strict:
+    name: Strict-soft harness (soft→hard, headless)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+
+      - name: Start Chrome with remote debugging
+        run: |
+          google-chrome \
+            --headless=new \
+            --remote-debugging-port=9222 \
+            --no-sandbox \
+            --disable-setuid-sandbox \
+            --disable-dev-shm-usage \
+            --disable-gpu \
+            --window-size=1920,1080 \
+            about:blank &
+          echo "Waiting for Chrome to become ready..."
+          for i in {1..15}; do
+            if curl -sf http://127.0.0.1:9222/json/version > /dev/null 2>&1; then
+              echo "Chrome ready (attempt ${i})"
+              break
+            fi
+            if [ "${i}" -eq 15 ]; then
+              echo "Chrome failed to start after 15 attempts"
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Run harness with soft→hard promotion (strict-soft lane)
+        env:
+          ARGUS_HARNESS_STRICT_SOFT: '1'
+          # Generous per-MCP-tool timeout (default 30s): the strict lane runs ~6 real
+          # Lighthouse audits (~7s each) plus the [119] stdio block — 60s keeps a loaded
+          # runner from brushing the timeout.
+          MCP_TOOL_TIMEOUT_MS: '60000'
+        run: npm run test:harness
+        # The 846 hard assertions must still pass; the promoted soft() checks add ~23 more
+        # (clean run = 869/869). A red run here surfaces a real soft-assertion regression
+        # (e.g. Lighthouse no longer returning scores, a Chrome perf-trace API change) that
+        # the headless per-PR gate cannot see because those checks are soft there.

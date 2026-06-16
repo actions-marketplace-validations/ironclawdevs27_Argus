@@ -343,7 +343,7 @@ Argus is a **complementary layer**, not a replacement for unit or E2E tests:
 
 ## Known Limitations
 
-All 846 harness assertions pass (`846/846`) — there are currently no known MCP- or Chrome-layer restrictions. Lighthouse now runs in headless (after the `lighthouse_audit` argument fix); the remaining soft assertions (perf traces, GC-dependent heap-growth) are promoted to counted hard assertions only in the weekly headful lane via `ARGUS_HARNESS_STRICT_SOFT`.
+All 846 harness assertions pass (`846/846`) — there are currently no known MCP- or Chrome-layer restrictions. Lighthouse now runs in headless (after the `lighthouse_audit` argument fix); the remaining soft assertions (perf traces, GC-dependent heap-growth) are promoted to counted hard assertions only in the weekly strict-soft lane (`harness-strict.yml`) via `ARGUS_HARNESS_STRICT_SOFT`.
 
 ---
 

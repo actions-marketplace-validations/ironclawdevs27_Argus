@@ -810,7 +810,7 @@ const docChapters = [
         title: 'Known Limits',
         bullets: [
           'No known MCP- or Chrome-layer restrictions — every previously documented limit was root-caused and fixed in Argus',
-          'Lighthouse runs in headless; remaining soft checks (perf traces, GC-dependent heap-growth) are promoted to hard only in the weekly headful lane',
+          'Lighthouse runs in headless; remaining soft checks (perf traces, GC-dependent heap-growth) are promoted to hard only in the weekly strict-soft lane',
         ],
       },
       {
@@ -818,7 +818,7 @@ const docChapters = [
         code: `npm run test:unit     # 94 Vitest tests — no Chrome required
 npm run test:harness  # 846 hard assertions — Chrome required (headless)
 # Expected: 846/846 — no permanent failures
-# Weekly headful lane promotes ~23 soft checks to hard via ARGUS_HARNESS_STRICT_SOFT`,
+# Weekly strict-soft lane promotes ~23 soft checks to hard via ARGUS_HARNESS_STRICT_SOFT`,
       },
     ],
   },

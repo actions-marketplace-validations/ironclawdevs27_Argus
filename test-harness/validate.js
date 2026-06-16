@@ -138,14 +138,17 @@ function assert(condition, message) {
 }
 
 /**
- * Strict-soft mode (HARNESS_MAX_PLAN 4.3 \u2014 headful CI lane).
- * The default per-PR run is headless, where Lighthouse / perf-trace / heap-growth
- * checks return null or skip \u2014 they ship as soft() so they cannot fail the 845-gate.
- * The weekly headful lane (.github/workflows/harness-headful.yml: xvfb + non-headless
- * Chrome) sets ARGUS_HARNESS_STRICT_SOFT=1, which promotes EVERY soft() to a counted
+ * Strict-soft mode (HARNESS_MAX_PLAN 4.3 \u2014 strict-soft CI lane).
+ * The default per-PR run ships the environment-sensitive checks (perf-trace, heap-growth;
+ * historically Lighthouse too, before the lighthouse_audit fix) as soft() so they cannot
+ * fail the 846-gate. The weekly strict-soft lane (.github/workflows/harness-strict.yml,
+ * headless) sets ARGUS_HARNESS_STRICT_SOFT=1, which promotes EVERY soft() to a counted
  * hard assert(). Those ~23 checks then become real, verified-weekly assertions in that
- * lane only. Leaving the flag unset (the default) keeps soft() a non-counting log, so
- * the 845-gate and every doc stat are unchanged. */
+ * lane only (clean run = 869/869). Leaving the flag unset (the default) keeps soft() a
+ * non-counting log, so the 846-gate and every doc stat are unchanged.
+ * (The lane was first built with Xvfb + non-headless Chrome, but that broke page rendering
+ * on the GitHub runner and the lighthouse_audit fix made Lighthouse work headless \u2014 so the
+ * lane is headless.) */
 const STRICT_SOFT = /^(1|true|yes|on)$/i.test(process.env.ARGUS_HARNESS_STRICT_SOFT || '');
 
 /** Soft: logged, never counts against exit code \u2014 unless STRICT_SOFT promotes it to hard. */

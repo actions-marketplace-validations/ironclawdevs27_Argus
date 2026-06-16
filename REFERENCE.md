@@ -437,7 +437,7 @@ Runs all four Lighthouse categories on every `argus_audit_full` run:
 
 Individual failing audit items (e.g., missing alt text, low contrast, render-blocking resources) are surfaced as separate findings alongside the category score.
 
-> **Note:** Lighthouse soft assertions require non-headless Chrome — they are skipped in headless CI environments.
+> **Note:** Lighthouse now runs in headless (after the `lighthouse_audit` argument fix); its score checks stay soft in the per-PR gate and are promoted to hard in the weekly strict-soft lane (`harness-strict.yml`).
 
 ---
 
@@ -597,7 +597,7 @@ Runs all four Lighthouse categories on every `argus_audit_full` call:
 
 Individual failing audit items are surfaced as separate findings alongside the category score.
 
-> Soft assertions (Lighthouse, perf traces) require non-headless Chrome. They are skipped in headless CI environments and do not cause harness failures.
+> Lighthouse now runs in headless (after the `lighthouse_audit` fix). The remaining soft assertions (perf traces, GC-dependent heap-growth) stay soft in headless CI and do not cause harness failures; the weekly strict-soft lane (`harness-strict.yml`) promotes them to hard.
 
 ---
 
