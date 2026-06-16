@@ -51,8 +51,14 @@ jobs:
           sleep 2
           # NOTE: deliberately NO --headless flag — Chrome renders to the Xvfb
           # virtual display so Lighthouse / perf-trace / heap soft checks run for real.
+          # --user-data-dir is REQUIRED: since ~Chrome 136, remote debugging is refused
+          # against the default profile ("DevTools remote debugging requires a non-default
+          # data directory"). Headless auto-creates a temp profile (so harness-ci.yml needs
+          # no flag), but this non-headless launch must point at an explicit dir or 9222
+          # never comes up.
           google-chrome \
             --remote-debugging-port=9222 \
+            --user-data-dir="${RUNNER_TEMP:-/tmp}/chrome-argus-headful" \
             --no-sandbox \
             --disable-setuid-sandbox \
             --disable-dev-shm-usage \
@@ -75,6 +81,10 @@ jobs:
         env:
           DISPLAY: ':99'
           ARGUS_HARNESS_STRICT_SOFT: '1'
+          # Generous per-MCP-tool timeout (default 30s): the strict lane now runs ~6 real
+          # Lighthouse audits (~7s each locally, slower on a loaded runner) plus the [119]
+          # stdio block — 60s keeps a slow runner from brushing the timeout.
+          MCP_TOOL_TIMEOUT_MS: '60000'
         run: npm run test:harness
         # The 846 hard assertions must still pass; the promoted soft() checks add
         # ~23 more (clean strict run = 869/869). A red run here surfaces a real
