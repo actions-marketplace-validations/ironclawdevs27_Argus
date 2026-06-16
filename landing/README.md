@@ -423,3 +423,6 @@ The 4.3 headful-lane verification surfaced that `lighthouse_audit` was being cal
 | Docs § "Test Coverage" tagline | `149 blocks, 845 hard assertions` | `149 blocks, 846 hard assertions` |
 | Docs § "Running" code | `61 Vitest tests`, `845 hard assertions`, `845/845` | `94 Vitest tests`, `846 hard assertions`, `846/846` |
 | Docs § Breakdown bullets | `61 Vitest unit tests`, `All 845 hard assertions pass` | `94 Vitest unit tests`, `All 846 hard assertions pass` |
+| `index.html` SEO/OG/JSON-LD descriptions (meta, og:, twitter:, schema.org) | `54 detection types, 82 test blocks, 348 assertions` (long-stale — search/social text) | `67 detection types, 149 test blocks, 846 assertions` |
+
+> Heads-up: `public/og-image-v2.jpg` is a static branded card that may have stat numbers baked into the image — it can't be edited as text and would need to be regenerated if its numbers are stale. Not changed here.
