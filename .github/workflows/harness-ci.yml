@@ -73,6 +73,6 @@ jobs:
 
       - name: Coverage gate (merged unit + harness)
         run: npm run coverage:gate
-        # Fails CI if merged line coverage < 60% (conservative floor; ratchet up) or a
+        # Fails CI if merged line coverage < 70% (ratcheted from 60 once CI confirmed ~75%) or a
         # src/ module outside the documented subprocess-tested allowlist is fully
         # uncovered — the "zero-coverage module" guard for the 2026-06-12 audit blind spot.

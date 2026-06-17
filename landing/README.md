@@ -122,7 +122,7 @@ All UI lives in `src/App.jsx` as a single-file app. Hero section is built inline
 | `@media` edge cases | ✅ Fixed | `100dvh` via `@supports` in `index.css`; stat row / detection grid / nav handle narrow viewports natively |
 | SEO — OG / Twitter / JSON-LD | ✅ Added | `index.html` has full OG tags, Twitter card, canonical, JSON-LD schema |
 | `robots.txt` + `sitemap.xml` | ✅ Added | Both in `landing/public/` |
-| OG social card | ✅ Done | `og-image-v2.jpg` — 1200×630 JPEG, cover-mode scaled from `argus-poster.png`, branded overlay, black-outlined purple stat numbers (original 54 / 84 / 367 — baked into image asset); `og-image.jpg` gitignored |
+| OG social card | ✅ Done | `og-image-v3.jpg` — 1200×630 JPEG, branded overlay, purple stat numbers (67 / 149 / 846); regenerated via real-pixel bg reconstruction from the original art (old `og-image-v2.jpg` had stale 54/82/348 baked in — removed); `og-image.jpg` gitignored |
 | Mobile stats layout | ✅ Fixed | Stats row stacks vertically on mobile (`flex-col sm:flex-row`); slide widget reduced from 8 → 6 slides; `clamp()`-based fluid typography |
 | Deployment | ✅ Live | `npx wrangler pages deploy dist --project-name argus-qa`; custom domain `argus-qa.com` active |
 
@@ -425,4 +425,4 @@ The 4.3 headful-lane verification surfaced that `lighthouse_audit` was being cal
 | Docs § Breakdown bullets | `61 Vitest unit tests`, `All 845 hard assertions pass` | `94 Vitest unit tests`, `All 846 hard assertions pass` |
 | `index.html` SEO/OG/JSON-LD descriptions (meta, og:, twitter:, schema.org) | `54 detection types, 82 test blocks, 348 assertions` (long-stale — search/social text) | `67 detection types, 149 test blocks, 846 assertions` |
 
-> Heads-up: `public/og-image-v2.jpg` is a static branded card that may have stat numbers baked into the image — it can't be edited as text and would need to be regenerated if its numbers are stale. Not changed here.
+> Heads-up: the OG card has stat numbers baked into the image (it's a static JPEG, not editable as text). Resolved 2026-06-17 — `og-image-v2.jpg` (stale 54/82/348) was regenerated as `og-image-v3.jpg` (67/149/846) via real-pixel background reconstruction + native-rendered numbers, and the orphaned v2 was removed.
