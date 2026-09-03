@@ -10,25 +10,22 @@ reports/*.png
 reports/*.jpg
 reports/*.webp
 reports/*.diff.png
+reports/metrics-history.csv
 
 # Release notes — local scratch pad, copy-paste into GitHub release form
 RELEASE_NOTES.md
 
-# Internal planning docs — keep local only
+# Internal planning docs — keep local only.
+# Strategy/plan/analysis docs live in "Strategy and Planning Docs/"; the
+# re-runnable Claude session prompts live in "Prompts/". Both stay local.
+Strategy and Planning Docs/
+Prompts/
 session.md
-solution.md
 Sessions/
-*-strategy.md
-FINALIZE.md
-argus-vX1-roadmap.md
-argus-vX1-gaps.md
-business-analysis.md
-test-harness-gaps.md
-audit_prompt.md
-AUDIT_REPORT.md
-E2E_PLAN.md
-HARNESS_MAX_PLAN.md
-harness_max_prompt.md
+SETUP_GUIDE.md
+
+# Brand assets for business-account setups (Stripe/Google/etc.) — local only
+brand/
 
 # Harness output log — written by npm run test:harness:log
 harness-results.txt
@@ -40,13 +37,26 @@ coverage-harness-run.txt
 # Argus auth session files — contain live cookies/localStorage tokens, never commit
 .argus-*.json
 
+# Aegis re-hydration vault + provenance audit (Step 8) — token→secret mappings,
+# per-machine key, and the secret-free audit trail. 0600, LOCAL-ONLY, never commit.
+reports/.aegis-vault/
+reports/.aegis-audit/
+# Operator rehydrate output (re-inflated reports may contain raw secrets)
+*.rehydrated.json
+
 # Claude Code local config — never commit
 .claude/
+
+# Agent skills installed by `npx skills add` — third-party content, and local
+# tooling rather than anything a consumer of the published package needs.
+.agents/
+skills-lock.json
 
 # Landing page build output, vite temp files, and local video asset
 landing/node_modules/
 landing/dist/
 landing/vite.config.js.timestamp-*.mjs
+landing/.vite-dev.log
 landing/.env.local
 landing/public/og-image.jpg
 Animated Argus Panoptes.mp4

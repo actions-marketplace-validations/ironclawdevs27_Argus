@@ -1,18 +1,24 @@
 {
   "name": "argusqa-os",
-  "version": "9.7.6",
+  "version": "10.0.0",
   "mcpName": "io.github.ironclawdevs27/argus",
-  "description": "Argus — AI-powered automated dev-testing platform using Chrome DevTools MCP and Claude Code",
+  "description": "Argus — the QA layer for AI-assisted development. Claude-native (MCP) Chrome audits across 67 categories — errors, visual regressions, a11y, security, performance — no test files, secrets redacted by default (Aegis).",
   "keywords": [
     "mcp",
     "mcp-server",
     "claude",
+    "claude-code",
+    "ai-agents",
+    "agentic-coding",
     "qa",
     "testing",
     "accessibility",
     "automation",
     "chrome-devtools",
-    "web-testing"
+    "web-testing",
+    "visual-regression",
+    "web-vitals",
+    "security"
   ],
   "author": "ironclawdevs",
   "license": "MIT",
@@ -23,6 +29,7 @@
   },
   "files": [
     "src/",
+    "scripts/rehydrate-report.mjs",
     ".mcp.json",
     "glama.json"
   ],
@@ -43,6 +50,7 @@
     "init": "node src/cli/init.js",
     "chrome": "node src/cli/chrome-launcher.js",
     "doctor": "node src/cli/doctor.js",
+    "metrics": "node scripts/metrics-snapshot.mjs",
     "crawl": "node src/orchestration/crawl-and-report.js",
     "compare": "node src/orchestration/env-comparison.js",
     "watch": "node src/orchestration/watch-mode.js",
@@ -59,13 +67,14 @@
     "test:coverage": "npm run coverage:harness && npm run coverage:unit && npm run coverage:gate",
     "report:html": "node src/utils/html-reporter.js",
     "report:pdf": "node src/utils/pdf-exporter.js",
+    "report:rehydrate": "node scripts/rehydrate-report.mjs",
     "mcp-server": "node src/mcp-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/sdk-node": "^0.219.0",
-    "@slack/web-api": "^7.17.0",
+    "@opentelemetry/sdk-node": "^0.220.0",
+    "@slack/web-api": "^7.19.0",
     "axe-core": "^4.12.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -76,10 +85,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.10",
     "c8": "^11.0.0",
-    "fast-check": "^4.8.0",
+    "fast-check": "^4.9.0",
     "istanbul-lib-coverage": "^3.2.2",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.10"
   }
 }

@@ -1,6 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
 import { supabase } from './supabase'
+import { useNpmDownloads } from './useNpmDownloads'
+import { DownloadBadge } from './DownloadBadge'
+import { AuthModal } from './AuthModal'
+import {
+  ACCENT, ACCENT_LIGHT, SURFACE_TINT, DANGER,
+  accent, accentLight, warning, success,
+} from './theme'
+import {
+  buildCheckoutUrl, captureReferral, storedReferral,
+  stashPendingFounding, takePendingFounding, recordFoundingMember, stripQueryParam,
+} from './checkout'
+import { fetchActiveCampaign, campaignToOffer } from './festiveApi'
+import { initAnalytics, capture, identify, EVENTS } from './analytics'
+
+// The hosted app's origin — source of the live festive campaign (and, once app
+// Checkout is live, of the in-app paid flow). Empty is safe: the banner falls back
+// to the compiled-in schedule below.
+const APP_URL = import.meta.env.VITE_APP_URL || ''
+
+// The premium dark section background — lifted verbatim from the Aegis / Security
+// section so the light sections that used to break the flow (Detection, Pricing) now
+// share its deep-purple-to-black radial and glass aesthetic.
+const AEGIS_BG = 'radial-gradient(120% 80% at 50% -10%, #1a0b30 0%, #0b0712 55%, #08070c 100%)'
+
+// Charts pull in Recharts (d3 internals) — lazy-load so the heavy chart bundle stays
+// out of the initial payload; the section is below the fold.
+const DownloadsSection = lazy(() => import('./DownloadsSection').then(m => ({ default: m.DownloadsSection })))
+// Security & Compliance (Aegis) — animated SVG diagrams; lazy-loaded, below the fold.
+const SecuritySection = lazy(() => import('./SecuritySection').then(m => ({ default: m.SecuritySection })))
 import {
   ArrowUpRight, X, ChevronDown, ChevronRight, CheckCircle,
   Code2, Sparkles, Globe,
@@ -19,18 +48,19 @@ function Github({ size = 16 }) {
   )
 }
 
-const ACCENT = '#5E0ED7'
 const VIDEO_URL = 'https://pub-4a48bc28d90e4425a6fb87b164225d13.r2.dev/argus-video.mp4'
 const GITHUB_URL = 'https://github.com/ironclawdevs27/Argus'
 const SLIDE_INTERVAL = 5000
 const SCROLL_SHOW_DELAY = 1500
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const navLinks = ['Features', 'How It Works', 'Setup', 'Pricing', 'Docs']
+const navLinks = ['Growth', 'Features', 'How It Works', 'Security', 'Setup', 'Pricing', 'Docs']
 
 const navHrefs = {
+  Growth: '#growth',
   Features: '#features',
   'How It Works': '#detection',
+  Security: '#security',
   Setup: '#setup',
   Pricing: '#pricing',
   Docs: '#docs',
@@ -38,8 +68,8 @@ const navHrefs = {
 
 const stats = [
   { num: '67', label: 'DETECTION\nTYPES' },
-  { num: '149', label: 'TEST\nBLOCKS' },
-  { num: '846', label: 'ASSERTIONS\nRUN' },
+  { num: '171', label: 'TEST\nBLOCKS' },
+  { num: '998', label: 'ASSERTIONS\nRUN' },
 ]
 
 const headingWords = ['Every', 'Bug', 'Caught']
@@ -107,8 +137,8 @@ const features = [
   },
   {
     icon: GitBranch,
-    title: 'GitHub PR Integration',
-    desc: 'Auto-posts a findings table on every pull request and sets a commit status check. New criticals block merges.',
+    title: 'Baseline-Aware PR Gating',
+    desc: 'Maps a PR diff to the routes it actually touches, audits only those, and blocks merges only on regressions the PR introduces. Posts an idempotent findings comment plus a GitHub Check Run.',
     tag: 'CI / CD',
   },
   {
@@ -520,6 +550,14 @@ jobs:
   },
 ]
 
+// Polar Checkout Links — set in landing/.env.local (build-time, VITE_*) then rebuild + redeploy.
+// Empty string → the CTA falls back to the waitlist, so the site is byte-identical to today until
+// a link is configured. Create the link in the Polar dashboard → Products → Checkout Links (no
+// API token in the bundle — a Checkout Link is a public URL, exactly like a Stripe Payment Link was).
+const CHECKOUT_LINKS = {
+  pro: import.meta.env.VITE_POLAR_CHECKOUT_LINK || '',
+}
+
 // ── Pricing plans ──────────────────────────────────────────────────────────────
 const pricingPlans = [
   {
@@ -552,36 +590,25 @@ const pricingPlans = [
     popular: true,
     dark: false,
     comingSoon: true,
+    // Founding-member pre-sale — rendered ONLY when CHECKOUT_LINKS.pro is set. All copy/price
+    // in one place; adjust freely. Honest framing: early access, not a finished dashboard.
+    founding: {
+      tag: 'FOUNDING MEMBER',
+      price: '$19', origPrice: '$29', period: '/month',
+      cta: 'Become a Founding Member',
+      note: 'Price locked forever · first access to the hosted dashboard the moment it ships · direct founder support.',
+    },
     description: 'Hosted QA with zero infrastructure. No Chrome, no npm, no config.',
     benefits: [
       'Everything in Open Source',
       'Fully hosted — no Chrome or npm needed',
-      'Up to 5 projects',
+      'Up to 10 projects',
       'Scheduled audits (on PR, nightly, continuous)',
       'Cloud report storage & history',
       'Web dashboard',
-      'Slack & email alerts included',
-    ],
-    cta: 'Join Waitlist',
-    ctaAction: 'waitlist',
-  },
-  {
-    id: 'team',
-    name: 'Team',
-    price: '$99',
-    period: '/month',
-    tag: 'FOR TEAMS',
-    dark: false,
-    comingSoon: true,
-    description: 'For engineering teams that need unlimited scale and collaboration.',
-    benefits: [
-      'Everything in Pro',
-      'Unlimited projects',
-      'Team dashboard & member sharing',
-      'Per-branch baselines in CI',
+      'Invite teammates & shared baselines',
       'Trend charts & regression alerts',
-      'Priority support (< 4 hr response)',
-      'Custom Slack notifications per team',
+      'Slack & email alerts included',
     ],
     cta: 'Join Waitlist',
     ctaAction: 'waitlist',
@@ -595,7 +622,8 @@ const pricingPlans = [
     dark: true,
     description: 'For large organisations with compliance, security, and custom requirements.',
     benefits: [
-      'Everything in Team',
+      'Everything in Pro',
+      'Unlimited projects & team members',
       'SSO via SAML 2.0 or OIDC',
       'On-premises deployment option',
       'Custom detection rules & policies',
@@ -619,10 +647,10 @@ const COMPARISON_ROWS = [
   { feature: 'Hosted — no Chrome or npm needed',    open: false, pro: true,  team: true,  enterprise: true  },
   { feature: 'Scheduled audits (PR / nightly)',     open: false, pro: true,  team: true,  enterprise: true  },
   { feature: 'Cloud report storage & history',      open: false, pro: true,  team: true,  enterprise: true  },
-  { feature: 'Up to 5 hosted projects',             open: false, pro: true,  team: true,  enterprise: true  },
-  { feature: 'Team dashboard & member sharing',     open: false, pro: false, team: true,  enterprise: true  },
-  { feature: 'Unlimited projects',                  open: false, pro: false, team: true,  enterprise: true  },
-  { feature: 'Trend charts & regression alerts',    open: false, pro: false, team: true,  enterprise: true  },
+  { feature: 'Up to 10 hosted projects',            open: false, pro: true,  team: true,  enterprise: true  },
+  { feature: 'Team members & shared baselines',     open: false, pro: true,  team: true,  enterprise: true  },
+  { feature: 'Unlimited projects & team members',   open: false, pro: false, team: true,  enterprise: true  },
+  { feature: 'Trend charts & regression alerts',    open: false, pro: true,  team: true,  enterprise: true  },
   { feature: 'Priority support (< 4hr response)',   open: false, pro: false, team: true,  enterprise: true  },
   { feature: 'SSO — SAML 2.0 or OIDC',             open: false, pro: false, team: false, enterprise: true  },
   { feature: 'On-premises deployment',              open: false, pro: false, team: false, enterprise: true  },
@@ -725,7 +753,7 @@ const docChapters = [
         title: 'Extended Detections',
         bullets: [
           'Redirect chains, cookie flags, API contract validation, severity policy overrides',
-          'Core Web Vitals (LCP, FID, CLS, FCP, TTFB) via Performance API — headless-compatible',
+          'Core Web Vitals (LCP, CLS, FCP, TTI, TTFB) via Performance API — headless-compatible',
           'Bundle size regression: JS ≥ 500 KB / ≥ 2 MB, CSS ≥ 150 KB',
           'Duplicate element IDs, mixed content, HTML dashboard, parallel route crawling',
           'Hover-state CSS bugs, accessibility tree analysis, keystroke constraint enforcement',
@@ -776,7 +804,7 @@ const docChapters = [
   {
     num: '05',
     title: 'Test Coverage',
-    tagline: '149 blocks, 846 hard assertions, fixture-driven with zero ambiguity',
+    tagline: '171 blocks, 998 hard assertions, fixture-driven with zero ambiguity',
     sections: [
       {
         body: 'Every detection category has a corresponding fixture HTML page that reliably triggers exactly that bug. Fixtures are served via HTTP — never file:// — so CORS, ES modules, and fetch APIs work correctly. Each block has at minimum 3 hard assertions and passes consistently across environments without flakiness.',
@@ -813,8 +841,30 @@ const docChapters = [
           'Block 148: Upstream canary — chrome-devtools-mcp inputSchema snapshot diff (tool set + required + property names/types) + Chrome-rot deprecation watch, 5 assertions',
           'Block 149: Per-category negative controls — a well-formed page trips no detector; 65-category over-fire sweep driving the real pipeline, 70 assertions',
           'Block 150: Verification-gap closure — positive fixtures for focus_lost, security_no_https, cors_violation and cookie_attribute_missing (the last two fixed a real Chrome-149 Issues-panel classifier bug), 13 assertions',
-          '94 Vitest unit tests covering core logic — zero Chrome dependency',
-          'All 846 hard assertions pass — zero permanent failures',
+          'Block 151: PR Validator — idempotent GitHub PR comment, 7 assertions',
+          'Block 152: PR Validator — GitHub Check Run conclusion maps to the block decision, 6 assertions',
+          'Block 153: PR Validator — the argus_pr_validate MCP tool reports through the same shared helper as the CI Action, 3 assertions',
+          'Block 154: PR Validator — baseline-aware blocking; gates on the findings a PR introduces vs a stored per-branch baseline, fail-safe to absolute when none, 7 assertions',
+          'Block 155: PR Validator — the PR comment surfaces new/persisting/resolved counts that reconcile with the block decision, 5 assertions',
+          'Block 156: PR Validator — framework-aware route mapping; a changed component maps to only the routes whose pages import it (import graph), conservative-fallback on ambiguity, 11 assertions',
+          'Block 157: PR Validator — monorepo path awareness; re-bases apps/web/… paths into the package graph, foreign packages never misattributed, 8 assertions',
+          'Block 158: PR Validator — stylesheet attribution; a changed non-global CSS module narrows to only its importing routes, global stylesheets stay conservative, 7 assertions',
+          'Block 159: PR Validator — bounded-concurrency route auditing; results stay in route order regardless of completion, one Chrome client per lane, 5 assertions',
+          'Block 160: PR Validator — selective analyzer depth; file-type-aware expensive-analyzer policy, opt-in, default cheap, drift-guarded registry, 9 assertions',
+          'Block 161: PR Validator — deploy-preview URL auto-detection; adopts only a live (success) GitHub-Deployment preview, degrades to the configured target, 5 assertions',
+          'Block 162: PR Validator — per-route timeout/retry; a hung audit times out and is recorded as a route error (never a false pass), feeding the all-routes-failed guard, 5 assertions',
+          'Block 163: PR Validator — GitHub API resilience; one shared resilient client retries rate-limit/5xx/network with capped backoff and never leaks the token in an error, 5 assertions',
+          'Block 164: PR Validator — block-decision + guard matrix; block-on × severity exhaustively pinned plus the all-routes-failed guard, base-unavailable fail-safe, and decision→exit-code mapping, 7 assertions',
+          'Block 165: PR Validator — CLI↔MCP block-decision parity; both paths build the summary via one shared tally and delegate to one shared gate, so they reach the identical decision for the same findings, 4 assertions',
+          'Block 166: PR Validator — recorded GitHub reporting fixtures; proves Argus parses the documented comment/Check-Run response shape, idempotently updates one marker-tagged comment, and never leaks the token, 4 assertions',
+          'Block 167: PR Validator — CLI end-to-end; drives the real CLI as a child process (docs-only PR → exit 0; a critical → exit 1), pinning exit codes, GitHub Action outputs, annotations, and the JSON result, 8 assertions',
+          'Block 168: Aegis — confidentiality egress boundary; drives the real pipeline plus a live MCP audit against a secret-bearing fixture, proving the redacted projection leaks no JWT/key/email/card and fails closed, 12 assertions',
+          'Block 169: Aegis — egress-sink guards; Slack / GitHub / hosted-HTML / CI-log sinks each redact secrets while keeping benign messages, with opt-out non-vacuity controls, 5 assertions',
+          'Block 170: Aegis for Teams — engine policy param; an org policy toggles secret/PII rules but only ever narrows the egress allowlist / widens the sensitive-type set, and a malformed policy fails closed, 7 assertions',
+          'Block 171: Aegis for Teams — governance seam; fetch + Ed25519-verify a signed org policy, apply it, fail closed on any bad signature, and post secret-free aggregates, 7 assertions',
+          'Block 172: Aegis for Teams — team-vault routing; mode=token maps to a central vault so the secret reaches only the authorized endpoint while the information-free token crosses every other sink, 6 assertions',
+          '562 Vitest unit tests covering core logic — zero Chrome dependency',
+          'All 998 hard assertions pass — zero permanent failures',
         ],
       },
       {
@@ -826,9 +876,9 @@ const docChapters = [
       },
       {
         title: 'Running',
-        code: `npm run test:unit     # 94 Vitest tests — no Chrome required
-npm run test:harness  # 846 hard assertions — Chrome required (headless)
-# Expected: 846/846 — no permanent failures
+        code: `npm run test:unit     # 562 Vitest tests — no Chrome required
+npm run test:harness  # 998 hard assertions — Chrome required (headless)
+# Expected: 998/998 — no permanent failures
 # Weekly strict-soft lane promotes ~23 soft checks to hard via ARGUS_HARNESS_STRICT_SOFT`,
       },
     ],
@@ -884,7 +934,7 @@ npm run test:harness  # 846 hard assertions — Chrome required (headless)
           'argus_get_context() — LLM-optimized diagnostic context with fix-loop: pass snapshot_id back to get resolved/new_issues/persisting diff',
           'argus_design_audit(url, figmaFrameUrl) — compares live DOM against Figma frame via REST API; 13 mismatch finding types with selector fallback; requires FIGMA_API_TOKEN',
           'argus_visual_diff(url) — pixel-level screenshot baseline comparison via pixelmatch; first call saves baseline, subsequent calls emit visual_regression findings; pass updateBaseline: true to reset after intentional UI changes',
-          'argus_pr_validate(prUrl) — fetches PR diff, maps changed files to affected routes, runs targeted argus_audit per route, returns { findings, affectedRoutes, blocked, blockOn }; blocks merge on new criticals',
+          'argus_pr_validate(prUrl) — fetches the PR diff, maps changed files to affected routes (framework-aware when ARGUS_SOURCE_DIR is set), audits only those routes, and reports through the same shared helper as the CI Action; returns { findings, affectedRoutes, blocked, blockOn, baseline, reporting }; blocks merge only on regressions the PR introduces vs the per-branch baseline',
         ],
       },
       {
@@ -970,6 +1020,100 @@ npm run test:harness  # 846 hard assertions — Chrome required (headless)
           'Component presence — Figma-specified selector exists in DOM',
           'Summary — aggregate counts for all 13 types in every audit',
         ],
+      },
+    ],
+  },
+  {
+    num: '10',
+    title: 'PR Validation & Merge Gating',
+    tagline: 'Block only on what the pull request introduces — baseline-aware, framework-aware, fail-safe',
+    sections: [
+      {
+        body: 'The PR Validator turns Argus into a merge gate. On a pull request it fetches the diff, maps the changed files to the routes they actually affect, audits only those routes, diffs the findings against a stored per-branch baseline, and blocks the merge only on the regressions the PR itself introduces. It posts the result back onto the PR — a comment and a Check Run — so a reviewer never has to open the Actions tab. Every step is conservative by construction: when anything is ambiguous it widens scope or blocks, never the reverse.',
+      },
+      {
+        title: 'Two Entry Points, One Decision',
+        bullets: [
+          'CLI (argus-pr-validate) — the headless CI entry point the GitHub Action wraps; audits a routes-file for CI safety and speed',
+          'argus_pr_validate MCP tool — the conversational path; audits your targets.js routes for dev convenience',
+          'The route source diverges by design, but the block decision is shared: both build the severity tally and delegate to one decidePrBlock gate, so they reach the identical verdict for the same findings',
+          'Both report through one shared helper, so the PR comment and Check Run look identical no matter which path produced them',
+        ],
+      },
+      {
+        title: 'Baseline-Aware Blocking',
+        bullets: [
+          'Diffs the PR-head findings against a per-branch baseline (reports/baselines/<base-branch>.json, restored via the actions/cache pattern)',
+          'Gates on NEW criticals/warnings only — a pre-existing issue on an affected route no longer blocks every PR that touches that route',
+          'Surfaces NEW / PERSISTING / RESOLVED counts in the comment and step summary, reconciled with the block decision',
+          'Fail-safe: with no baseline available it blocks on absolute counts and says so in the summary — it never silently passes a broken app',
+        ],
+      },
+      {
+        title: 'Framework-Aware Route Mapping',
+        bullets: [
+          'Opt-in via ARGUS_SOURCE_DIR — a static ES/CJS import graph maps a changed component to only the routes whose page files import it',
+          'Next.js convention + tsconfig path aliases; monorepo-aware (re-bases apps/web/… paths into the right package graph, never misattributes a foreign package)',
+          'A changed non-global stylesheet narrows to only its importing routes; a global stylesheet stays conservative (all routes)',
+          'Only ever NARROWS, and only when every changed file resolves cleanly — any ambiguity falls back to the slug heuristic, so a regression is never mapped away',
+        ],
+      },
+      {
+        title: 'Safety Properties',
+        bullets: [
+          'All-routes-failed guard — if every audited route errors (app unreachable, or every audit timed out) the run exits 1 and blocks; a hung app can never false-pass',
+          'Per-route timeout + retry — a timed-out audit is recorded as a route error, never a silent zero-findings pass (ARGUS_ROUTE_TIMEOUT_MS / ARGUS_ROUTE_RETRIES)',
+          'Bounded-concurrency auditing — routes can run in parallel (ARGUS_CONCURRENCY) but results stay in route order, so the decision is identical to a sequential run',
+          'Deploy-preview auto-detection adopts only a live (success) GitHub-Deployment preview, degrading to the configured target otherwise',
+          'One resilient GitHub client retries rate-limit / 5xx / network with capped backoff and scrubs any token before it can reach a log or annotation',
+        ],
+      },
+      {
+        title: 'Reporting on the PR',
+        bullets: [
+          'One idempotent, marker-tagged comment — re-running updates it in place instead of spamming the thread',
+          'A GitHub Check Run whose conclusion maps to the block decision (failure iff blocked)',
+          'Inline file:line annotations anchored at real added lines from the diff hunks — never a fabricated location',
+        ],
+      },
+    ],
+  },
+  {
+    num: '11',
+    title: 'Intelligent Baselines & Noise Filtering',
+    tagline: 'Surface the new regression; silence the known and the flaky — without ever hiding a real bug',
+    sections: [
+      {
+        body: 'A QA tool that cries wolf gets muted. Argus post-processes every run so the signal stays high: known issues are remembered, findings that flip on and off across runs are demoted rather than alerted, and each genuinely new finding is linked back to the commits most likely to have caused it. Every post-processor is fail-safe — wrapped in try/catch so a post-processing error can never drop a finding or break a run.',
+      },
+      {
+        title: 'Per-Run Baselines',
+        bullets: [
+          'Each run is diffed against the stored baseline; only new findings are flagged isNew and trigger alerts',
+          'Resolved findings are tracked too, so trend history shows both regressions and fixes over time',
+          'Baselines are path-keyed, so a PR-head deploy on a different host (a Vercel/Netlify preview) still diffs correctly',
+        ],
+      },
+      {
+        title: 'Cross-Run Noise Classifier',
+        bullets: [
+          'Tracks the last 20 runs per branch and computes a presence-flip ratio for each finding',
+          'A finding that flips on/off across ≥ 4 runs with a flip ratio ≥ 0.4 is tagged noisy with a noiseScore and downgraded to info',
+          'Downgraded — never suppressed: the finding is still in the report, just not raised as a regression',
+          'Disable with ARGUS_NOISE_FILTER=0',
+        ],
+      },
+      {
+        title: 'Root-Cause Linking',
+        bullets: [
+          'For each NEW finding, scans the last 10 git commits (git log --name-only) and slug-matches changed files to the finding route',
+          'Annotates the finding with rootCause: { files, commits } — the suspect files and commits, no API call required',
+          'Pure local heuristic; disable with ARGUS_ROOT_CAUSE=0',
+        ],
+      },
+      {
+        title: 'Flakiness Detection',
+        body: 'Routes can be double-crawled and the two finding sets compared: a finding present in both passes is confirmed, one present in only one is classified flaky. This separates deterministic bugs from timing-sensitive noise before anything reaches your Slack channel or PR comment.',
       },
     ],
   },
@@ -1139,7 +1283,7 @@ function DetectionSection() {
   return (
     <section
       id="detection"
-      style={{ background: '#F7F5FF', padding: 'clamp(5rem, 10vw, 9rem) clamp(1.25rem, 6vw, 5rem)' }}
+      style={{ background: AEGIS_BG, padding: 'clamp(5rem, 10vw, 9rem) clamp(1.25rem, 6vw, 5rem)' }}
     >
       <div style={{ maxWidth: 1120, margin: '0 auto' }}>
         <div
@@ -1154,16 +1298,16 @@ function DetectionSection() {
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             style={{ flex: '1 1 280px' }}
           >
-            <SectionLabel light>Detection Engine</SectionLabel>
+            <SectionLabel>Detection Engine</SectionLabel>
             <h2
               style={{
-                fontSize: 'clamp(2rem, 4.5vw, 3.75rem)', fontWeight: 600, color: '#0a0a0a',
+                fontSize: 'clamp(2rem, 4.5vw, 3.75rem)', fontWeight: 600, color: '#fff',
                 lineHeight: 1.1, letterSpacing: '-0.02em', whiteSpace: 'pre-line', margin: 0,
               }}
             >
               {'67 types.\nZero blind spots.'}
             </h2>
-            <p style={{ margin: '1rem 0 0', fontSize: '0.85rem', color: 'rgba(10,10,10,0.45)', lineHeight: 1.6 }}>
+            <p style={{ margin: '1rem 0 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.6 }}>
               Click any category to see every detection it covers.
             </p>
           </motion.div>
@@ -1176,10 +1320,10 @@ function DetectionSection() {
           >
             {stats.map((s) => (
               <div key={s.num} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <div style={{ fontSize: 'clamp(1.75rem, 4vw, 3rem)', fontWeight: 600, lineHeight: 1, color: '#0a0a0a' }}>
-                  <span style={{ color: ACCENT, fontSize: '0.5em' }}>+</span>{s.num}
+                <div style={{ fontSize: 'clamp(1.75rem, 4vw, 3rem)', fontWeight: 600, lineHeight: 1, color: '#fff' }}>
+                  <span style={{ color: ACCENT_LIGHT, fontSize: '0.5em' }}>+</span>{s.num}
                 </div>
-                <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(10,10,10,0.45)', whiteSpace: 'pre-line', textAlign: 'right', lineHeight: 1.4 }}>
+                <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', whiteSpace: 'pre-line', textAlign: 'right', lineHeight: 1.4 }}>
                   {s.label}
                 </p>
               </div>
@@ -1211,14 +1355,14 @@ function DetectionSection() {
                 aria-expanded={isExpanded}
                 aria-label={`${d.title} — ${d.count} detection types. ${isExpanded ? 'Collapse' : 'Expand'}`}
                 style={{
-                  background: isExpanded ? 'rgba(94,14,215,0.03)' : '#fff',
-                  border: isExpanded ? '1px solid rgba(94,14,215,0.3)' : '1px solid rgba(94,14,215,0.1)',
+                  background: isExpanded ? 'rgba(94,14,215,0.14)' : 'rgba(255,255,255,0.03)',
+                  border: isExpanded ? `1px solid ${accentLight(0.4)}` : '1px solid rgba(255,255,255,0.1)',
                   borderRadius: '1.25rem',
                   padding: 'clamp(1.25rem, 2.5vw, 1.75rem)',
                   display: 'flex', flexDirection: 'column', gap: '0.875rem',
                   cursor: 'pointer',
                   transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-                  boxShadow: isExpanded ? '0 4px 24px rgba(94,14,215,0.1)' : '0 1px 3px rgba(94,14,215,0.06)',
+                  boxShadow: isExpanded ? '0 8px 40px rgba(94,14,215,0.28)' : '0 1px 2px rgba(0,0,0,0.35)',
                   outline: 'none',
                 }}
               >
@@ -1226,21 +1370,21 @@ function DetectionSection() {
                   <div style={{ width: 40, height: 40, borderRadius: '0.75rem', background: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon size={18} color="#fff" />
                   </div>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: ACCENT, background: 'rgba(94,14,215,0.08)', padding: '0.2rem 0.55rem', borderRadius: '2rem' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: ACCENT_LIGHT, background: 'rgba(168,130,255,0.14)', padding: '0.2rem 0.55rem', borderRadius: '2rem' }}>
                     {d.count} types
                   </span>
                 </div>
                 <div>
-                  <h3 style={{ margin: '0 0 0.3rem', fontSize: '0.95rem', fontWeight: 600, color: '#0a0a0a', letterSpacing: '-0.01em' }}>
+                  <h3 style={{ margin: '0 0 0.3rem', fontSize: '0.95rem', fontWeight: 600, color: '#fff', letterSpacing: '-0.01em' }}>
                     {d.title}
                   </h3>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(10,10,10,0.5)', lineHeight: 1.55 }}>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.55 }}>
                     {d.desc}
                   </p>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.22 }}>
-                    <ChevronDown size={14} color={ACCENT} />
+                    <ChevronDown size={14} color={ACCENT_LIGHT} />
                   </motion.div>
                 </div>
                 <AnimatePresence>
@@ -1251,10 +1395,10 @@ function DetectionSection() {
                       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                       style={{ overflow: 'hidden' }}
                     >
-                      <div style={{ borderTop: '1px solid rgba(94,14,215,0.12)', paddingTop: '0.875rem' }}>
+                      <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.875rem' }}>
                         <ul style={{ margin: 0, padding: '0 0 0 1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                           {d.details.map((item, di) => (
-                            <li key={di} style={{ fontSize: '0.76rem', color: 'rgba(10,10,10,0.62)', lineHeight: 1.5 }}>
+                            <li key={di} style={{ fontSize: '0.76rem', color: 'rgba(255,255,255,0.62)', lineHeight: 1.5 }}>
                               {item}
                             </li>
                           ))}
@@ -1329,7 +1473,7 @@ function SetupSection() {
                   padding: '0.15rem 0.45rem', borderRadius: '2rem',
                   background: activeMethod === m.id ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
                   color: activeMethod === m.id ? '#fff' : 'rgba(255,255,255,0.4)',
-                  ...(m.comingSoon ? { background: 'rgba(255,200,0,0.15)', color: 'rgba(255,200,0,0.8)' } : {}),
+                  ...(m.comingSoon ? { background: warning(0.15), color: warning(0.8) } : {}),
                 }}
               >
                 {m.comingSoon ? 'SOON' : m.badge}
@@ -1358,11 +1502,11 @@ function SetupSection() {
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
                     padding: '0.3rem 0.875rem', borderRadius: '2rem',
-                    background: 'rgba(255,200,0,0.1)', border: '1px solid rgba(255,200,0,0.2)',
+                    background: warning(0.1), border: `1px solid ${warning(0.2)}`,
                     marginBottom: '1.5rem',
                   }}
                 >
-                  <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,200,0,0.8)' }}>
+                  <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: warning(0.8) }}>
                     Coming Soon
                   </span>
                 </div>
@@ -1737,7 +1881,7 @@ function EnterpriseModal({ onClose }) {
                 {loading ? 'Sending…' : (<>Send Enquiry <ArrowUpRight size={16} /></>)}
               </button>
               {error && (
-                <p style={{ margin: 0, fontSize: '0.78rem', color: '#f87171', textAlign: 'center' }}>{error}</p>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: DANGER, textAlign: 'center' }}>{error}</p>
               )}
               <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(255,255,255,0.28)', textAlign: 'center' }}>
                 Fields marked * are required. We'll respond within 2 business days.
@@ -1924,7 +2068,7 @@ function WaitlistModal({ planName, onClose }) {
                 {loading ? 'Saving…' : 'Notify Me'}
               </button>
               {error && (
-                <p style={{ margin: 0, fontSize: '0.78rem', color: '#ef4444', textAlign: 'center' }}>{error}</p>
+                <p style={{ margin: 0, fontSize: '0.78rem', color: DANGER, textAlign: 'center' }}>{error}</p>
               )}
             </div>
           </>
@@ -1958,8 +2102,8 @@ function WaitlistModal({ planName, onClose }) {
 // ── Comparison table ───────────────────────────────────────────────────────────
 function ComparisonTable() {
   const [expanded, setExpanded] = useState(false)
-  const cols = ['Open Source', 'Pro', 'Team', 'Enterprise']
-  const colKeys = ['open', 'pro', 'team', 'enterprise']
+  const cols = ['Open Source', 'Pro', 'Enterprise']
+  const colKeys = ['open', 'pro', 'enterprise']
 
   return (
     <motion.div
@@ -1976,14 +2120,14 @@ function ComparisonTable() {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
             padding: '0.625rem 1.5rem',
-            background: 'transparent', border: '1px solid rgba(10,10,10,0.12)',
+            background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
             borderRadius: '2rem', cursor: 'pointer',
-            color: 'rgba(10,10,10,0.55)', fontWeight: 600, fontSize: '0.78rem',
+            color: 'rgba(255,255,255,0.6)', fontWeight: 600, fontSize: '0.78rem',
             letterSpacing: '0.1em', textTransform: 'uppercase',
             transition: 'all 0.18s ease', fontFamily: 'inherit',
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.color = ACCENT }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(10,10,10,0.12)'; e.currentTarget.style.color = 'rgba(10,10,10,0.55)' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = accentLight(0.5); e.currentTarget.style.color = ACCENT_LIGHT }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)' }}
         >
           {expanded ? 'Hide' : 'Compare'} all features
           <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.22 }}>
@@ -2006,19 +2150,19 @@ function ComparisonTable() {
               style={{
                 overflowX: 'auto',
                 borderRadius: '1.25rem',
-                border: '1px solid rgba(0,0,0,0.08)',
-                background: '#fff',
-                boxShadow: '0 2px 16px rgba(0,0,0,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.03)',
+                boxShadow: '0 2px 16px rgba(0,0,0,0.3)',
               }}
             >
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 540 }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.07)' }}>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                     <th
                       style={{
                         padding: '1rem 1.5rem', textAlign: 'left',
                         fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.16em',
-                        textTransform: 'uppercase', color: 'rgba(10,10,10,0.32)',
+                        textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)',
                         width: '38%',
                       }}
                     >
@@ -2031,8 +2175,8 @@ function ComparisonTable() {
                           padding: '1rem 0.875rem', textAlign: 'center',
                           fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em',
                           textTransform: 'uppercase',
-                          color: col === 'Pro' ? ACCENT : col === 'Team' ? ACCENT : 'rgba(10,10,10,0.42)',
-                          background: col === 'Pro' ? 'rgba(94,14,215,0.04)' : col === 'Enterprise' ? 'rgba(8,8,8,0.025)' : 'transparent',
+                          color: col === 'Pro' || col === 'Team' ? ACCENT_LIGHT : 'rgba(255,255,255,0.5)',
+                          background: col === 'Pro' ? 'rgba(94,14,215,0.14)' : col === 'Enterprise' ? 'rgba(255,255,255,0.03)' : 'transparent',
                         }}
                       >
                         {col}
@@ -2045,14 +2189,14 @@ function ComparisonTable() {
                     <tr
                       key={row.feature}
                       style={{
-                        borderBottom: ri < COMPARISON_ROWS.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none',
-                        background: ri % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.012)',
+                        borderBottom: ri < COMPARISON_ROWS.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                        background: ri % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)',
                       }}
                     >
                       <td
                         style={{
                           padding: '0.875rem 1.5rem',
-                          fontSize: '0.84rem', color: 'rgba(10,10,10,0.68)', lineHeight: 1.45,
+                          fontSize: '0.84rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.45,
                         }}
                       >
                         {row.feature}
@@ -2062,17 +2206,16 @@ function ComparisonTable() {
                           key={key}
                           style={{
                             padding: '0.875rem 0.875rem', textAlign: 'center',
-                            background: key === 'pro' ? 'rgba(94,14,215,0.025)' : key === 'enterprise' ? 'rgba(8,8,8,0.015)' : 'transparent',
+                            background: key === 'pro' ? 'rgba(94,14,215,0.08)' : key === 'enterprise' ? 'rgba(255,255,255,0.02)' : 'transparent',
                           }}
                         >
                           {row[key] ? (
                             <CheckCircle
                               size={15}
                               color={
-                                key === 'pro' ? ACCENT
-                                : key === 'team' ? ACCENT
-                                : key === 'enterprise' ? 'rgba(10,10,10,0.5)'
-                                : 'rgba(10,10,10,0.35)'
+                                key === 'pro' || key === 'team' ? ACCENT_LIGHT
+                                : key === 'enterprise' ? 'rgba(255,255,255,0.55)'
+                                : accentLight(0.6)
                               }
                               style={{ display: 'inline-block' }}
                             />
@@ -2081,7 +2224,7 @@ function ComparisonTable() {
                               style={{
                                 display: 'inline-block',
                                 width: 14, height: 2,
-                                background: 'rgba(0,0,0,0.1)',
+                                background: 'rgba(255,255,255,0.18)',
                                 borderRadius: 1, verticalAlign: 'middle',
                               }}
                             />
@@ -2101,11 +2244,129 @@ function ComparisonTable() {
 }
 
 // ── Pricing section ────────────────────────────────────────────────────────────
-function PricingSection() {
+// ── Festive / seasonal offer campaigns ───────────────────────────────────────────
+// Add a campaign here; the banner auto-shows while "today" is inside [from, to] (inclusive)
+// COMPUTED IN THE CAMPAIGN'S HOME TIMEZONE (`tz`) — so Independence Day flips on at exactly
+// 00:00 IST on Aug 15 for every visitor worldwide, Canada Day at 00:00 Toronto time, etc.
+// The banner only DISPLAYS the code: enforcement is the matching Polar discount code,
+// which must be created with the same redemption window (see HOSTED_BACKEND.md §8.5).
+const FESTIVE_OFFERS = [
+  { id: 'canada-day-2026',       emoji: '🍁', name: 'Canada Day',       tz: 'America/Toronto', from: '2026-06-29', to: '2026-07-05', headline: 'Canada Day offer — 25% off Pro',      sub: 'Founding price + an extra 25% off your first 3 months.', code: 'CANADA25' },
+  { id: 'good-friday-2026',      emoji: '✝️', name: 'Good Friday',      tz: 'UTC',             from: '2026-04-03', to: '2026-04-06', headline: 'Good Friday sale — 20% off Pro',       sub: 'Limited-time founding discount.',                        code: 'GOODFRIDAY20' },
+  { id: 'independence-day-2026', emoji: '🇮🇳', name: 'Independence Day', tz: 'Asia/Kolkata',    from: '2026-08-15', to: '2026-08-17', headline: 'Independence Day — 30% off Pro',       sub: 'Freedom from manual QA — founding discount on your first 3 months.', code: 'INDIA30' },
+  { id: 'diwali-2026',           emoji: '🪔', name: 'Diwali Special',   tz: 'Asia/Kolkata',    from: '2026-11-06', to: '2026-11-12', headline: 'Diwali special — 30% off Pro',         sub: 'Light up your QA — festive founding discount.',          code: 'DIWALI30' },
+]
+// YYYY-MM-DD for "now" in a given IANA timezone ('en-CA' locale formats exactly that way).
+function dateInTz(tz, now = new Date()) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+  } catch {
+    return now.toISOString().slice(0, 10) // unknown tz → UTC fallback
+  }
+}
+function activeFestiveOffer(now = new Date()) {
+  return FESTIVE_OFFERS.find(o => {
+    const d = dateInTz(o.tz || 'UTC', now)
+    return d >= o.from && d <= o.to
+  }) || null
+}
+// Resolve the ONE offer to surface right now. Two sources, in priority order:
+// the hosted app's live campaign (/api/promos/active — editable in the dashboard, no
+// landing redeploy) overriding the compiled-in schedule above, which is the offline
+// floor. Shared by the banner (which DISPLAYS the code) and the checkout URL builder
+// (which PREFILLS it at Polar) so the two can never advertise different codes.
+function useActiveOffer() {
+  const [localOffer, setLocalOffer] = useState(() => activeFestiveOffer())
+  const [remoteOffer, setRemoteOffer] = useState(null)
+  // Re-check once a minute so a tab left open flips the banner at the campaign's midnight
+  // (and hides it when the window closes) without a reload.
+  useEffect(() => {
+    const t = setInterval(() => {
+      setLocalOffer(prev => {
+        const next = activeFestiveOffer()
+        return next?.id === prev?.id ? prev : next
+      })
+    }, 60_000)
+    return () => clearInterval(t)
+  }, [])
+  useEffect(() => {
+    if (!APP_URL) return
+    const ctl = new AbortController()
+    let alive = true
+    fetchActiveCampaign(APP_URL, { signal: ctl.signal }).then(campaign => {
+      if (alive) setRemoteOffer(campaignToOffer(campaign, FESTIVE_OFFERS))
+    })
+    return () => { alive = false; ctl.abort() }
+  }, [])
+  return remoteOffer || localOffer
+}
+
+function FestiveBanner({ offer }) {
+  const [dismissed, setDismissed] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(offer.code)
+    } catch {
+      // http/older-browser fallback
+      const ta = document.createElement('textarea')
+      ta.value = offer.code
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      ta.remove()
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
+  if (!offer || dismissed) return null
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      style={{
+        position: 'relative', margin: '0 auto clamp(2.25rem, 5vw, 3.5rem)', maxWidth: 940,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.7rem 0.9rem', flexWrap: 'wrap',
+        padding: '0.9rem 2.8rem', borderRadius: '1rem', textAlign: 'center',
+        background: 'linear-gradient(135deg, #5E0ED7 0%, #3A088A 100%)', color: '#fff',
+        boxShadow: `0 14px 44px ${accent(0.35)}`,
+      }}
+    >
+      <span style={{ fontSize: '1.35rem', lineHeight: 1 }}>{offer.emoji}</span>
+      <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>{offer.headline}</span>
+      <span style={{ opacity: 0.85, fontSize: '0.85rem' }}>{offer.sub}</span>
+      {offer.code && (
+        <button
+          onClick={copyCode}
+          title="Click to copy"
+          aria-label={copied ? 'Code copied' : `Copy code ${offer.code}`}
+          style={{
+            padding: '0.18rem 0.6rem', borderRadius: 7, fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.04em',
+            background: copied ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.2)',
+            border: '1px dashed rgba(255,255,255,0.45)', color: '#fff', cursor: 'pointer',
+            transition: 'background 0.15s', fontFamily: 'inherit',
+          }}
+          onMouseEnter={e => { if (!copied) e.currentTarget.style.background = 'rgba(255,255,255,0.28)' }}
+          onMouseLeave={e => { if (!copied) e.currentTarget.style.background = 'rgba(255,255,255,0.2)' }}
+        >
+          {copied ? '✓ Copied!' : <>code: {offer.code} ⧉</>}
+        </button>
+      )}
+      <button onClick={() => setDismissed(true)} aria-label="Dismiss offer"
+        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', cursor: 'pointer', fontSize: '1.15rem', lineHeight: 1, padding: 0 }}>
+        ×
+      </button>
+    </motion.div>
+  )
+}
+
+// ── Pricing section ──────────────────────────────────────────────────────────────
+function PricingSection({ onBuy, offer }) {
   const [enterpriseOpen, setEnterpriseOpen] = useState(false)
   const [waitlistPlan, setWaitlistPlan] = useState(null)
 
   const handleCta = (plan) => {
+    const checkoutUrl = CHECKOUT_LINKS[plan.id]
+    if (checkoutUrl) { onBuy(plan, checkoutUrl); return }   // → signup/login popup, then Polar
     if (plan.ctaAction === 'enterprise') setEnterpriseOpen(true)
     else if (plan.ctaAction === 'waitlist') setWaitlistPlan(plan)
   }
@@ -2113,9 +2374,10 @@ function PricingSection() {
   return (
     <section
       id="pricing"
-      style={{ background: '#FAFAFA', padding: 'clamp(5rem, 10vw, 9rem) clamp(1.25rem, 6vw, 5rem)' }}
+      style={{ background: AEGIS_BG, padding: 'clamp(5rem, 10vw, 9rem) clamp(1.25rem, 6vw, 5rem)' }}
     >
       <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+        <FestiveBanner offer={offer} />
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
@@ -2123,16 +2385,16 @@ function PricingSection() {
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           style={{ marginBottom: 'clamp(3rem, 6vw, 5rem)', textAlign: 'center' }}
         >
-          <SectionLabel light>Pricing</SectionLabel>
+          <SectionLabel>Pricing</SectionLabel>
           <h2
             style={{
-              fontSize: 'clamp(2rem, 5vw, 4rem)', fontWeight: 600, color: '#0a0a0a',
+              fontSize: 'clamp(2rem, 5vw, 4rem)', fontWeight: 600, color: '#fff',
               lineHeight: 1.08, letterSpacing: '-0.02em', margin: '0 0 1rem',
             }}
           >
             Simple, transparent pricing.
           </h2>
-          <p style={{ margin: 0, fontSize: 'clamp(0.9rem, 1.3vw, 1.05rem)', color: 'rgba(10,10,10,0.45)', lineHeight: 1.7 }}>
+          <p style={{ margin: 0, fontSize: 'clamp(0.9rem, 1.3vw, 1.05rem)', color: 'rgba(255,255,255,0.55)', lineHeight: 1.7 }}>
             Start free. Scale when you're ready. The core is open source forever.
           </p>
         </motion.div>
@@ -2141,27 +2403,29 @@ function PricingSection() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
-            gap: '1.25rem', alignItems: 'start',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
+            gap: '1.25rem', alignItems: 'stretch',
           }}
         >
-          {pricingPlans.map((plan, i) => (
+          {pricingPlans.map((plan, i) => {
+            const founding = CHECKOUT_LINKS[plan.id] && plan.founding ? plan.founding : null
+            return (
             <motion.div
               key={plan.id}
               initial={{ opacity: 0, y: 28 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-80px' }}
               transition={{ delay: i * 0.1, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               style={{
-                background: plan.dark ? '#080808' : plan.popular ? `linear-gradient(145deg, #f8f6ff 0%, rgba(94,14,215,0.06) 100%)` : '#fff',
+                background: plan.popular
+                  ? `linear-gradient(145deg, ${accent(0.16)} 0%, ${accent(0.05)} 100%)`
+                  : 'rgba(255,255,255,0.03)',
                 border: plan.popular
-                  ? `1.5px solid rgba(94,14,215,0.35)`
-                  : plan.dark
-                    ? '1px solid rgba(255,255,255,0.1)'
-                    : '1px solid rgba(0,0,0,0.07)',
+                  ? `1.5px solid ${accentLight(0.4)}`
+                  : '1px solid rgba(255,255,255,0.1)',
                 borderRadius: '1.5rem',
                 padding: 'clamp(1.5rem, 3vw, 2rem)',
                 display: 'flex', flexDirection: 'column', gap: '1.5rem',
-                boxShadow: plan.popular ? '0 8px 40px rgba(94,14,215,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
+                boxShadow: plan.popular ? '0 8px 40px rgba(94,14,215,0.28)' : '0 1px 2px rgba(0,0,0,0.35)',
               }}
             >
               {/* Plan header */}
@@ -2171,18 +2435,28 @@ function PricingSection() {
                     style={{
                       fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase',
                       padding: '0.22rem 0.6rem', borderRadius: '2rem',
-                      background: plan.popular ? ACCENT : plan.dark ? 'rgba(255,255,255,0.1)' : 'rgba(94,14,215,0.08)',
-                      color: plan.popular ? '#fff' : plan.dark ? 'rgba(255,255,255,0.55)' : ACCENT,
+                      background: plan.id === 'enterprise' ? 'linear-gradient(135deg, #F7D774, #D4A017)' : plan.popular ? ACCENT : 'rgba(168,130,255,0.14)',
+                      color: plan.id === 'enterprise' ? '#000' : plan.popular ? '#fff' : ACCENT_LIGHT,
                     }}
                   >
                     {plan.tag}
                   </span>
-                  {plan.comingSoon && (
+                  {founding ? (
                     <span
                       style={{
                         fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em',
-                        textTransform: 'uppercase', color: 'rgba(255,180,0,0.8)',
-                        background: 'rgba(255,180,0,0.1)', padding: '0.2rem 0.5rem', borderRadius: '2rem',
+                        textTransform: 'uppercase', color: success(1),
+                        background: success(0.18), padding: '0.2rem 0.5rem', borderRadius: '2rem',
+                      }}
+                    >
+                      {founding.tag}
+                    </span>
+                  ) : plan.comingSoon && (
+                    <span
+                      style={{
+                        fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em',
+                        textTransform: 'uppercase', color: warning(0.8),
+                        background: warning(0.1), padding: '0.2rem 0.5rem', borderRadius: '2rem',
                       }}
                     >
                       Coming Soon
@@ -2193,32 +2467,42 @@ function PricingSection() {
                 <h3
                   style={{
                     margin: '0 0 0.375rem', fontSize: '1.15rem', fontWeight: 600,
-                    color: plan.dark ? '#fff' : '#0a0a0a', letterSpacing: '-0.01em',
+                    color: '#fff', letterSpacing: '-0.01em',
                   }}
                 >
                   {plan.name}
                 </h3>
-                <p style={{ margin: '0 0 1rem', fontSize: '0.82rem', color: plan.dark ? 'rgba(255,255,255,0.42)' : 'rgba(10,10,10,0.5)', lineHeight: 1.55 }}>
+                <p style={{ margin: '0 0 1rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.55 }}>
                   {plan.description}
                 </p>
 
                 {/* Price */}
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem', flexWrap: 'wrap' }}>
+                  {founding && (
+                    <span style={{ fontSize: '1.15rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textDecoration: 'line-through', marginRight: '0.1rem' }}>
+                      {founding.origPrice}
+                    </span>
+                  )}
                   <span
                     style={{
                       fontSize: plan.price === 'Custom' ? '1.75rem' : 'clamp(2rem, 5vw, 2.75rem)',
-                      fontWeight: 700, color: plan.dark ? '#fff' : '#0a0a0a', lineHeight: 1,
+                      fontWeight: 700, color: '#fff', lineHeight: 1,
                       letterSpacing: '-0.03em',
                     }}
                   >
-                    {plan.price}
+                    {founding ? founding.price : plan.price}
                   </span>
-                  {plan.period && (
-                    <span style={{ fontSize: '0.85rem', color: plan.dark ? 'rgba(255,255,255,0.38)' : 'rgba(10,10,10,0.4)', fontWeight: 500 }}>
-                      {plan.period}
+                  {(founding ? founding.period : plan.period) && (
+                    <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.42)', fontWeight: 500 }}>
+                      {founding ? founding.period : plan.period}
                     </span>
                   )}
                 </div>
+                {founding && (
+                  <p style={{ margin: '0.7rem 0 0', fontSize: '0.72rem', lineHeight: 1.5, color: success(0.9), fontWeight: 500 }}>
+                    {founding.note}
+                  </p>
+                )}
               </div>
 
               {/* Benefits */}
@@ -2227,10 +2511,10 @@ function PricingSection() {
                   <li key={bi} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
                     <CheckCircle
                       size={14}
-                      color={plan.popular ? ACCENT : plan.dark ? 'rgba(255,255,255,0.5)' : 'rgba(94,14,215,0.55)'}
+                      color={plan.popular ? ACCENT_LIGHT : accentLight(0.7)}
                       style={{ flexShrink: 0, marginTop: '0.15rem' }}
                     />
-                    <span style={{ fontSize: '0.83rem', color: plan.dark ? 'rgba(255,255,255,0.62)' : 'rgba(10,10,10,0.65)', lineHeight: 1.5 }}>
+                    <span style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.62)', lineHeight: 1.5 }}>
                       {b}
                     </span>
                   </li>
@@ -2245,12 +2529,12 @@ function PricingSection() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
                       padding: '0.85rem 1.5rem', borderRadius: '0.875rem', textDecoration: 'none',
-                      background: 'transparent', border: `1.5px solid rgba(94,14,215,0.25)`,
-                      color: ACCENT, fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.08em',
+                      background: 'transparent', border: `1.5px solid ${accentLight(0.3)}`,
+                      color: ACCENT_LIGHT, fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.08em',
                       textTransform: 'uppercase', transition: 'all 0.18s ease',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = ACCENT }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = ACCENT; e.currentTarget.style.borderColor = 'rgba(94,14,215,0.25)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = ACCENT_LIGHT; e.currentTarget.style.borderColor = accentLight(0.3) }}
                   >
                     {plan.cta} <ArrowUpRight size={14} />
                   </a>
@@ -2259,9 +2543,9 @@ function PricingSection() {
                     onClick={() => handleCta(plan)}
                     style={{
                       width: '100%', padding: '0.85rem 1.5rem', borderRadius: '0.875rem',
-                      background: plan.popular ? ACCENT : plan.dark ? 'rgba(255,255,255,0.1)' : 'transparent',
-                      border: plan.popular ? 'none' : plan.dark ? '1px solid rgba(255,255,255,0.15)' : `1.5px solid rgba(94,14,215,0.25)`,
-                      color: plan.popular ? '#fff' : plan.dark ? '#fff' : ACCENT,
+                      background: plan.popular ? ACCENT : 'rgba(255,255,255,0.06)',
+                      border: plan.popular ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                      color: '#fff',
                       fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.08em',
                       textTransform: 'uppercase', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
@@ -2270,13 +2554,56 @@ function PricingSection() {
                     onMouseEnter={e => (e.currentTarget.style.opacity = '0.82')}
                     onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
                   >
-                    {plan.cta} <ArrowUpRight size={14} />
+                    {founding ? founding.cta : plan.cta} <ArrowUpRight size={14} />
                   </button>
                 )}
               </div>
             </motion.div>
-          ))}
+            )
+          })}
         </div>
+
+        {/* Referral → team discount (replaces the standalone Team plan) */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            marginTop: 'clamp(2rem, 4vw, 3rem)', display: 'flex', flexWrap: 'wrap', gap: '1rem 1.5rem',
+            alignItems: 'center', justifyContent: 'space-between',
+            padding: 'clamp(1.25rem, 3vw, 1.75rem) clamp(1.5rem, 4vw, 2.25rem)', borderRadius: '1.25rem',
+            background: `linear-gradient(135deg, ${accent(0.16)} 0%, ${success(0.1)} 100%)`,
+            border: `1px solid ${accentLight(0.3)}`,
+          }}
+        >
+          <div style={{ flex: '1 1 420px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: '1.15rem' }}>🎁</span>
+              <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: ACCENT_LIGHT }}>Build a team, the smart way</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.95rem', color: 'rgba(255,255,255,0.72)', lineHeight: 1.6 }}>
+              No separate Team plan — <strong style={{ color: '#fff', fontWeight: 700 }}>refer teammates and form a team to unlock group discounts</strong>. Everyone gets Pro’s hosted dashboard, shared baselines, and trend alerts; the more you bring, the more you save.
+            </p>
+          </div>
+          {/* Referral codes are minted in the app (Team → Referrals, Pro-gated), so send
+              people there when the app origin is configured; otherwise keep the waitlist. */}
+          <button
+            onClick={() => {
+              if (APP_URL) window.open(`${APP_URL.replace(/\/$/, '')}/app/team`, '_blank', 'noopener,noreferrer')
+              else setWaitlistPlan({ name: 'Referral rewards' })
+            }}
+            style={{
+              flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+              padding: '0.8rem 1.6rem', borderRadius: '0.875rem', border: 'none', cursor: 'pointer',
+              background: ACCENT, color: '#fff', fontWeight: 700, fontSize: '0.8rem',
+              letterSpacing: '0.06em', textTransform: 'uppercase', transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            Get referral perks <ArrowUpRight size={14} />
+          </button>
+        </motion.div>
 
         {/* Feature comparison table */}
         <ComparisonTable />
@@ -2286,9 +2613,9 @@ function PricingSection() {
           initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: '-40px' }}
           transition={{ delay: 0.4, duration: 0.5 }}
-          style={{ margin: 'clamp(2rem, 4vw, 3rem) auto 0', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(10,10,10,0.35)', maxWidth: 480, lineHeight: 1.65 }}
+          style={{ margin: 'clamp(2rem, 4vw, 3rem) auto 0', textAlign: 'center', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', maxWidth: 480, lineHeight: 1.65 }}
         >
-          The Open Source tier is free forever. Pro and Team pricing is indicative and subject to change before launch.
+          The Open Source tier is free forever. Pro pricing is indicative and subject to change before launch.
           Enterprise pricing is fully custom and negotiated directly.
         </motion.p>
       </div>
@@ -2356,7 +2683,7 @@ function DocsSection() {
             How we built it.
           </h2>
           <p style={{ margin: 0, maxWidth: 520, fontSize: 'clamp(0.9rem, 1.3vw, 1.05rem)', color: 'rgba(255,255,255,0.38)', lineHeight: 1.7 }}>
-            From a single file to 149 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
+            From a single file to 171 test blocks — the engineering decisions, discoveries, and challenges behind Argus.
           </p>
         </motion.div>
 
@@ -2586,13 +2913,16 @@ function Footer() {
             <span style={{ fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#fff', fontSize: 15 }}>
               Argus
             </span>
+            <span style={{ fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: ACCENT_LIGHT, fontSize: 15 }}>
+              QA
+            </span>
             <BetaBadge />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <img
               src="/IRONCLAW.png"
               alt="Ironclaw"
-              style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.4)', boxShadow: '0 0 8px rgba(100,255,100,0.25)', flexShrink: 0 }}
+              style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.4)', boxShadow: `0 0 8px ${success(0.25)}`, flexShrink: 0 }}
             />
             <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.32)', letterSpacing: '0.04em' }}>
               Built by{' '}
@@ -2641,14 +2971,144 @@ function Footer() {
   )
 }
 
+// Thank-you toast shown when a Polar Checkout Link redirects back to ?checkout=success.
+// (In Polar, set the product's success URL to https://argus-qa.com/?checkout=success.)
+//
+// Also the founding-capture point: a completed purchase must leave a row in Supabase
+// `founding_members`, not only at the processor, so the app can reconcile a founding member
+// to their account at first login. The email comes from the pre-redirect stash, with
+// the live session as a fallback for a session that outlived the stash (private mode).
+// The capture is fire-and-forget: it must never gate or contradict the thank-you.
+function CheckoutSuccessToast({ user }) {
+  const [show, setShow] = useState(false)
+  // The success return, detected once. `stashedEmail` is read here because the stash is
+  // single-use — reading it in an effect that re-runs would consume it on the first pass.
+  const [success, setSuccess] = useState(null)   // { stashedEmail } | null
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('checkout') !== 'success') return
+    setShow(true)
+    stripQueryParam('checkout')
+    // Polar appends ?checkout_id={CHECKOUT_ID} to the success URL — useful provenance
+    // when reconciling a founding sale by hand, but nothing here consumes it, so clear
+    // it rather than leaving a stray id sitting in the visitor's address bar.
+    stripQueryParam('checkout_id')
+    setSuccess({ stashedEmail: takePendingFounding()?.email ?? null })
+    const t = setTimeout(() => setShow(false), 9000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Founding capture. Separate from the toast so waiting on the auth session (which
+  // resolves after mount) can never disturb the toast's lifetime. Runs at most once:
+  // `captured` latches before the await, so a re-render mid-flight can't double-insert
+  // (the DB unique index is the durable guard; this just avoids the pointless round-trip).
+  const [captured, setCaptured] = useState(false)
+  useEffect(() => {
+    if (!success || captured) return
+    const email = success.stashedEmail || user?.email
+    if (!email) return            // no email yet — wait for the session to resolve
+    setCaptured(true)
+    // The bottom of the landing funnel. Boolean only — never the buyer's email.
+    capture(EVENTS.FOUNDING_CAPTURED, { from_stash: !!success.stashedEmail })
+    recordFoundingMember(supabase, email).then(res => {
+      // A failed capture is an operator problem, not a buyer problem — the purchase is
+      // safe at the processor regardless, and the webhook still links it via reference_id.
+      if (!res.ok) console.warn('[argus] founding capture failed:', res.reason)
+    })
+  }, [success, captured, user?.email])
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          role="status"
+          style={{
+            position: 'fixed', bottom: 'clamp(16px, 4vw, 32px)', left: '50%', transform: 'translateX(-50%)',
+            zIndex: 70, maxWidth: 'calc(100vw - 32px)',
+            display: 'flex', alignItems: 'center', gap: '0.75rem',
+            padding: '0.9rem 1.1rem', borderRadius: '1rem',
+            background: '#0a0a0a', color: '#fff', boxShadow: '0 16px 50px rgba(0,0,0,0.4)',
+            border: `1px solid ${accent(0.4)}`,
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>🎉</span>
+          <span style={{ fontSize: '0.86rem', fontWeight: 500, lineHeight: 1.45 }}>
+            You're a <strong style={{ fontWeight: 700 }}>Founding Member</strong> — welcome aboard. Check your email for next steps.
+          </span>
+          <button
+            onClick={() => setShow(false)}
+            aria-label="Dismiss"
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: 0, flexShrink: 0 }}
+          >×</button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 // ── Root ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [navHovered, setNavHovered] = useState(false)
   const [hoveredLink, setHoveredLink] = useState(null)
   const [slideIndex, setSlideIndex] = useState(0)
   const [showScroll, setShowScroll] = useState(false)
   const [gsHovered, setGsHovered] = useState(false)
+  const npm = useNpmDownloads()
+
+  // Auth (Supabase) + the auth-modal context for the signup-first checkout flow.
+  const [authUser, setAuthUser] = useState(null)
+  const [authCtx, setAuthCtx] = useState(null)   // { mode, intent, checkoutUrl } | null
+  useEffect(() => {
+    if (!supabase) return
+    supabase.auth.getSession().then(({ data }) => setAuthUser(data.session?.user ?? null))
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setAuthUser(session?.user ?? null))
+    return () => sub?.subscription?.unsubscribe()
+  }, [])
+  // The live festive offer (app campaign → compiled-in schedule). Resolved ONCE here
+  // so the banner and the checkout URL always carry the same code.
+  const offer = useActiveOffer()
+
+  // Referral capture: `?ref=CODE` is persisted on first paint (localStorage + an apex
+  // cookie the app subdomain can read) so a purchase made later is still attributable.
+  useEffect(() => {
+    captureReferral(window.location.search)
+    stripQueryParam('ref')
+  }, [])
+
+  // Funnel: the top of it. Without this the journey only starts at signup, so
+  // landing→signup conversion is invisible. No-ops entirely without a PostHog key.
+  useEffect(() => { initAnalytics() }, [])
+
+  const proceedToCheckout = (u, checkoutUrl) => {
+    // Stash the buyer BEFORE handing off — the checkout redirect is a full navigation,
+    // so this is the last moment the landing knows their email, and the Payment Link
+    // hands back nothing but `?checkout=success`.
+    stashPendingFounding({ email: u.email, userId: u.id, plan: 'pro' })
+    // Beacon, not fetch: the navigation below cancels in-flight requests, and this
+    // is the most valuable event in the funnel. Flags only — never the code itself.
+    capture(EVENTS.CHECKOUT_STARTED, { discounted: !!offer?.code, referred: !!storedReferral() }, { beacon: true })
+    window.location.assign(buildCheckoutUrl(checkoutUrl, {
+      userId: u.id,          // ties the payment → account (no email reconciliation)
+      email: u.email,
+      promoCode: offer?.code, // the advertised festive code, actually applied at Polar
+    }))
+  }
+  const handleBuy = (plan, checkoutUrl) => {
+    const intent = plan.founding ? `${plan.name} — Founding Member` : plan.name
+    if (authUser) { proceedToCheckout(authUser, checkoutUrl); return }   // already signed in → straight to Polar
+    setAuthCtx({ mode: 'signup', intent, checkoutUrl })                  // else → signup/login popup first
+  }
+  const handleAuthed = (u) => {
+    const ctx = authCtx
+    setAuthCtx(null); setAuthUser(u)
+    // Bind the anonymous visitor to their account BEFORE anything else fires, so
+    // PostHog merges the pre-signup journey into this person rather than leaving
+    // two strangers either side of the domain hop.
+    identify(u?.id)
+    capture(EVENTS.SIGNUP, { intent: ctx?.intent ? 'paid' : 'direct' })
+    if (ctx?.checkoutUrl) proceedToCheckout(u, ctx.checkoutUrl)
+  }
 
   useEffect(() => {
     const t = setInterval(() => setSlideIndex(i => (i + 1) % slides.length), SLIDE_INTERVAL)
@@ -2663,6 +3123,14 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
     <div style={{ fontFamily: "'Inter', sans-serif" }}>
+      <CheckoutSuccessToast user={authUser} />
+      <AuthModal
+        open={!!authCtx}
+        initialMode={authCtx?.mode}
+        intent={authCtx?.intent}
+        onClose={() => setAuthCtx(null)}
+        onAuthed={handleAuthed}
+      />
       {/* ═══════════════════════════════════════════════════════════════════════
           HERO SECTION
       ═══════════════════════════════════════════════════════════════════════ */}
@@ -2677,6 +3145,9 @@ export default function App() {
           aria-hidden="true"
         />
 
+        {/* Live npm download badge — centre count-up intro → docks bottom-right */}
+        <DownloadBadge total={npm.total} error={npm.error} firstPublish={npm.firstPublish} />
+
         {/* Mobile menu overlay */}
         {menuOpen && (
           <div className="fixed inset-0 z-50 bg-white flex flex-col px-5 py-5">
@@ -2685,6 +3156,9 @@ export default function App() {
                 <Logo />
                 <span className="font-semibold tracking-widest uppercase text-black" style={{ fontSize: 15, letterSpacing: '0.2em' }}>
                   Argus
+                </span>
+                <span className="font-semibold tracking-widest uppercase" style={{ fontSize: 15, letterSpacing: '0.2em', color: ACCENT }}>
+                  QA
                 </span>
                 <BetaBadge />
               </div>
@@ -2714,32 +3188,31 @@ export default function App() {
 
         {/* Navigation */}
         <nav className="flex items-center justify-between px-5 sm:px-8 md:px-12 pt-5 md:pt-6 pb-4 relative z-10">
-          <motion.div custom={0} variants={fadeDown} initial="initial" animate="animate" className="flex items-center gap-2.5">
+          <motion.div custom={0} variants={fadeDown} initial="initial" animate="animate" className="flex items-center gap-2.5 flex-1">
             <Logo />
             <span className="font-semibold tracking-widest uppercase text-black" style={{ fontSize: 15, letterSpacing: '0.2em' }}>
               Argus
             </span>
+            <span className="font-semibold tracking-widest uppercase" style={{ fontSize: 15, letterSpacing: '0.2em', color: ACCENT }}>
+              QA
+            </span>
             <BetaBadge />
           </motion.div>
 
-          {/* Nav links with glassmorphism on hover */}
+          {/* Nav links — permanent purple glassmorphism */}
           <div
             className="hidden md:flex items-center relative"
             style={{ padding: '0.375rem 0.5rem', borderRadius: '2rem' }}
-            onMouseEnter={() => setNavHovered(true)}
-            onMouseLeave={() => { setNavHovered(false); setHoveredLink(null) }}
+            onMouseLeave={() => setHoveredLink(null)}
           >
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: navHovered ? 1 : 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            <div
               style={{
                 position: 'absolute', inset: 0,
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(94,14,215,0.18) 55%, rgba(94,14,215,0.12) 100%)',
+                background: `linear-gradient(135deg, rgba(255,255,255,0.34) 0%, ${accent(0.34)} 50%, ${accent(0.32)} 100%)`,
                 backdropFilter: 'blur(40px) saturate(200%) brightness(1.08)',
                 WebkitBackdropFilter: 'blur(40px) saturate(200%) brightness(1.08)',
-                border: '1px solid rgba(255,255,255,0.72)', borderRadius: '2rem',
-                boxShadow: '0 8px 40px rgba(94,14,215,0.18), 0 2px 8px rgba(0,0,0,0.06), inset 0 1.5px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(94,14,215,0.08), inset 1px 0 0 rgba(255,255,255,0.55)',
+                border: `1px solid ${accentLight(0.6)}`, borderRadius: '2rem',
+                boxShadow: `0 8px 40px ${accent(0.28)}, 0 2px 8px rgba(0,0,0,0.06), inset 0 1.5px 0 rgba(255,255,255,0.85), inset 0 -1px 0 ${accent(0.12)}, inset 1px 0 0 rgba(255,255,255,0.45)`,
                 pointerEvents: 'none',
               }}
             />
@@ -2791,17 +3264,19 @@ export default function App() {
             ))}
           </div>
 
-          <motion.button
-            custom={5} variants={fadeDown} initial="initial" animate="animate"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
-            aria-expanded={menuOpen}
-            className="w-11 h-11 rounded-full bg-black flex flex-col items-center justify-center gap-1"
-          >
-            <span className="w-4 h-0.5 bg-white" aria-hidden="true" />
-            <span className="w-4 h-0.5 bg-white" aria-hidden="true" />
-            <span className="w-4 h-0.5 bg-white" aria-hidden="true" />
-          </motion.button>
+          <div className="flex-1 flex justify-end">
+            <motion.button
+              custom={5} variants={fadeDown} initial="initial" animate="animate"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              className="w-11 h-11 rounded-full bg-black flex flex-col items-center justify-center gap-1"
+            >
+              <span className="w-4 h-0.5 bg-white" aria-hidden="true" />
+              <span className="w-4 h-0.5 bg-white" aria-hidden="true" />
+              <span className="w-4 h-0.5 bg-white" aria-hidden="true" />
+            </motion.button>
+          </div>
         </nav>
 
         {/* Stats row */}
@@ -2941,12 +3416,18 @@ export default function App() {
       {/* ═══════════════════════════════════════════════════════════════════════
           BELOW-FOLD SECTIONS
       ═══════════════════════════════════════════════════════════════════════ */}
+      <Suspense fallback={null}>
+        <DownloadsSection daily={npm.daily} total={npm.total} firstPublish={npm.firstPublish} loading={npm.loading} error={npm.error} />
+      </Suspense>
+      <ListedOnSection />
       <FeaturesSection />
       <DetectionSection />
+      <Suspense fallback={null}>
+        <SecuritySection />
+      </Suspense>
       <SetupSection />
-      <PricingSection />
+      <PricingSection onBuy={handleBuy} offer={offer} />
       <DocsSection />
-      <ListedOnSection />
       <Footer />
     </div>
     </MotionConfig>

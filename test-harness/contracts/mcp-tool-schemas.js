@@ -45,6 +45,20 @@ export const findingSchema = z.object({
   url:      z.string().optional(),
 }).passthrough();
 
+// ── Aegis redaction rider (REDACTION_BOUNDARY_MAX_PLAN.md Step 4 / [168i]) ──────
+// Every guarded MCP tool response gains an optional `redaction` rider summarising how
+// much detail was withheld at the trust boundary + a pointer to the full local report.
+// Pinned `.optional()` so it is ADDITIVE (pre-Aegis / ARGUS_REDACT_SENSITIVE=0 opt-out
+// responses still parse), but its shape is enforced WHEN PRESENT — a handler that renames
+// `redacted` → `count` (or retypes it) fails [168i] instead of passing under .passthrough().
+export const redactionRiderSchema = z.object({
+  redacted:        z.number(),
+  total:           z.number(),
+  localReportPath: z.string().nullable().optional(),
+  note:            z.string().optional(),
+  failClosed:      z.boolean().optional(),
+}).passthrough();
+
 /** Cheap audit severity tally — { critical, warning, info } (no total). */
 export const auditSummarySchema = z.object({
   critical: z.number(),
@@ -68,6 +82,7 @@ export const auditResponseSchema = z.object({
   url:        z.string(),
   pageTitle:  z.string(),
   screenshot: z.string().nullable(),
+  redaction:  redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 // ── 2. argus_audit_full + 4. argus_last_report (full report) ──────────────────
@@ -89,6 +104,7 @@ export const reportSchema = z.object({
   routes:      z.array(reportRouteSchema),
   flows:       z.array(z.any()),
   codebase:    z.array(z.any()),
+  redaction:   redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 /** argus_last_report: a full report, OR the no-reports sentinel. */
@@ -121,6 +137,7 @@ export const compareEnvModeSchema = z.object({
   stagingUrl:  z.string(),
   summary:     reportSummarySchema,
   routes:      z.array(compareEnvRouteSchema),
+  redaction:   redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 /** css-analysis route (no staging): per-route CSS + API-frequency findings on dev. */
@@ -139,6 +156,7 @@ export const compareCssModeSchema = z.object({
   note:        z.string(),
   summary:     reportSummarySchema,
   routes:      z.array(compareCssRouteSchema),
+  redaction:   redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 export const compareResponseSchema = z.discriminatedUnion('mode', [
@@ -152,6 +170,7 @@ export const watchSnapshotResponseSchema = z.object({
   findings:   z.array(findingSchema),
   newConsole: z.array(z.any()),
   newNetwork: z.array(z.any()),
+  redaction:  redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 // ── 6. argus_get_context ──────────────────────────────────────────────────────
@@ -178,6 +197,7 @@ export const getContextResponseSchema = z.object({
   resolved:   z.array(findingSchema).optional(),
   new_issues: z.array(findingSchema).optional(),
   persisting: z.array(findingSchema).optional(),
+  redaction:  redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 // ── 7. argus_visual_diff ──────────────────────────────────────────────────────
@@ -191,8 +211,9 @@ export const visualDiffSummarySchema = z.object({
 }).passthrough();
 
 export const visualDiffResponseSchema = z.object({
-  findings: z.array(findingSchema),
-  summary:  visualDiffSummarySchema,
+  findings:  z.array(findingSchema),
+  summary:   visualDiffSummarySchema,
+  redaction: redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 // ── 8. argus_design_audit ─────────────────────────────────────────────────────
@@ -214,12 +235,48 @@ export const designSummarySchema = z.object({
 }).passthrough();
 
 export const designAuditResponseSchema = z.object({
-  findings: z.array(findingSchema),
-  summary:  designSummarySchema,
-  error:    z.string().optional(),   // present only in the no-token / fetch-fail degraded path
+  findings:  z.array(findingSchema),
+  summary:   designSummarySchema,
+  error:     z.string().optional(),   // present only in the no-token / fetch-fail degraded path
+  redaction: redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 // ── 9. argus_pr_validate ──────────────────────────────────────────────────────
+
+/**
+ * The `baseline` field (PR_VALIDATOR plan B1/B2 — handlePrValidate src/mcp-server.js:516).
+ * A discriminated pair on `available`:
+ *   - available:true  → numeric new/persisting/resolved counts (the head-vs-base diff)
+ *   - available:false → the fail-safe `note` (baseline unavailable → absolute blocking)
+ * Pinned so a rename inside baselineInfo (e.g. newCritical → newCrit) is caught, while
+ * the discriminator keeps the two variants from cross-validating.
+ */
+export const prBaselineSchema = z.discriminatedUnion('available', [
+  z.object({
+    available:   z.literal(true),
+    newCritical: z.number(),
+    newWarning:  z.number(),
+    newInfo:     z.number(),
+    persisting:  z.number(),
+    resolved:    z.number(),
+  }).passthrough(),
+  z.object({
+    available: z.literal(false),
+    note:      z.string(),
+  }).passthrough(),
+]);
+
+/**
+ * The `reporting` field (PR_VALIDATOR plan A4 — reportPrValidation github-reporter.js:672).
+ * The PR-reporting side-effect summary appended via `{ ...result, reporting }`. Always three
+ * booleans + an optional `reason` across every return path of reportPrValidation.
+ */
+export const prReportingSchema = z.object({
+  posted:  z.boolean(),
+  checked: z.boolean(),
+  skipped: z.boolean(),
+  reason:  z.string().optional(),
+}).passthrough();
 
 export const prValidateResponseSchema = z.object({
   prUrl:          z.string(),
@@ -231,6 +288,17 @@ export const prValidateResponseSchema = z.object({
   summary:        auditSummarySchema,   // { critical, warning, info } — NO total
   blocked:        z.boolean(),
   blockOn:        z.string(),
+  // baseline (B1/B2) + reporting (A4) are ALWAYS present on the live handlePrValidate
+  // response, but pinned `.optional()` here for two reasons: (1) [147] can't live-validate
+  // this tool (it needs Chrome + a live PR + GitHub), so the schema can't enforce presence
+  // anyway — the source cross-check [147i] guards the always-present core keys; (2) the
+  // A1-era result shape (pre-baseline/pre-reporting) + the [153c] back-compat fixture must
+  // still parse. When PRESENT, each inner shape IS pinned ([147o]/[147p] prove non-vacuous).
+  // [147i] filters optional keys so it never demands `reporting` (spread-appended, not in
+  // the `const result` literal) inside the handler's result object.
+  baseline:       prBaselineSchema.optional(),
+  reporting:      prReportingSchema.optional(),
+  redaction:      redactionRiderSchema.optional(),   // Aegis Step 4 — additive egress rider
 }).passthrough();
 
 // ── Tool → schema map (the contract index) ────────────────────────────────────

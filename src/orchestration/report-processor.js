@@ -15,6 +15,9 @@ import { applyOverrides }                                                  from 
 import { loadBaseline, saveBaseline, applyBaseline, appendTrend, getCurrentBranch } from '../utils/baseline-manager.js';
 import { loadRunHistory, recordRunHistory, applyNoiseFilter }              from '../utils/noise-filter.js';
 import { getRecentChanges, linkRootCauses }                                from '../utils/root-cause-linker.js';
+import { classifySensitivity, summarizeRedaction }                        from '../utils/sensitivity-classifier.js';
+import { effectivePolicyOpts, governanceOptOutClamped }                   from '../utils/redaction-policy.js';
+import { ensureGovernancePolicy, postRedactionAggregate, governanceActive } from '../utils/governance-seam.js';
 
 const logger = childLogger('report-processor');
 
@@ -66,6 +69,24 @@ export function rebuildSummary(report) {
   }
 }
 
+/**
+ * Flatten every finding in a report (route errors, flow findings, codebase) into
+ * one array — used to compute the secret-free governance aggregate. Read-only.
+ * @param {object} report
+ * @returns {object[]}
+ */
+export function collectAllFindings(report) {
+  const out = [];
+  for (const routeResult of (report.routes ?? [])) {
+    for (const err of (routeResult.errors ?? [])) out.push(err);
+  }
+  for (const flowResult of (report.flows ?? [])) {
+    for (const finding of (flowResult.findings ?? [])) out.push(finding);
+  }
+  for (const finding of (report.codebase ?? [])) out.push(finding);
+  return out;
+}
+
 // ── Main Post-Crawl Processor ─────────────────────────────────────────────────
 
 /**
@@ -78,6 +99,13 @@ export function rebuildSummary(report) {
  * @returns {{ reportPath: string, diff: object }}
  */
 export async function processReport(report, { outputDir, severityOverrides }) {
+  // 0. Aegis governance seam (opt-in, AEGIS_FOR_TEAMS §9): if a gov token is set,
+  //    fetch + Ed25519-verify the org's central policy BEFORE any classification so
+  //    every downstream redaction enforces it. Best-effort + fail-closed internally
+  //    (a fetch/verify error leaves the engine on its strict floor). No token ⇒ no
+  //    network, byte-identical.
+  await ensureGovernancePolicy();
+
   // 1. Apply severity overrides (suppress or reclassify findings)
   const { overriddenCount, suppressedCount } = applyOverrides(report, severityOverrides);
   if (overriddenCount > 0 || suppressedCount > 0) {
@@ -129,9 +157,45 @@ export async function processReport(report, { outputDir, severityOverrides }) {
     }
   }
 
-  // 4. Write JSON report
+  // reportPath is computed here (ahead of the write) so step 3c can point each
+  // finding's localRef at the on-disk report file it will be written to.
   const timestamp  = new Date().toISOString().replace(/[:.]/g, '-');
   const reportPath = path.join(outputDir, `error-report-${timestamp}.json`);
+
+  // 3c. Aegis sensitivity classification — tag findings for the egress guards
+  //     (REDACTION_BOUNDARY_MAX_PLAN.md §6 Step 3). Tagging happens on shallow
+  //     CLONES, so the LOCAL report below keeps 100% fidelity — Aegis only ever
+  //     removes detail at an external sink, never on disk.
+  //     SECURITY-CRITICAL: this is the ONE post-processor that fails CLOSED. On
+  //     any error the egress guards must redact everything, so we set the
+  //     _aegisFailClosed flag rather than swallowing-and-continuing.
+  //     A gov token clamps the ARGUS_REDACT_SENSITIVE=0 opt-out (§4.3) so tagging
+  //     still runs under an org policy — a dev can't disable it locally.
+  if (process.env.ARGUS_REDACT_SENSITIVE !== '0' || governanceOptOutClamped()) {
+    try {
+      const { sensitiveCount } = classifySensitivity(report, { reportRef: path.basename(reportPath) });
+      if (sensitiveCount > 0) logger.info(`[ARGUS] Aegis: ${sensitiveCount} finding(s) tagged sensitive`);
+    } catch (err) {
+      logger.error(`[ARGUS] Aegis classify failed — egress guards will fail closed: ${err.message}`);
+      report._aegisFailClosed = true; // sinks read this and redact everything
+    }
+
+    // 3d. Governance audit trail (opt-in): post a SECRET-FREE redaction aggregate
+    //     (byReason label counts only) to the org's audit sink. Best-effort — never
+    //     blocks or fails the run, never sends a secret. No-op unless a gov token +
+    //     ARGUS_REDACT_AUDIT_URL are set.
+    if (governanceActive() && process.env.ARGUS_REDACT_AUDIT_URL) {
+      try {
+        const all = collectAllFindings(report);
+        const summary = summarizeRedaction(all, effectivePolicyOpts({}));
+        await postRedactionAggregate(summary, { meta: { runRef: path.basename(reportPath) } });
+      } catch (err) {
+        logger.debug(`[ARGUS] Aegis governance aggregate skipped: ${err.message}`);
+      }
+    }
+  }
+
+  // 4. Write JSON report
   try {
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2)); // lgtm[js/network-data-to-file] — intentional: Argus persists crawl findings to a local JSON report file by design
   } catch (err) {
